@@ -1,2 +1,2 @@
-# updates-and-patching-
-General updating and patching examples of all OS
+# ansible-rhel-update-example
+This repo has some sample playbooks for updating RHEL and generating a report
