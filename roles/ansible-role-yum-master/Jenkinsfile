@@ -1,0 +1,3 @@
+@Library("jenkinsfile-lib@master")_
+
+standardPipeline {}
