@@ -1,5 +1,6 @@
 # Scripts
-This repo contains the following scripts
+This repo contains the following scripts 
+No Warrenty implied or other use at own risk. It is recomended user Review and Test prior to use in any environment! 
 
 ## Upgrade-PowerShell.ps1
 The `Upgrade-PowerShell.ps1` script is used to upgrade the installed version of
