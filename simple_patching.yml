@@ -1,0 +1,28 @@
+---
+- name: System Update & Reporting Survey
+  hosts: all
+  gather_facts: true
+  vars:
+    run_inventory_report: "{{ survey_run_inventory_report }}"
+    apply_security_updates: "{{ survey_apply_security_updates }}"
+    apply_bugfix_updates: "{{ survey_apply_bugfix_updates }}"
+    apply_enhancement_updates: "{{ survey_apply_enhancement_updates }}"
+    apply_all_updates: "{{ survey_apply_all_updates }}"
+
+  tasks:
+    - name: Run Inventory Report
+      ansible.builtin.include_role:
+        name: simple_report
+      when: run_inventory_report | lower == "yes"
+
+    - name: Install Security Updates
+      ansible.builtin.command: dnf update --security -y
+      when: apply_security_updates | lower == "yes" or apply_all_updates | lower == "yes"
+
+    - name: Install Bug Fix Updates
+      ansible.builtin.command: dnf update --bugfix -y
+      when: apply_bugfix_updates | lower == "yes" or apply_all_updates | lower == "yes"
+
+    - name: Install Enhancement Updates
+      ansible.builtin.command: dnf update --enhancement -y
+      when: apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes"

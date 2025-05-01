@@ -1,0 +1,64 @@
+---
+# tasks file for simple_report
+
+- name: Ensure directory exists
+  ansible.builtin.file:
+    path: ~/Documents/Subs_Reporting/
+    state: directory
+    mode: '0755'
+
+- name: Collect system information
+  ansible.builtin.set_fact:
+    host_data: >-
+      {{ ansible_facts['hostname'] }},
+      {{ ansible_facts['distribution_major_version'] }}.{{ ansible_facts['distribution_version'] }},
+      {{ ansible_facts['default_ipv4']['address'] }},
+      {{ ansible_facts['rhsm']['subscriptions'][0]['name'] | default('None') }},
+      {{ ansible_facts['rhsm']['subscriptions'][0]['id'] | default('None') }}
+
+- name: Get count of installable updates
+  ansible.builtin.shell: |
+    set -o pipefail
+    yum updateinfo list security | wc -l
+    yum updateinfo list bugfix | wc -l
+    yum updateinfo list enhancement | wc -l
+    yum list updates | wc -l
+  register: update_counts
+  changed_when: false
+
+- name: Format updates data
+  ansible.builtin.set_fact:
+    update_data: >-
+      {{ update_counts.stdout_lines[0] }},
+      {{ update_counts.stdout_lines[1] }},
+      {{ update_counts.stdout_lines[2] }},
+      {{ update_counts.stdout_lines[3] }}
+
+- name: Generate CSV content
+  ansible.builtin.lineinfile:
+    path: "~/Documents/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+    create: true
+    line: "{{ host_data }},{{ update_data }}"
+    insertafter: EOF
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+
+- name: Set permissions for the CSV file
+  ansible.builtin.file:
+    path: "~/Documents/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+
+- name: Add CSV header
+  ansible.builtin.lineinfile:
+    path: "~/Documents/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+    create: true
+    line: |
+      ,,,,,,,Installable Updates
+      Hostname,OS Version,IP,Subscription,Subscription ID,Security,Bug_Fix,Enhancement,ALL_RPM_Package_Updates
+    insertbefore: BOF
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
