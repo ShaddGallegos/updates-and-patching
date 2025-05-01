@@ -1,22 +1,22 @@
 ---
-# tasks file for simple_report
-
-- name: Ensure directory exists
+- name: Ensure directory exists on control node
   ansible.builtin.file:
-    path: ~/Documents/Subs_Reporting/
+    path: /tmp/Subs_Reporting/
     state: directory
     mode: '0755'
+  delegate_to: localhost
+  run_once: true
 
-- name: Collect system information
+- name: Collect system information from remote hosts
   ansible.builtin.set_fact:
     host_data: >-
-      {{ ansible_facts['hostname'] }},
-      {{ ansible_facts['distribution_major_version'] }}.{{ ansible_facts['distribution_version'] }},
-      {{ ansible_facts['default_ipv4']['address'] }},
+      {{ ansible_facts['hostname'] | default('Unknown') }},
+      {{ ansible_facts['distribution_major_version'] | default('Unknown') }}.{{ ansible_facts['distribution_version'] | default('Unknown') }},
+      {{ ansible_facts['default_ipv4']['address'] | default('Unknown') }},
       {{ ansible_facts['rhsm']['subscriptions'][0]['name'] | default('None') }},
       {{ ansible_facts['rhsm']['subscriptions'][0]['id'] | default('None') }}
 
-- name: Get count of installable updates
+- name: Get count of installable updates on remote hosts
   ansible.builtin.shell: |
     set -o pipefail
     yum updateinfo list security | wc -l
@@ -29,36 +29,69 @@
 - name: Format updates data
   ansible.builtin.set_fact:
     update_data: >-
-      {{ update_counts.stdout_lines[0] }},
-      {{ update_counts.stdout_lines[1] }},
-      {{ update_counts.stdout_lines[2] }},
-      {{ update_counts.stdout_lines[3] }}
+      {{ update_counts.stdout_lines[0] | default('0') }},
+      {{ update_counts.stdout_lines[1] | default('0') }},
+      {{ update_counts.stdout_lines[2] | default('0') }},
+      {{ update_counts.stdout_lines[3] | default('0') }}
 
-- name: Generate CSV content
-  ansible.builtin.lineinfile:
-    path: "~/Documents/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
-    create: true
-    line: "{{ host_data }},{{ update_data }}"
-    insertafter: EOF
-    mode: '0644'
-  delegate_to: localhost
+- name: Collect data from all hosts
+  ansible.builtin.debug:
+    msg: "Collecting data from {{ inventory_hostname }}"
   run_once: true
 
-- name: Set permissions for the CSV file
-  ansible.builtin.file:
-    path: "~/Documents/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
-    mode: '0644'
-  delegate_to: localhost
-  run_once: true
-
-- name: Add CSV header
-  ansible.builtin.lineinfile:
-    path: "~/Documents/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
-    create: true
-    line: |
-      ,,,,,,,Installable Updates
+- name: Gather all host data on control node
+  ansible.builtin.local_action:
+    module: copy
+    content: |
       Hostname,OS Version,IP,Subscription,Subscription ID,Security,Bug_Fix,Enhancement,ALL_RPM_Package_Updates
-    insertbefore: BOF
-    mode: '0644'
+      {{ host_data }},{{ update_data }}
+    dest: "/tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
   delegate_to: localhost
   run_once: true
+
+- name: Inform user about report location
+  ansible.builtin.debug:
+    msg: "The subscription report has been generated and is available at /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+  delegate_to: localhost
+  run_once: true
+
+- name: Run Inventory Report Only
+  ansible.builtin.include_role:
+    name: simple_report
+  when: run_inventory_report | lower == "yes"
+
+- name: Install Updates Based on Type
+  ansible.builtin.command: >
+    dnf update
+    {% if apply_security_updates | lower == "yes" or apply_all_updates | lower == "yes" %}--security{% endif %}
+    {% if apply_bugfix_updates | lower == "yes" or apply_all_updates | lower == "yes" %}--bugfix{% endif %}
+    {% if apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes" %}--enhancement{% endif %}
+    -y
+  args:
+    creates: >
+      {% if apply_security_updates | lower == "yes" or apply_all_updates | lower == "yes" %}/var/log/security_updates_done{% endif %}
+      {% if apply_bugfix_updates | lower == "yes" or apply_all_updates | lower == "yes" %}/var/log/bugfix_updates_done{% endif %}
+      {% if apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes" %}/var/log/enhancement_updates_done{% endif %}
+      {% if apply_all_updates | lower == "yes" %}/var/log/all_updates_done{% endif %}
+  when: >
+    apply_security_updates | lower == "yes" or
+    apply_bugfix_updates | lower == "yes" or
+    apply_enhancement_updates | lower == "yes" or
+    apply_all_updates | lower == "yes"
+
+    - name: Run Inventory Report
+      ansible.builtin.include_role:
+        name: simple_report
+      when: run_inventory_report | lower == "yes"
+
+    - name: Install Security Updates
+      ansible.builtin.command: dnf update --security -y
+      when: apply_security_updates | lower == "yes" or apply_all_updates | lower == "yes"
+
+    - name: Install Bug Fix Updates
+      ansible.builtin.command: dnf update --bugfix -y
+      when: apply_bugfix_updates | lower == "yes" or apply_all_updates | lower == "yes"
+
+    - name: Install Enhancement Updates
+      ansible.builtin.command: dnf update --enhancement -y
+      when: apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes"
