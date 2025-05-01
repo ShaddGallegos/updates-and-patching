@@ -109,7 +109,7 @@
     msg: >
       The subscription report has been generated and is available at
       /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv on node01.prod.spg
-  delegate_to: localhost
+  delegate_to: node01.prod.spg
   run_once: true
 
 - name: Run Inventory Report Only
