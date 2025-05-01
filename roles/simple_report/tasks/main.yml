@@ -11,7 +11,7 @@
   ansible.builtin.fetch:
     src: /root/.ssh/id_rsa.pub
     dest: /tmp/Subs_Reporting/root_id_rsa.pub
-    flat: yes
+    flat: true
   delegate_to: node01.prod.spg
   run_once: true
 
