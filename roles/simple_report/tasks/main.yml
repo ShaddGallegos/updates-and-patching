@@ -7,14 +7,6 @@
   delegate_to: ansible.prod.spg
   run_once: true
 
-- name: Fetch root SSH keys from node01.prod.spg to controller node
-  ansible.builtin.fetch:
-    src: /root/.ssh/id_rsa.pub
-    dest: /tmp/Subs_Reporting/root_id_rsa.pub
-    flat: true
-  delegate_to: node01.prod.spg
-  run_once: true
-
 - name: Ensure directory exists on node01.prod.spg
   ansible.builtin.file:
     path: /tmp/Subs_Reporting/
