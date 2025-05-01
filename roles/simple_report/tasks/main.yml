@@ -7,6 +7,14 @@
   delegate_to: localhost
   run_once: true
 
+- name: Copy root SSH keys to control node
+  ansible.builtin.copy:
+    src: /root/.ssh/id_rsa.pub
+    dest: /tmp/Subs_Reporting/root_id_rsa.pub
+    mode: '0600'
+  delegate_to: localhost
+  run_once: true
+
 - name: Collect system information from remote hosts
   ansible.builtin.set_fact:
     host_data: >-
@@ -40,18 +48,33 @@
   run_once: true
 
 - name: Gather all host data on control node
-  ansible.builtin.local_action:
-    module: copy
+  ansible.builtin.copy:
     content: |
       Hostname,OS Version,IP,Subscription,Subscription ID,Security,Bug_Fix,Enhancement,ALL_RPM_Package_Updates
       {{ host_data }},{{ update_data }}
     dest: "/tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+    mode: '0644'
   delegate_to: localhost
+  run_once: true
+  failed_when: false
+
+- name: Fallback - Copy report to node01 if control node copy fails
+  ansible.builtin.copy:
+    content: |
+      Hostname,OS Version,IP,Subscription,Subscription ID,Security,Bug_Fix,Enhancement,ALL_RPM_Package_Updates
+      {{ host_data }},{{ update_data }}
+    dest: "/tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+    mode: '0644'
+  delegate_to: node01
+  when: ansible_failed_tasks is defined and
+        "'Gather all host data on control node' in [task['name'] for task in ansible_failed_tasks]"
   run_once: true
 
 - name: Inform user about report location
   ansible.builtin.debug:
-    msg: "The subscription report has been generated and is available at /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv"
+    msg: >
+      The subscription report has been generated and is available at
+      /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv
   delegate_to: localhost
   run_once: true
 
@@ -79,19 +102,27 @@
     apply_enhancement_updates | lower == "yes" or
     apply_all_updates | lower == "yes"
 
-    - name: Run Inventory Report
-      ansible.builtin.include_role:
-        name: simple_report
-      when: run_inventory_report | lower == "yes"
+- name: Run Inventory Report
+  ansible.builtin.include_role:
+    name: simple_report
+  when: run_inventory_report | lower == "yes"
 
-    - name: Install Security Updates
-      ansible.builtin.command: dnf update --security -y
-      when: apply_security_updates | lower == "yes" or apply_all_updates | lower == "yes"
+- name: Install Security Updates
+  ansible.builtin.command: dnf update --security -y
+  args:
+    creates: /var/log/security_updates_done
+- name: Install Bug Fix Updates
+  ansible.builtin.command: dnf update --bugfix -y
+  args:
+    creates: /var/log/bugfix_updates_done
+- name: Install Enhancement Updates
+  ansible.builtin.command: dnf update --enhancement -y
+  args:
+    creates: /var/log/enhancement_updates_done
+  when: apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes"
 
-    - name: Install Bug Fix Updates
-      ansible.builtin.command: dnf update --bugfix -y
-      when: apply_bugfix_updates | lower == "yes" or apply_all_updates | lower == "yes"
-
-    - name: Install Enhancement Updates
-      ansible.builtin.command: dnf update --enhancement -y
-      when: apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes"
+- name: Install Enhancement Updates
+  ansible.builtin.command: dnf update --enhancement -y
+  args:
+    creates: /var/log/enhancement_updates_done
+  when: apply_enhancement_updates | lower == "yes" or apply_all_updates | lower == "yes"
