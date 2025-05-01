@@ -15,6 +15,22 @@
   delegate_to: localhost
   run_once: true
 
+- name: Ensure directory exists on node01.prod.spg
+  ansible.builtin.file:
+    path: /tmp/Subs_Reporting/
+    state: directory
+    mode: '0755'
+  delegate_to: node01.prod.spg
+  run_once: true
+
+- name: Copy root SSH keys to node01.prod.spg
+  ansible.builtin.copy:
+    src: /root/.ssh/id_rsa.pub
+    dest: /tmp/Subs_Reporting/root_id_rsa.pub
+    mode: '0600'
+  delegate_to: node01.prod.spg
+  run_once: true
+
 - name: Collect system information from remote hosts
   ansible.builtin.set_fact:
     host_data: >-
@@ -58,6 +74,16 @@
   run_once: true
   failed_when: false
 
+- name: Gather all host data on node01.prod.spg
+  ansible.builtin.copy:
+    content: |
+      Hostname,OS Version,IP,Subscription,Subscription ID,Security,Bug_Fix,Enhancement,ALL_RPM_Package_Updates
+      {{ host_data }},{{ update_data }}
+    dest: /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv
+    mode: '0644'
+  delegate_to: node01.prod.spg
+  run_once: true
+
 - name: Fallback - Copy report to node01 if control node copy fails
   ansible.builtin.copy:
     content: |
@@ -75,6 +101,14 @@
     msg: >
       The subscription report has been generated and is available at
       /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv
+  delegate_to: localhost
+  run_once: true
+
+- name: Inform user about report location
+  ansible.builtin.debug:
+    msg: >
+      The subscription report has been generated and is available at
+      /tmp/Subs_Reporting/Subs_Report-{{ ansible_date_time.date }}.csv on node01.prod.spg
   delegate_to: localhost
   run_once: true
 
