@@ -7,12 +7,12 @@
   delegate_to: ansible.prod.spg
   run_once: true
 
-- name: Copy root SSH keys to controller node
-  ansible.builtin.copy:
+- name: Fetch root SSH keys from node01.prod.spg to controller node
+  ansible.builtin.fetch:
     src: /root/.ssh/id_rsa.pub
     dest: /tmp/Subs_Reporting/root_id_rsa.pub
-    mode: '0600'
-  delegate_to: ansible.prod.spg
+    flat: yes
+  delegate_to: node01.prod.spg
   run_once: true
 
 - name: Ensure directory exists on node01.prod.spg
@@ -25,7 +25,7 @@
 
 - name: Copy root SSH keys to node01.prod.spg
   ansible.builtin.copy:
-    src: /root/.ssh/id_rsa.pub
+    src: /tmp/Subs_Reporting/root_id_rsa.pub
     dest: /tmp/Subs_Reporting/root_id_rsa.pub
     mode: '0600'
   delegate_to: node01.prod.spg
