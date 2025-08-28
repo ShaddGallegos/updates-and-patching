@@ -1,0 +1,163 @@
+---
+# Activation Key Management Tasks
+
+- name: "Get existing activation keys"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/activation_keys"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_activation_keys
+  tags:
+    - activation-keys
+
+- name: "Create activation keys"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/activation_keys"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      description: "{{ item.description }}"
+      lifecycle_environment_id: "{{ lifecycle_environment_mapping[item.lifecycle_environment] }}"
+      content_view_id: "{{ content_view_mapping[item.content_view] }}"
+      unlimited_hosts: "{{ item.unlimited_hosts | default(false) }}"
+      max_hosts: "{{ item.max_hosts | default(omit) }}"
+      auto_attach: "{{ item.auto_attach | default(true) }}"
+      service_level: "{{ item.service_level | default('Standard') }}"
+      release_version: "{{ item.release_version | default(omit) }}"
+  status_code: [200, 201, 422]
+  loop: "{{ activation_keys }}"
+  when:
+    - item.name not in (existing_activation_keys.json.results | map(attribute='name') | list)
+    - not dry_run | bool
+  register: activation_key_creation
+  tags:
+    - activation-keys
+
+- name: "Get updated activation key list"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/activation_keys"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: all_activation_keys
+  tags:
+    - activation-keys
+
+- name: "Add subscriptions to activation keys"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/activation_keys/{{ ak_id }}/add_subscriptions"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      subscription_id: "{{ subscription_id }}"
+      quantity: "{{ subscription_item.quantity | default(1) }}"
+  status_code: [200, 422]
+  vars:
+    ak_id: >-
+      {{
+        all_activation_keys.json.results |
+        selectattr('name', 'equalto', item.name) |
+        map(attribute='id') |
+        first
+      }}
+    subscription_id: "{{ subscription_item.subscription_id }}"
+  loop: "{{ activation_keys }}"
+  loop_control:
+    loop_var: item
+  with_items: "{{ item.subscriptions | default([]) }}"
+  when:
+    - item.subscriptions is defined
+    - item.subscriptions | length > 0
+    - not dry_run | bool
+  register: ak_subscription_assignment
+  tags:
+    - activation-keys
+
+- name: "Add host collections to activation keys"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/activation_keys/{{ ak_id }}/host_collections"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      host_collection_ids: "{{ host_collection_ids_for_ak }}"
+  status_code: [200, 422]
+  vars:
+    ak_id: >-
+      {{
+        all_activation_keys.json.results |
+        selectattr('name', 'equalto', item.name) |
+        map(attribute='id') |
+        first
+      }}
+    host_collection_ids_for_ak: >-
+      {{
+        all_host_collections.json.results |
+        selectattr('name', 'in', item.host_collections) |
+        map(attribute='id') |
+        list
+      }}
+  loop: "{{ activation_keys }}"
+  when:
+    - item.host_collections is defined
+    - item.host_collections | length > 0
+    - all_host_collections is defined
+    - not dry_run | bool
+  register: ak_host_collection_assignment
+  tags:
+    - activation-keys
+
+- name: "Display activation key summary"
+  debug:
+    msg:
+      - "Activation Key: {{ item.name }}"
+      - "Environment: {{ item.lifecycle_environment }}"
+      - "Content View: {{ item.content_view }}"
+      - "Max Hosts: {{ item.max_hosts if not item.unlimited_hosts else 'Unlimited' }}"
+      - "Service Level: {{ item.service_level | default('Standard') }}"
+      - "Auto Attach: {{ item.auto_attach | default(true) }}"
+  loop: "{{ activation_keys }}"
+  when: debug_mode | bool
+  tags:
+    - activation-keys
+
+- name: "Generate activation key registration commands"
+  template:
+    src: activation_key_commands.sh.j2
+    dest: "/tmp/activation_key_commands_{{ ansible_date_time.epoch }}.sh"
+    mode: '0755'
+  register: ak_commands_file
+  tags:
+    - activation-keys
+
+- name: "Set activation key facts"
+  set_fact:
+    activation_key_mapping: >-
+      {{
+        dict(
+          all_activation_keys.json.results |
+          selectattr('name', 'in', activation_keys | map(attribute='name') | list) |
+          map(attribute=['name', 'id']) |
+          list
+        )
+      }}
+    activation_key_commands_file: "{{ ak_commands_file.dest }}"
+  tags:
+    - activation-keys

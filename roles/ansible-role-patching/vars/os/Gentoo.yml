@@ -1,84 +1,31 @@
-# vars/os/Gentoo.yml
-# Gentoo Linux specific variables
-# vim:ft=ansible:
 ---
-
-# Package manager
 patch_pkg_manager: portage
-
-# Service names
 patch_network_service: NetworkManager
 patch_ssh_service: sshd
 patch_firewall_service: iptables
 patch_logging_service: syslog-ng
 
-# Critical services for Gentoo
-patch_critical_services:
-  - sshd
-  - NetworkManager
-
-# Common package exclusions
+patch_critical_services: []
 patch_exclude_packages: []
+patch_kernel_packages: []
 
-# Reboot indicators
-patch_kernel_packages:
-  - sys-kernel/gentoo-sources
-  - sys-kernel/vanilla-sources
-  - sys-kernel/hardened-sources
+patch_security_update_cmd: "emerge --update --deep --with-bdeps=y @world"
+patch_full_update_cmd: "emerge --sync && emerge --update --deep --with-bdeps=y @world"
 
-# Update commands (Gentoo uses emerge)
-patch_security_update_cmd: emerge --update --deep --with-bdeps=y @world
-patch_full_update_cmd: emerge --sync && emerge --update --deep --with-bdeps=y @world
-
-# Emerge specific options
-patch_emerge_options:
-  - "--quiet"
-  - "--noreplace"
-  - "--complete-graph"
-
-# Gentoo-specific configurations
+patch_emerge_options: []
 patch_gentoo_configs:
-  make_conf:
-    path: /etc/portage/make.conf
-    backup: true
-  world_file:
-    path: /var/lib/portage/world
-    backup: true
+  make_conf: null
+  path: /var/lib/portage/world
+  backup: true
+  world_file: null
 
-# Portage tree sync
-patch_sync_commands:
-  - emerge --sync
-  - eix-update
+patch_sync_commands: []
+patch_maintenance_cmds: []
+patch_verify_cmd: "emerge --check-world"
+patch_security_use_flags: []
+patch_world_update_options: []
+patch_kernel_rebuild_indicators: []
 
-# Maintenance commands
-patch_maintenance_cmds:
-  - emerge --depclean
-  - eclean distfiles
-  - eclean packages
-  - revdep-rebuild
-
-# Package verification
-patch_verify_cmd: emerge --check-world
-
-# Gentoo USE flags for security
-patch_security_use_flags:
-  - hardened
-  - ssl
-  - crypt
-
-# World update options
-patch_world_update_options:
-  - "--update"
-  - "--deep" 
-  - "--with-bdeps=y"
-  - "@world"
-
-# Kernel rebuild detection
-patch_kernel_rebuild_indicators:
-  - "sys-kernel/"
-  - "virtual/linux-sources"
-
-# Gentoo-specific emerge commands
 patch_emerge_cmds:
   sync: "emerge --sync"
   update_world: "emerge --update --deep --with-bdeps=y @world"

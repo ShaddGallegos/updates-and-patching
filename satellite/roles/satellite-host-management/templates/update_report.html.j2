@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Package Update Operations Report</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #ee0000 0%, #cc0000 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+      position: relative;
+    }
+    .header h1 {
+      font-size: 3em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .header .subtitle {
+      font-size: 1.4em;
+      opacity: 0.9;
+      font-weight: 300;
+    }
+    .update-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 25px;
+      padding: 40px;
+      background: #f8f9fa;
+    }
+    .update-card {
+      background: white;
+      border-radius: 15px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      border-top: 5px solid #007bff;
+      transition: all 0.3s ease;
+    }
+    .update-card.cve { border-top-color: #dc3545; }
+    .update-card.security { border-top-color: #fd7e14; }
+    .update-card.bugfix { border-top-color: #28a745; }
+    .update-card.all { border-top-color: #6f42c1; }
+    .update-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.12);
+    }
+    .update-card h3 {
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 1.6em;
+    }
+    .job-status {
+      display: inline-block;
+      padding: 8px 16px;
+      border-radius: 25px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      font-size: 0.9em;
+    }
+    .status-succeeded {
+      background: #d4edda;
+      color: #155724;
+      border: 2px solid #c3e6cb;
+    }
+    .status-running {
+      background: #fff3cd;
+      color: #856404;
+      border: 2px solid #ffeaa7;
+    }
+    .status-failed {
+      background: #f8d7da;
+      color: #721c24;
+      border: 2px solid #f5c6cb;
+    }
+    .status-not-run {
+      background: #e2e3e5;
+      color: #383d41;
+      border: 2px solid #ced4da;
+    }
+    .job-details {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 15px;
+    }
+    .job-details h4 {
+      color: #495057;
+      margin-bottom: 15px;
+      font-size: 1.2em;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label {
+      font-weight: 600;
+      color: #495057;
+    }
+    .detail-value {
+      color: #6c757d;
+      text-align: right;
+    }
+    .cve-list {
+      background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      margin: 20px 0;
+    }
+    .cve-list h4 {
+      margin-bottom: 15px;
+      font-size: 1.3em;
+    }
+    .cve-item {
+      background: rgba(255,255,255,0.1);
+      padding: 8px 12px;
+      border-radius: 5px;
+      margin: 5px 0;
+      font-family: 'Courier New', monospace;
+    }
+    .summary-section {
+      padding: 40px;
+      background: white;
+    }
+    .summary-title {
+      color: #ee0000;
+      font-size: 2.5em;
+      margin-bottom: 30px;
+      text-align: center;
+      border-bottom: 3px solid #ee0000;
+      padding-bottom: 15px;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 25px;
+    }
+    .summary-box {
+      background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 8px 25px rgba(0,123,255,0.3);
+    }
+    .summary-number {
+      font-size: 3em;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .summary-label {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+    .timestamp-footer {
+      background: #6c757d;
+      color: white;
+      padding: 25px;
+      text-align: center;
+      font-size: 1.1em;
+    }
+    @media (max-width: 768px) {
+      .update-grid, .summary-grid {
+        grid-template-columns: 1fr;
+        padding: 20px;
+      }
+      .header { padding: 25px; }
+      .header h1 { font-size: 2.2em; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Package Update Operations</h1>
+      <p class="subtitle">Comprehensive System Update Management Report</p>
+    </div>
+
+    {% if report_data.operation_type == 'package_updates' and package_operations.cve_updates.enabled %}
+      <div class="cve-list">
+        <h4>Target CVEs Addressed</h4>
+        {% for cve in package_operations.cve_updates.target_cves %}
+          <div class="cve-item">{{ cve }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="update-grid">
+      <div class="update-card cve">
+        <h3>CVE Updates</h3>
+        <span class="job-status {{ 'status-' + (report_data.update_jobs.cve.json.status_label if report_data.update_jobs.cve.json is defined else 'not-run') }}">
+          {{ (report_data.update_jobs.cve.json.status_label | upper) if report_data.update_jobs.cve.json is defined else 'NOT RUN' }}
+        </span>
+        <div class="job-details">
+          <h4>Job Information</h4>
+          <div class="detail-row">
+            <span class="detail-label">Job ID:</span>
+            <span class="detail-value">{{ report_data.update_jobs.cve.json.id if report_data.update_jobs.cve.json is defined else 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">{{ report_data.update_jobs.cve.json.description if report_data.update_jobs.cve.json is defined else 'CVE Updates' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Target Hosts:</span>
+            <span class="detail-value">{{ report_data.host_counts.cve_updates | default(0) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">{{ (report_data.job_status.cve.json.status_label | title) if report_data.job_status.cve.json is defined else 'Not Executed' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="update-card security">
+        <h3>Security Updates</h3>
+        <span class="job-status {{ 'status-' + (report_data.update_jobs.security.json.status_label if report_data.update_jobs.security.json is defined else 'not-run') }}">
+          {{ (report_data.update_jobs.security.json.status_label | upper) if report_data.update_jobs.security.json is defined else 'NOT RUN' }}
+        </span>
+        <div class="job-details">
+          <h4>Job Information</h4>
+          <div class="detail-row">
+            <span class="detail-label">Job ID:</span>
+            <span class="detail-value">{{ report_data.update_jobs.security.json.id if report_data.update_jobs.security.json is defined else 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">{{ report_data.update_jobs.security.json.description if report_data.update_jobs.security.json is defined else 'Security Updates' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Target Hosts:</span>
+            <span class="detail-value">{{ report_data.host_counts.security_updates | default(0) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">{{ (report_data.job_status.security.json.status_label | title) if report_data.job_status.security.json is defined else 'Not Executed' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="update-card bugfix">
+        <h3>Bugfix Updates</h3>
+        <span class="job-status {{ 'status-' + (report_data.update_jobs.bugfix.json.status_label if report_data.update_jobs.bugfix.json is defined else 'not-run') }}">
+          {{ (report_data.update_jobs.bugfix.json.status_label | upper) if report_data.update_jobs.bugfix.json is defined else 'NOT RUN' }}
+        </span>
+        <div class="job-details">
+          <h4>Job Information</h4>
+          <div class="detail-row">
+            <span class="detail-label">Job ID:</span>
+            <span class="detail-value">{{ report_data.update_jobs.bugfix.json.id if report_data.update_jobs.bugfix.json is defined else 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">{{ report_data.update_jobs.bugfix.json.description if report_data.update_jobs.bugfix.json is defined else 'Bugfix Updates' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Target Hosts:</span>
+            <span class="detail-value">{{ report_data.host_counts.bugfix_updates | default(0) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">{{ (report_data.job_status.bugfix.json.status_label | title) if report_data.job_status.bugfix.json is defined else 'Not Executed' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="update-card all">
+        <h3>Complete System Updates</h3>
+        <span class="job-status {{ 'status-' + (report_data.update_jobs.all.json.status_label if report_data.update_jobs.all.json is defined else 'not-run') }}">
+          {{ (report_data.update_jobs.all.json.status_label | upper) if report_data.update_jobs.all.json is defined else 'NOT RUN' }}
+        </span>
+        <div class="job-details">
+          <h4>Job Information</h4>
+          <div class="detail-row">
+            <span class="detail-label">Job ID:</span>
+            <span class="detail-value">{{ report_data.update_jobs.all.json.id if report_data.update_jobs.all.json is defined else 'N/A' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">{{ report_data.update_jobs.all.json.description if report_data.update_jobs.all.json is defined else 'Complete System Updates' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Target Hosts:</span>
+            <span class="detail-value">{{ report_data.host_counts.all_updates | default(0) }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">{{ (report_data.job_status.all.json.status_label | title) if report_data.job_status.all.json is defined else 'Not Executed' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if report_data.reboot_job.json is defined %}
+      <div class="summary-section">
+        <h2 class="summary-title">Reboot Operations</h2>
+        <div class="job-details">
+          <h4>Post-Update Reboot Job</h4>
+          <div class="detail-row">
+            <span class="detail-label">Reboot Job ID:</span>
+            <span class="detail-value">{{ report_data.reboot_job.json.id }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Description:</span>
+            <span class="detail-value">{{ report_data.reboot_job.json.description }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Scheduled Time:</span>
+            <span class="detail-value">{{ report_data.reboot_job.json.start_at | default('Immediate') }}</span>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+
+    <div class="summary-section">
+      <h2 class="summary-title">Update Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box">
+          <div class="summary-number">{{ report_data.host_counts.total | default(0) }}</div>
+          <div class="summary-label">Total Hosts</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-number">
+            {{ [report_data.update_jobs.cve, report_data.update_jobs.security, report_data.update_jobs.bugfix, report_data.update_jobs.all] | select('defined') | list | length }}
+          </div>
+          <div class="summary-label">Update Jobs Created</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-number">{{ '1' if report_data.reboot_job.json is defined else '0' }}</div>
+          <div class="summary-label">Reboot Jobs Scheduled</div>
+        </div>
+        <div class="summary-box">
+          <div class="summary-number">
+            {{ report_data.host_counts.cve_updates + report_data.host_counts.security_updates + report_data.host_counts.bugfix_updates + report_data.host_counts.all_updates }}
+          </div>
+          <div class="summary-label">Total Update Operations</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="timestamp-footer">
+      <strong>Report Generated:</strong> {{ report_data.timestamp }} |
+      <strong>Organization:</strong> {{ report_data.organization }} |
+      <strong>Location:</strong> {{ report_data.location }}
+    </div>
+  </div>
+</body>
+</html>

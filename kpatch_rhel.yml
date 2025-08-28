@@ -4,15 +4,14 @@
   gather_facts: true
   become: true
   vars:
-    # KPatch configuration
     enable_kpatch_service: true
     auto_load_patches: true
     reboot_if_needed: false
-    
+
     # Insights client configuration
     run_insights_client: true
     insights_force_reregister: false
-    
+
     # Reporting configuration
     generate_patch_report: true
     check_active_patches: true
@@ -39,224 +38,180 @@
         msg: "WARNING: System is not subscribed to Red Hat - KPatch packages may not be available"
       when: subscription_status.rc != 0
 
-    - name: Get current kernel version
-      ansible.builtin.command: uname -r
-      register: current_kernel
-      changed_when: false
+- name: Get current kernel version
+  ansible.builtin.command: uname -r
+  register: current_kernel
+  changed_when: false
 
-    - name: Display kernel information
-      ansible.builtin.debug:
-        msg:
-          - "Current kernel version: {{ current_kernel.stdout }}"
-          - "Architecture: {{ ansible_facts['architecture'] }}"
-          - "RHEL Version: {{ ansible_facts['distribution_version'] }}"
+- name: Display kernel information
+  ansible.builtin.debug:
+  msg:
+  - "Current kernel version: {{ current_kernel.stdout }}"
+  - "Architecture: {{ ansible_facts['architecture'] }}"
+  - "RHEL Version: {{ ansible_facts['distribution_version'] }}"
 
   tasks:
-    - name: Check if kpatch is already installed
-      ansible.builtin.package_facts:
-        manager: auto
+- name: Check if kpatch is already installed
+  ansible.builtin.package_facts:
+  manager: auto
 
-    - name: Display KPatch installation status
-      ansible.builtin.debug:
-        msg: "KPatch status: {{ 'Already installed' if 'kpatch' in ansible_facts.packages else 'Not installed' }}"
+- name: Display KPatch installation status
+  ansible.builtin.debug:
+  msg: "KPatch status: {{ 'Already installed' if 'kpatch' in ansible_facts.packages else 'Not installed' }}"
 
   roles:
-    - role: kpatch-rhel
-      vars:
-        kpatch_enable_service: "{{ enable_kpatch_service }}"
-        kpatch_auto_load: "{{ auto_load_patches }}"
+  - role: kpatch-rhel
+  vars:
+  kpatch_enable_service: "{{ enable_kpatch_service }}"
+  kpatch_auto_load: "{{ auto_load_patches }}"
 
   post_tasks:
-    - name: Verify KPatch installation
-      ansible.builtin.command: kpatch --version
-      register: kpatch_version_check
-      failed_when: false
-      changed_when: false
+- name: Verify KPatch installation
+  ansible.builtin.command: kpatch --version
+  register: kpatch_version_check
+  failed_when: false
+  changed_when: false
 
-    - name: Display KPatch version
-      ansible.builtin.debug:
-        msg: "KPatch version: {{ kpatch_version_check.stdout if kpatch_version_check.rc == 0 else 'Installation verification failed' }}"
+- name: Display KPatch version
+  ansible.builtin.debug:
+  msg: "KPatch version: {{ kpatch_version_check.stdout if kpatch_version_check.rc == 0 else 'Installation verification failed' }}"
 
-    - name: Check for available kernel live patches
-      ansible.builtin.shell: |
-        kpatch list 2>/dev/null || echo "No patches currently loaded"
-      register: kpatch_list
-      changed_when: false
-      failed_when: false
-      when: check_active_patches | bool
+- name: Check for available kernel live patches
+  ansible.builtin.shell: |
+    kpatch list 2>/dev/null || echo "No patches currently loaded"
+  register: kpatch_list
+  changed_when: false
+  failed_when: false
+  when: check_active_patches | bool
 
-    - name: Display active kernel patches
-      ansible.builtin.debug:
-        msg:
-          - "Active kernel live patches:"
-          - "{{ kpatch_list.stdout_lines if kpatch_list.stdout_lines | length > 0 else ['No patches currently active'] }}"
-      when: 
-        - check_active_patches | bool
-        - kpatch_list is defined
+- name: Display active kernel patches
+  ansible.builtin.debug:
+  msg:
+  - "Active kernel live patches:"
+  - "{{ kpatch_list.stdout_lines if kpatch_list.stdout_lines | length > 0 else ['No patches currently active'] }}"
+  when:
+  - check_active_patches | bool
+  - kpatch_list is defined
 
-    - name: Check KPatch service status
-      ansible.builtin.systemd:
-        name: kpatch
-      register: kpatch_service_status
-      when: enable_kpatch_service | bool
+- name: Check KPatch service status
+  ansible.builtin.systemd:
+- name: kpatch
+  register: kpatch_service_status
+  when: enable_kpatch_service | bool
 
-    - name: Display KPatch service status
-      ansible.builtin.debug:
-        msg:
-          - "KPatch service status: {{ kpatch_service_status.status.ActiveState if kpatch_service_status.status is defined else 'Unable to check' }}"
-          - "Service enabled: {{ kpatch_service_status.status.UnitFileState if kpatch_service_status.status is defined else 'Unknown' }}"
-      when: 
-        - enable_kpatch_service | bool
-        - kpatch_service_status is defined
+- name: Display KPatch service status
+  ansible.builtin.debug:
+  msg:
+  - "KPatch service status: {{ kpatch_service_status.status.ActiveState if kpatch_service_status.status is defined else 'Unable to check' }}"
+  - "Service enabled: {{ kpatch_service_status.status.UnitFileState if kpatch_service_status.status is defined else 'Unknown' }}"
+  when:
+  - enable_kpatch_service | bool
+  - kpatch_service_status is defined
 
-    - name: Install Red Hat Insights client for patch monitoring
-      ansible.builtin.dnf:
-        name: insights-client
-        state: present
-      when: run_insights_client | bool
+- name: Install Red Hat Insights client for patch monitoring
+  ansible.builtin.dnf:
+- name: insights-client
+  state: present
+  when: run_insights_client | bool
 
-    - name: Configure Insights client for kernel patch monitoring
-      ansible.builtin.lineinfile:
-        path: /etc/insights-client/insights-client.conf
-        line: "{{ item }}"
-        create: true
-        mode: '0644'
-      loop:
-        - "# KPatch monitoring enabled - {{ ansible_date_time.iso8601 }}"
-        - "auto_config=True"
-        - "display_name={{ ansible_facts['hostname'] }}_kpatch_{{ ansible_facts['distribution_version'] }}"
-      when: run_insights_client | bool
+- name: Configure Insights client for kernel patch monitoring
+  ansible.builtin.lineinfile:
+  path: /etc/insights-client/insights-client.conf
+  line: "{{ item }}"
+  create: true
+  mode: '0644'
+  loop:
+  - "# KPatch monitoring enabled - {{ ansible_date_time.iso8601 }}"
+  - "auto_config=True"
+  - "display_name={{ ansible_facts['hostname'] }}_kpatch_{{ ansible_facts['distribution_version'] }}"
+  when: run_insights_client | bool
 
-    - name: Run Red Hat Insights client for patch monitoring
-      ansible.builtin.command: insights-client {{ '--force-reregister' if insights_force_reregister else '' }}
-      register: insights_execution
-      failed_when: false
-      changed_when: "'Successfully uploaded' in insights_execution.stdout"
-      when: run_insights_client | bool
+- name: Run Red Hat Insights client for patch monitoring
+  ansible.builtin.command: insights-client {{ '--force-reregister' if insights_force_reregister else '' }}
+  register: insights_execution
+  failed_when: false
+  changed_when: "'Successfully uploaded' in insights_execution.stdout"
+  when: run_insights_client | bool
 
-    - name: Display Insights client results
-      ansible.builtin.debug:
-        msg:
-          - "Insights client execution: {{ 'Successful' if insights_execution.rc == 0 else 'Failed' }}"
-          - "Upload status: {{ 'Data uploaded to console.redhat.com' if 'Successfully uploaded' in insights_execution.stdout else 'Upload may have failed' }}"
-          - "Output: {{ insights_execution.stdout if insights_execution.stdout else 'No output' }}"
-      when: 
-        - run_insights_client | bool
-        - insights_execution is defined
+- name: Display Insights client results
+  ansible.builtin.debug:
+  msg:
+  - "Insights client execution: {{ 'Successful' if insights_execution.rc == 0 else 'Failed' }}"
+  - "Upload status: {{ 'Data uploaded to console.redhat.com' if 'Successfully uploaded' in insights_execution.stdout else 'Upload may have failed' }}"
+  - "Output: {{ insights_execution.stdout if insights_execution.stdout else 'No output' }}"
+  when:
+  - run_insights_client | bool
+  - insights_execution is defined
 
-    - name: Generate comprehensive KPatch report
-      ansible.builtin.copy:
-        content: |
-          # Kernel Live Patching (KPatch) Installation Report
-          
-          ## System Information
-          - **Hostname**: {{ ansible_facts['hostname'] }}
-          - **FQDN**: {{ ansible_facts['fqdn'] }}
-          - **Distribution**: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
-          - **Current Kernel**: {{ current_kernel.stdout }}
-          - **Architecture**: {{ ansible_facts['architecture'] }}
-          - **Installation Date**: {{ ansible_date_time.iso8601 }}
-          
-          ## KPatch Installation Status
-          - **Installation Successful**: {{ 'Yes' if kpatch_version_check.rc == 0 else 'No' }}
-          - **KPatch Version**: {{ kpatch_version_check.stdout if kpatch_version_check.rc == 0 else 'Not available' }}
-          - **Service Enabled**: {{ 'Yes' if enable_kpatch_service else 'No' }}
+- name: Generate comprehensive KPatch report
+  ansible.builtin.copy:
+    content: |
+      # Kernel Live Patching (KPatch) Installation Report
+
+      ## System Information
+      - **Hostname**: {{ ansible_facts['hostname'] }}
+      - **FQDN**: {{ ansible_facts['fqdn'] }}
+      - **Distribution**: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+      - **Current Kernel**: {{ current_kernel.stdout }}
+      - **Architecture**: {{ ansible_facts['architecture'] }}
+      - **Installation Date**: {{ ansible_date_time.iso8601 }}
+
+      ## KPatch Installation Status
+      - **Installation Successful**: {{ 'Yes' if kpatch_version_check.rc == 0 else 'No' }}
+      - **KPatch Version**: {{ kpatch_version_check.stdout if kpatch_version_check.rc == 0 else 'Not available' }}
+      - **Service Enabled**: {{ 'Yes' if enable_kpatch_service else 'No' }}
           {% if kpatch_service_status is defined and kpatch_service_status.status is defined %}
-          - **Service Status**: {{ kpatch_service_status.status.ActiveState }}
-          - **Service Startup**: {{ kpatch_service_status.status.UnitFileState }}
+      - **Service Status**: {{ kpatch_service_status.status.ActiveState }}
+      - **Service Startup**: {{ kpatch_service_status.status.UnitFileState }}
           {% endif %}
-          
+
           ## Active Kernel Patches
           {% if kpatch_list is defined and kpatch_list.stdout_lines | length > 0 %}
           {% for patch in kpatch_list.stdout_lines %}
-          - {{ patch }}
+      - {{ patch }}
           {% endfor %}
           {% else %}
-          - No kernel live patches currently active
+      - No kernel live patches currently active
           {% endif %}
-          
+
           ## Red Hat Insights Integration
-          - **Insights Client Enabled**: {{ 'Yes' if run_insights_client else 'No' }}
+      - **Insights Client Enabled**: {{ 'Yes' if run_insights_client else 'No' }}
           {% if run_insights_client and insights_execution is defined %}
-          - **Upload Status**: {{ 'Success' if insights_execution.rc == 0 else 'Failed' }}
-          - **Monitoring**: Kernel patch status will be visible in console.redhat.com
+      - **Upload Status**: {{ 'Success' if insights_execution.rc == 0 else 'Failed' }}
+      - **Monitoring**: Kernel patch status will be visible in console.redhat.com
           {% endif %}
-          
+
           ## System Health Check
-          - **Subscription Status**: {{ 'Active' if subscription_status.rc == 0 else 'Inactive - May affect patch availability' }}
-          - **Memory**: {{ ansible_facts['memtotal_mb'] }} MB
-          - **CPU Cores**: {{ ansible_facts['processor_count'] }}
-          - **Uptime**: {{ (ansible_facts['uptime_seconds'] / 3600) | round(2) }} hours
-          
+      - **Subscription Status**: {{ 'Active' if subscription_status.rc == 0 else 'Inactive - May affect patch availability' }}
+      - **Memory**: {{ ansible_facts['memtotal_mb'] }} MB
+      - **CPU Cores**: {{ ansible_facts['processor_count'] }}
+      - **Uptime**: {{ (ansible_facts['uptime_seconds'] / 3600) | round(2) }} hours
+
           ## Configuration Details
-          - **Auto-load patches**: {{ 'Enabled' if auto_load_patches else 'Disabled' }}
-          - **Reboot if needed**: {{ 'Yes' if reboot_if_needed else 'No' }}
-          
+      - **Auto-load patches**: {{ 'Enabled' if auto_load_patches else 'Disabled' }}
+      - **Reboot if needed**: {{ 'Yes' if reboot_if_needed else 'No' }}
+
           ## Next Steps
-          1. Monitor available patches: `dnf list kpatch-patch*`
-          2. Check active patches: `kpatch list`
-          3. View service status: `systemctl status kpatch`
-          4. Monitor in Red Hat Console: https://console.redhat.com/insights/patch/
-          
-          ## Commands for Manual Management
-          ```bash
-          # List available patches
-          dnf list available kpatch-patch*
-          
-          # Install specific patch
-          dnf install kpatch-patch-<ADVISORY>
-          
-          # Load patch immediately
-          kpatch load <patch-module>
-          
-          # Check loaded patches
-          kpatch list
-          
-          # Remove patch
-          kpatch unload <patch-module>
-          ```
-          
-          ---
-          Report generated by Ansible KPatch Installation Playbook v2.0.0
-        dest: "/var/log/kpatch-installation-report-{{ ansible_date_time.epoch }}.md"
-        mode: '0644'
-      when: generate_patch_report | bool
+        1. Monitor available patches: `dnf list kpatch-patch*`
+        2. Check active patches: `kpatch list`
+        3. View service status: `systemctl status kpatch`
+        4. Monitor in Red Hat Console: https://console.redhat.com/insights/patch/
 
-    - name: Check for kernel updates that might require reboot
-      ansible.builtin.shell: |
-        needs-restarting -r 2>/dev/null || echo "needs-restarting command not available"
-      register: reboot_check
-      failed_when: false
-      changed_when: false
+      ## Commands for Manual Management
+      # You can run the following commands manually:
+        # List available patches
+        dnf list available kpatch-patch*
 
-    - name: Conditional reboot recommendation
-      ansible.builtin.debug:
-        msg:
-          - "NOTICE: Kernel updates detected that may require reboot"
-          - "Live patching is now available to avoid reboots for future kernel security updates"
-          - "Run 'needs-restarting -r' to check reboot requirements"
-      when: 
-        - reboot_check.rc == 1
-        - not reboot_if_needed
+        # Install specific patch
+        dnf install kpatch-patch-<ADVISORY>
 
-    - name: Perform reboot if configured and needed
-      ansible.builtin.reboot:
-        reboot_timeout: 600
-        connect_timeout: 300
-        post_reboot_delay: 30
-        test_command: uptime
-        msg: "Rebooting after KPatch installation and kernel updates"
-      when:
-        - reboot_if_needed | bool
-        - reboot_check.rc == 1
+        # Load patch immediately
+        kpatch load <patch-module>
 
-    - name: Display completion summary
-      ansible.builtin.debug:
-        msg:
-          - "KPatch installation completed for {{ ansible_facts['hostname'] }}"
-          - "Installation status: {{ 'Success' if kpatch_version_check.rc == 0 else 'Issues detected - check logs' }}"
-          - "Service enabled: {{ 'Yes' if enable_kpatch_service else 'No' }}"
-          - "Active patches: {{ kpatch_list.stdout_lines | length if kpatch_list is defined else 'Unable to determine' }}"
-          - "Insights monitoring: {{ 'Enabled' if run_insights_client else 'Disabled' }}"
-          - "Report saved: /var/log/kpatch-installation-report-{{ ansible_date_time.epoch }}.md"
-          - "Next: Monitor patches with 'kpatch list' and console.redhat.com/insights"
+        # Check loaded patches
+        kpatch list
+
+        # Remove patch
+        kpatch unload <patch-module>
+
+  dest: "/var/log/kpatch-installation-report-{{ ansible_date_time.epoch }}.md"

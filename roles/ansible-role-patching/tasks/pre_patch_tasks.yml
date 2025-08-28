@@ -65,7 +65,7 @@
       ansible.builtin.shell: "{{ ansible_facts['pkg_mgr'] }} makecache"
       when: ansible_facts['os_family'] == 'RedHat'
 
-    - name: Update APT cache (Debian/Ubuntu)  
+    - name: Update APT cache (Debian/Ubuntu)
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: "{{ patch_cache_valid_time }}"
@@ -80,7 +80,6 @@
       ansible.builtin.pacman:
         update_cache: true
       when: ansible_facts['pkg_mgr'] == 'pacman'
-
   when: patch_update_cache
   tags: [preparation, cache]
 
@@ -96,7 +95,6 @@
       echo "Architecture: {{ ansible_facts['architecture'] }}"
       echo "Memory: {{ ansible_facts['memtotal_mb'] }}MB"
       echo "Available Updates:"
-      
       case "{{ ansible_facts['pkg_mgr'] }}" in
         "yum"|"dnf")
           {{ ansible_facts['pkg_mgr'] }} check-update 2>/dev/null | tail -n +2 | head -20 || echo "No updates available"

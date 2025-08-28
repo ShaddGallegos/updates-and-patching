@@ -1,5 +1,5 @@
 ---
 - hosts: localhost
-  remote_user: root
+  become: true
   roles:
-    - simple_report
+    - role: simple_report

@@ -3,113 +3,113 @@
 
 - name: Find old patch files
   ansible.builtin.find:
-    paths: /var/lib/kpatch
-    patterns: "*.ko"
-    age: "30d"
-    recurse: true
+  paths: /var/lib/kpatch
+  patterns: "*.ko"
+  age: "30d"
+  recurse: true
   register: old_patch_files
 
 - name: Get list of currently loaded patches
   ansible.builtin.shell: |
-    kpatch list | grep '\[enabled\]' | awk '{print $1}' | tr '\n' '|' | sed 's/|$//'
+  kpatch list | grep '\[enabled\]' | awk '{print $1}' | tr '\n' '|' | sed 's/|$//'
   register: loaded_patches_pattern
   changed_when: false
 
 - name: Find unused patch packages
   ansible.builtin.shell: |
-    {{ active_package_manager }} list installed | grep "kpatch-patch" | awk '{print $1}' | head -n -{{ kpatch_keep_patches_count }}
+  {{ active_package_manager }} list installed | grep "kpatch-patch" | awk '{print $1}' | head -n -{{ kpatch_keep_patches_count }}
   register: old_patch_packages
   changed_when: false
   when: kpatch_keep_patches_count > 0
 
 - name: Remove old patch files (not currently loaded)
   ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
+  path: "{{ item.path }}"
+  state: absent
   loop: "{{ old_patch_files.files }}"
   when:
-    - old_patch_files.files | length > 0
-    - loaded_patches_pattern.stdout != ""
-    - item.path | basename | regex_search(loaded_patches_pattern.stdout) is none
+  - old_patch_files.files | length > 0
+  - loaded_patches_pattern.stdout != ""
+  - item.path | basename | regex_search(loaded_patches_pattern.stdout) is none
   register: patch_files_removed
 
 - name: Remove old patch packages
   ansible.builtin.package:
-    name: "{{ item }}"
-    state: absent
+- name: "{{ item }}"
+  state: absent
   loop: "{{ old_patch_packages.stdout_lines | default([]) }}"
   when:
-    - old_patch_packages.stdout_lines | default([]) | length > 0
-    - kpatch_keep_patches_count > 0
+  - old_patch_packages.stdout_lines | default([]) | length > 0
+  - kpatch_keep_patches_count > 0
   register: patch_packages_removed
 
 - name: Clean up backup directories
   ansible.builtin.find:
-    paths: /var/lib/kpatch/backup
-    file_type: directory
-    age: "7d"
+  paths: /var/lib/kpatch/backup
+  file_type: directory
+  age: "7d"
   register: old_backup_dirs
   when: kpatch_backup_before_install | bool
 
 - name: Remove old backup directories
   ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
+  path: "{{ item.path }}"
+  state: absent
   loop: "{{ old_backup_dirs.files | default([]) }}"
   when:
-    - kpatch_backup_before_install | bool
-    - old_backup_dirs.files | default([]) | length > 0
+  - kpatch_backup_before_install | bool
+  - old_backup_dirs.files | default([]) | length > 0
   register: backup_dirs_removed
 
 - name: Clean package manager cache
   ansible.builtin.shell: |
-    {{ active_package_manager }} clean all
+  {{ active_package_manager }} clean all
   changed_when: true
   when: active_package_manager in ['yum', 'dnf']
 
 - name: Find and remove temporary kpatch files
   ansible.builtin.find:
-    paths:
-      - /tmp
-      - /var/tmp
-    patterns: "kpatch*"
-    age: "1d"
+  paths:
+  - /tmp
+  - /var/tmp
+  patterns: "kpatch*"
+  age: "1d"
   register: temp_kpatch_files
 
 - name: Remove temporary files
   ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: absent
+  path: "{{ item.path }}"
+  state: absent
   loop: "{{ temp_kpatch_files.files }}"
   when: temp_kpatch_files.files | length > 0
 
 - name: Generate cleanup report
   ansible.builtin.set_fact:
-    kpatch_cleanup_report:
-      files_removed: "{{ (patch_files_removed.results | default([]) | selectattr('changed', 'equalto', true) | list) | length }}"
-      packages_removed: "{{ (patch_packages_removed.results | default([]) | selectattr('changed', 'equalto', true) | list) | length }}"
-      backups_removed: "{{ (backup_dirs_removed.results | default([]) | selectattr('changed', 'equalto', true) | list) | length }}"
-      temp_files_removed: "{{ temp_kpatch_files.files | length }}"
-      cleanup_timestamp: "{{ ansible_date_time.iso8601 }}"
+  kpatch_cleanup_report:
+  files_removed: "{{ (patch_files_removed.results | default([]) | selectattr('changed', 'equalto', true) | list) | length }}"
+  packages_removed: "{{ (patch_packages_removed.results | default([]) | selectattr('changed', 'equalto', true) | list) | length }}"
+  backups_removed: "{{ (backup_dirs_removed.results | default([]) | selectattr('changed', 'equalto', true) | list) | length }}"
+  temp_files_removed: "{{ temp_kpatch_files.files | length }}"
+  cleanup_timestamp: "{{ ansible_date_time.iso8601 }}"
 
 - name: Display cleanup summary
   ansible.builtin.debug:
-    msg:
-      - "=== Kpatch Cleanup Summary ==="
-      - "Cleanup completed at: {{ kpatch_cleanup_report.cleanup_timestamp }}"
-      - "Files cleaned up:"
-      - "  • Old patch files removed: {{ kpatch_cleanup_report.files_removed }}"
-      - "  • Old patch packages removed: {{ kpatch_cleanup_report.packages_removed }}"
-      - "  • Backup directories removed: {{ kpatch_cleanup_report.backups_removed }}"
-      - "  • Temporary files removed: {{ kpatch_cleanup_report.temp_files_removed }}"
-      - ""
-      - "Retained patches: {{ kpatch_keep_patches_count }}"
+  msg:
+  - "=== Kpatch Cleanup Summary ==="
+  - "Cleanup completed at: {{ kpatch_cleanup_report.cleanup_timestamp }}"
+  - "Files cleaned up:"
+  - " • Old patch files removed: {{ kpatch_cleanup_report.files_removed }}"
+  - " • Old patch packages removed: {{ kpatch_cleanup_report.packages_removed }}"
+  - " • Backup directories removed: {{ kpatch_cleanup_report.backups_removed }}"
+  - " • Temporary files removed: {{ kpatch_cleanup_report.temp_files_removed }}"
+  - ""
+  - "Retained patches: {{ kpatch_keep_patches_count }}"
   when: kpatch_verbose_output | bool
 
 - name: Log cleanup activity
   ansible.builtin.lineinfile:
-    path: /var/log/kpatch-cleanup.log
-    line: "{{ ansible_date_time.iso8601 }} - Cleanup completed: {{ kpatch_cleanup_report.files_removed }} files, {{ kpatch_cleanup_report.packages_removed }} packages, {{ kpatch_cleanup_report.backups_removed }} backups, {{ kpatch_cleanup_report.temp_files_removed }} temp files removed"
-    create: true
-    mode: '0644'
+  path: /var/log/kpatch-cleanup.log
+  line: "{{ ansible_date_time.iso8601 }} - Cleanup completed: {{ kpatch_cleanup_report.files_removed }} files, {{ kpatch_cleanup_report.packages_removed }} packages, {{ kpatch_cleanup_report.backups_removed }} backups, {{ kpatch_cleanup_report.temp_files_removed }} temp files removed"
+  create: true
+  mode: '0644'
   when: kpatch_log_patches | bool

@@ -1,80 +1,55 @@
-# vars/os/Suse.yml
-# SUSE family specific variables (openSUSE, SLES)
-# vim:ft=ansible:
----
-
-# Package manager
 patch_pkg_manager: zypper
-
-# Service names
 patch_network_service: NetworkManager
 patch_ssh_service: sshd
 patch_firewall_service: >-
-  {%- if ansible_distribution_major_version | int >= 15 -%}
+  {% if ansible_distribution_major_version | int >= 15 %}
   firewalld
-  {%- else -%}
+  {% else %}
   SuSEfirewall2
-  {%- endif -%}
+  {% endif %}
 patch_logging_service: rsyslog
-
-# Critical services for SUSE family
 patch_critical_services:
   - sshd
   - systemd-logind
   - NetworkManager
   - firewalld
-
-# Common package exclusions
 patch_exclude_packages:
-  - "kernel-*"
-  - "dracut*"
-
-# Reboot indicators
+  - kernel-*
+  - dracut*
 patch_kernel_packages:
   - kernel-default
   - kernel-source
   - kernel-devel
-
-# Update commands
 patch_security_update_cmd: zypper patch --category security -y
 patch_full_update_cmd: zypper update -y
-
-# Zypper specific options
 patch_zypper_options:
-  - "--non-interactive"
-  - "--auto-agree-with-licenses"
-  - "--no-recommends"
-
-# SUSE specific repositories
+  - --non-interactive
+  - --auto-agree-with-licenses
+  - --no-recommends
 patch_security_repos:
   openSUSE:
-    - "repo-update"
-    - "repo-security"
+    - repo-update
+    - repo-security
   SLES:
-    - "SLES{{ ansible_distribution_major_version }}-Security-Pool"
-
-# Distribution-specific optimizations
+    - SLES{{ ansible_distribution_major_version }}-Security-Pool
 patch_opensuse_optimizations:
-  "15.4":
+  '15.4':
     - name: Enable security updates
-      repo: zypper addrepo --refresh http://download.opensuse.org/update/leap/15.4/oss/ security
-  "15.5":
+      repo: zypper addrepo --refresh http://download.opensuse.org/update/leap/15.6/oss/
+      security: true
+  '15.5':
     - name: Enable security updates
-      repo: zypper addrepo --refresh http://download.opensuse.org/update/leap/15.5/oss/ security
-  "15.6":
+      security: true
+  '15.6':
     - name: Enable security updates
-      repo: zypper addrepo --refresh http://download.opensuse.org/update/leap/15.6/oss/ security
-
+      security: true
 patch_sles_optimizations:
-  "15":
+  '15':
     - name: Enable SLES security updates
-      repo: zypper addrepo --refresh https://updates.suse.com/SUSE/Updates/SLE-SERVER/15/x86_64/update/ security
-
-# Zypper maintenance commands
+      repo: zypper addrepo --refresh https://updates.suse.com/SUSE/Updates/SLE-SERVER/15/x86_64/update/
+      security: true
 patch_maintenance_cmds:
   - zypper clean --all
   - zypper verify
-
-# Package lock management
 patch_lock_packages: []
 patch_unlock_packages: []

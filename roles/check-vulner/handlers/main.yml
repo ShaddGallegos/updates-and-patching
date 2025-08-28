@@ -3,31 +3,31 @@
 
 - name: restart sshd
   ansible.builtin.systemd:
-    name: sshd
-    state: restarted
-    daemon_reload: false
+- name: sshd
+  state: restarted
+  daemon_reload: false
   become: true
   listen: "restart sshd"
 
 - name: reload sshd
   ansible.builtin.systemd:
-    name: sshd
-    state: reloaded
+- name: sshd
+  state: reloaded
   become: true
   listen: "reload sshd"
 
 - name: restart firewalld
   ansible.builtin.systemd:
-    name: firewalld
-    state: restarted
+- name: firewalld
+  state: restarted
   become: true
   when: ansible_facts['os_family'] == 'RedHat'
   listen: "restart firewall"
 
 - name: restart iptables
   ansible.builtin.systemd:
-    name: iptables
-    state: restarted
+- name: iptables
+  state: restarted
   become: true
   when: ansible_facts['os_family'] == 'RedHat'
   listen: "restart firewall"

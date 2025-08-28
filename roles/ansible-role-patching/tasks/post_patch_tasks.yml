@@ -17,7 +17,7 @@
     state: restarted
   loop: "{{ patch_restart_services }}"
   when: patch_restart_services | length > 0
-  register: patch_restarted_services  
+  register: patch_restarted_services
   tags: [post-patch, services]
 
 - name: Execute post-patch commands
@@ -56,7 +56,6 @@
     - name: Clean Pacman cache (Arch)
       ansible.builtin.command: "pacman -Sc --noconfirm"
       when: ansible_facts['pkg_mgr'] == 'pacman'
-
   when: patch_clean_cache
   become: true
   tags: [post-patch, cleanup]
@@ -70,15 +69,15 @@
         if [ $current_kernels -gt {{ patch_keep_kernel_versions }} ]; then
           package-cleanup -y --oldkernels --count={{ patch_keep_kernel_versions }}
         fi
-      when: 
+      when:
         - ansible_facts['os_family'] == 'RedHat'
-        - ansible_facts['distribution_major_version']|int < 8  # package-cleanup deprecated in RHEL 8+
+        - ansible_facts['distribution_major_version']|int < 8 # package-cleanup deprecated in RHEL 8+
 
     - name: Remove old kernels (DNF on RHEL 8+)
       ansible.builtin.shell: |
         dnf remove -y $(dnf repoquery --installonly --latest-limit=-{{ patch_keep_kernel_versions }} kernel)
       when:
-        - ansible_facts['os_family'] == 'RedHat' 
+        - ansible_facts['os_family'] == 'RedHat'
         - ansible_facts['distribution_major_version']|int >= 8
       failed_when: false
 
@@ -86,7 +85,6 @@
       ansible.builtin.shell: |
         apt autoremove -y --purge
       when: ansible_facts['os_family'] == 'Debian'
-
   when: patch_kernel_update and patch_kernel_was_updated
   become: true
   tags: [post-patch, kernel-cleanup]

@@ -1,15 +1,15 @@
 ---
 # Example: Satellite Registration with Activation Key
 - name: Register RHEL systems with Red Hat Satellite
-  hosts: all
+- hosts: all
   become: true
-  
+
   roles:
-    - role: register_rhel
-      vars:
-        register_rhel_type: satellite
-        register_rhel_satellite_url: "https://satellite.example.com"
-        register_rhel_org_id: "Example_Org"
-        register_rhel_activation_key: "rhel-servers-production"
-        register_rhel_install_satellite_tools: true
-        register_rhel_verbose: true
+  - role: register_rhel
+  vars:
+  register_rhel_type: satellite
+  register_rhel_satellite_url: "https://{{ satellite_server_url | default('satellite.z4dpp.sandbox1106.opentlc.com') }}"
+  register_rhel_org_id: "Example_Org"
+  register_rhel_activation_key: "rhel-servers-production"
+  register_rhel_install_satellite_tools: true
+  register_rhel_verbose: true

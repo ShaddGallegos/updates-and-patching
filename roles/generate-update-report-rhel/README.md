@@ -7,20 +7,20 @@ Enterprise-grade Ansible role for generating comprehensive RHEL update reports a
 
 ## Features
 
-###  RHEL Version Support
+### RHEL Version Support
 - **RHEL 7**: YUM-based update checking with security plugin support
 - **RHEL 8**: DNF-based update management with enhanced errata information
-- **RHEL 9**: Modern DNF workflows with comprehensive security categorization  
+- **RHEL 9**: Modern DNF workflows with comprehensive security categorization 
 - **RHEL 10**: Latest DNF features with advanced subscription management
 
-###  Multi-Format Reporting
+### Multi-Format Reporting
 - **HTML**: Professional web-ready reports with responsive design
 - **JSON**: Structured data for API integration and automation
 - **YAML**: Human-readable format for configuration management
 - **CSV**: Spreadsheet-compatible for data analysis
 - **Text**: Simple format for email and notifications
 
-###  Flexible Delivery Options
+### Flexible Delivery Options
 - **Timestamped Folders**: `/tmp/reports_YYYYMMDD_HHMMSS/`
 - **SMTP Email**: Standard email delivery with attachments
 - **SendGrid API**: Professional email service with templates
@@ -31,94 +31,94 @@ Enterprise-grade Ansible role for generating comprehensive RHEL update reports a
 ### Basic Usage
 ```yaml
 - hosts: rhel_servers
-  roles:
-    - generate-update-report-rhel
+ roles:
+ - generate-update-report-rhel
 ```
 
 ### Timestamped File Reports
 ```yaml
 - hosts: rhel_servers
-  vars:
-    report_storage_type: file
-    report_create_timestamped_folder: true
-    report_file_formats:
-      - html
-      - json
-      - csv
-  roles:
-    - generate-update-report-rhel
+ vars:
+ report_storage_type: file
+ report_create_timestamped_folder: true
+ report_file_formats:
+ - html
+ - json
+ - csv
+ roles:
+ - generate-update-report-rhel
 ```
 
 ### SendGrid Email Integration
 ```yaml
 - hosts: rhel_servers
-  vars:
-    report_storage_type: sendgrid
-    report_sendgrid_enabled: true
-    sendgrid_api_key: "{{ vault_sendgrid_api_key }}"
-    sendgrid_from_email_address: "reports@company.com"
-    sendgrid_to_email_addresses:
-      - "admin@company.com"
-      - "security@company.com"
-  roles:
-    - generate-update-report-rhel
+ vars:
+ report_storage_type: sendgrid
+ report_sendgrid_enabled: true
+ sendgrid_api_key: "{{ vault_sendgrid_api_key }}"
+ sendgrid_from_email_address: "reports@company.com"
+ sendgrid_to_email_addresses:
+ - "admin@company.com"
+ - "security@company.com"
+ roles:
+ - generate-update-report-rhel
 ```
 
 ### SMTP Email Reports
 ```yaml
 - hosts: rhel_servers
-  vars:
-    report_storage_type: email
-    report_email_enabled: true
-    send_email_with_smtp: true
-    smtp_host: smtp.company.com
-    smtp_port: 587
-    smtp_account: "{{ vault_smtp_user }}"
-    smtp_account_password: "{{ vault_smtp_password }}"
-    smtp_to_email_addresses:
-      - "sysadmin@company.com"
-  roles:
-    - generate-update-report-rhel
+ vars:
+ report_storage_type: email
+ report_email_enabled: true
+ send_email_with_smtp: true
+ smtp_host: smtp.company.com
+ smtp_port: 587
+ smtp_account: "{{ vault_smtp_user }}"
+ smtp_account_password: "{{ vault_smtp_password }}"
+ smtp_to_email_addresses:
+ - "sysadmin@company.com"
+ roles:
+ - generate-update-report-rhel
 ```
 
 ### Comprehensive Reporting (All Options)
 ```yaml
 - hosts: rhel_servers
-  vars:
-    # Multi-delivery approach
-    report_storage_type: all
-    
-    # File storage with timestamps
-    report_file_enabled: true
-    report_create_timestamped_folder: true
-    report_file_formats:
-      - html
-      - json
-      - yaml
-      - csv
-    
-    # Email delivery
-    report_email_enabled: true
-    send_email_with_smtp: true
-    smtp_host: "{{ vault_smtp_host }}"
-    smtp_account: "{{ vault_smtp_user }}"
-    smtp_account_password: "{{ vault_smtp_password }}"
-    smtp_to_email_addresses:
-      - "team@company.com"
-    
-    # SendGrid integration
-    report_sendgrid_enabled: true
-    sendgrid_api_key: "{{ vault_sendgrid_key }}"
-    sendgrid_to_email_addresses:
-      - "executives@company.com"
-    
-    # Enhanced content
-    rhel_check_subscription_status: true
-    rhel_include_errata_info: true
-    report_include_security_updates: true
-    
-  roles:
-    - generate-update-report-rhel
+ vars:
+ # Multi-delivery approach
+ report_storage_type: all
+ 
+ # File storage with timestamps
+ report_file_enabled: true
+ report_create_timestamped_folder: true
+ report_file_formats:
+ - html
+ - json
+ - yaml
+ - csv
+ 
+ # Email delivery
+ report_email_enabled: true
+ send_email_with_smtp: true
+ smtp_host: "{{ vault_smtp_host }}"
+ smtp_account: "{{ vault_smtp_user }}"
+ smtp_account_password: "{{ vault_smtp_password }}"
+ smtp_to_email_addresses:
+ - "team@company.com"
+ 
+ # SendGrid integration
+ report_sendgrid_enabled: true
+ sendgrid_api_key: "{{ vault_sendgrid_key }}"
+ sendgrid_to_email_addresses:
+ - "executives@company.com"
+ 
+ # Enhanced content
+ rhel_check_subscription_status: true
+ rhel_include_errata_info: true
+ report_include_security_updates: true
+ 
+ roles:
+ - generate-update-report-rhel
 ```
 
 ## Configuration Variables
@@ -126,16 +126,16 @@ Enterprise-grade Ansible role for generating comprehensive RHEL update reports a
 ### Report Storage Options
 ```yaml
 # Storage type selection
-report_storage_type: file          # file, email, sendgrid, all
+report_storage_type: file # file, email, sendgrid, all
 
 # File storage
 report_base_path: /tmp/reports_{{ report_timestamp }}
 report_create_timestamped_folder: true
 report_file_formats:
-  - html
-  - json
-  - yaml  
-  - csv
+ - html
+ - json
+ - yaml 
+ - csv
 
 # Report retention
 report_retention_days: 30
@@ -151,17 +151,17 @@ smtp_use_tls: true
 smtp_account: 'user@company.com'
 smtp_account_password: 'app_password'
 smtp_to_email_addresses:
-  - 'admin@company.com'
+ - 'admin@company.com'
 
-# SendGrid API settings  
+# SendGrid API settings 
 sendgrid_api_key: 'SG.xxxx'
 sendgrid_from_email_address: 'noreply@company.com'
 sendgrid_to_email_addresses:
-  - 'reports@company.com'
+ - 'reports@company.com'
 sendgrid_categories:
-  - ansible
-  - rhel-updates
-  - compliance
+ - ansible
+ - rhel-updates
+ - compliance
 ```
 
 ### RHEL-Specific Options
@@ -175,10 +175,10 @@ rhel_include_errata_info: true
 # Security update categorization
 report_include_security_updates: true
 report_security_categories:
-  critical: "Critical"
-  important: "Important"
-  moderate: "Moderate"
-  low: "Low"
+ critical: "Critical"
+ important: "Important"
+ moderate: "Moderate"
+ low: "Low"
 ```
 
 ## Report Examples
@@ -196,31 +196,31 @@ report_security_categories:
 ### JSON Report Structure
 ```json
 {
-  "metadata": {
-    "hostname": "server01.example.com",
-    "timestamp": "2024-08-27T14:30:22Z",
-    "report_id": "server01-20240827_143022"
-  },
-  "system_info": {
-    "distribution": "Red Hat Enterprise Linux",
-    "distribution_version": "9.3",
-    "package_manager": "dnf"
-  },
-  "update_summary": {
-    "total_updates_available": 23,
-    "security_updates_count": 8,
-    "compliance_status": "Updates Available",
-    "reboot_required": true
-  }
+ "metadata": {
+ "hostname": "server01.example.com",
+ "timestamp": "2024-08-27T14:30:22Z",
+ "report_id": "server01-20240827_143022"
+ },
+ "system_info": {
+ "distribution": "Red Hat Enterprise Linux",
+ "distribution_version": "9.3",
+ "package_manager": "dnf"
+ },
+ "update_summary": {
+ "total_updates_available": 23,
+ "security_updates_count": 8,
+ "compliance_status": "Updates Available",
+ "reboot_required": true
+ }
 }
 ```
 
 ### HTML Report Features
--  **Executive Dashboard**: Summary cards with key metrics
--  **Professional Styling**: Modern responsive design
--  **Security Highlighting**: Visual indicators for security updates
--  **Fleet Overview**: Multi-host comparison table
--  **Compliance Status**: Clear visual status indicators
+- **Executive Dashboard**: Summary cards with key metrics
+- **Professional Styling**: Modern responsive design
+- **Security Highlighting**: Visual indicators for security updates
+- **Fleet Overview**: Multi-host comparison table
+- **Compliance Status**: Clear visual status indicators
 
 ## Integration Examples
 
@@ -229,44 +229,44 @@ report_security_categories:
 # cron_reports.yml
 ---
 - name: Daily RHEL Update Reports
-  hosts: rhel_servers
-  vars:
-    report_storage_type: all
-    report_company_name: "ACME Corporation"
-    sendgrid_api_key: "{{ vault_sendgrid_key }}"
-    
-  roles:
-    - generate-update-report-rhel
-    
-  post_tasks:
-    - name: Archive reports for long-term storage
-      archive:
-        path: "{{ report_base_path }}/*"
-        dest: "/opt/reports/archives/rhel-reports-{{ ansible_date_time.date }}.tar.gz"
-      delegate_to: localhost
+ hosts: rhel_servers
+ vars:
+ report_storage_type: all
+ report_company_name: "ACME Corporation"
+ sendgrid_api_key: "{{ vault_sendgrid_key }}"
+ 
+ roles:
+ - generate-update-report-rhel
+ 
+ post_tasks:
+ - name: Archive reports for long-term storage
+ archive:
+ path: "{{ report_base_path }}/*"
+ dest: "/opt/reports/archives/rhel-reports-{{ ansible_date_time.date }}.tar.gz"
+ delegate_to: localhost
 ```
 
 ### Ansible Tower Job Template
 ```yaml
 # job_template_vars.yml
 extra_vars:
-  report_storage_type: "sendgrid"
-  sendgrid_api_key: "{{ sendgrid_api_vault }}"
-  sendgrid_to_email_addresses:
-    - "infrastructure@company.com"
-    - "security@company.com"
-  report_include_security_updates: true
-  notification_enabled: true
-  notification_slack_channel: "#infrastructure"
+ report_storage_type: "sendgrid"
+ sendgrid_api_key: "{{ sendgrid_api_vault }}"
+ sendgrid_to_email_addresses:
+ - "infrastructure@company.com"
+ - "security@company.com"
+ report_include_security_updates: true
+ notification_enabled: true
+ notification_slack_channel: "#infrastructure"
 ```
 
 ### CI/CD Pipeline Integration
 ```bash
 # Jenkins/GitLab pipeline
 ansible-playbook -i inventory reports.yml \
-  --extra-vars "report_storage_type=all" \
-  --extra-vars "report_file_formats=['json','html']" \
-  --vault-password-file /etc/ansible/vault-pass
+ --extra-vars "report_storage_type=all" \
+ --extra-vars "report_file_formats=['json','html']" \
+ --vault-password-file /etc/ansible/vault-pass
 ```
 
 ## Advanced Features
@@ -276,8 +276,8 @@ Create custom SendGrid templates and reference them:
 ```yaml
 sendgrid_template_id: "d-your-custom-template-id"
 sendgrid_categories:
-  - "custom-category"
-  - "rhel-compliance"
+ - "custom-category"
+ - "rhel-compliance"
 ```
 
 ### Webhook Integration
@@ -309,8 +309,8 @@ report_retention_days: 90
 ```bash
 # Test SendGrid API key
 curl -X POST https://api.sendgrid.com/v3/mail/send \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json"
+ -H "Authorization: Bearer YOUR_API_KEY" \
+ -H "Content-Type: application/json"
 ```
 
 #### SMTP Connection

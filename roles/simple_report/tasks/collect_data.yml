@@ -96,7 +96,7 @@
     set -o pipefail
     {% if active_package_manager == 'dnf' %}
     dnf updateinfo list security 2>/dev/null | grep -v '^Last metadata expiration check' | wc -l || echo "0"
-    dnf updateinfo list bugfix 2>/dev/null | grep -v '^Last metadata expiration check' | wc -l || echo "0" 
+    dnf updateinfo list bugfix 2>/dev/null | grep -v '^Last metadata expiration check' | wc -l || echo "0"
     dnf updateinfo list enhancement 2>/dev/null | grep -v '^Last metadata expiration check' | wc -l || echo "0"
     dnf list updates 2>/dev/null | grep -v '^Last metadata expiration check' | wc -l || echo "0"
     {% else %}
@@ -128,7 +128,7 @@
     {% endif %}
   register: security_details_raw
   changed_when: false
-  when: 
+  when:
     - report_include_security | bool
     - report_show_update_details | bool
 
@@ -160,8 +160,8 @@
       subscription: "{{ subscription_info }}"
       packages:
         installed_count: "{{ installed_packages_count.stdout | default('0') | int }}"
-      updates: "{{ update_info | default({}) }}"
-      security_details: "{{ security_details_raw.stdout_lines | default([]) if report_show_update_details else [] }}"
+        updates: "{{ update_info | default({}) }}"
+        security_details: "{{ security_details_raw.stdout_lines | default([]) if report_show_update_details else [] }}"
       services: "{{ services_info | default({}) }}"
       report_timestamp: "{{ report_timestamp }}"
       collection_time: "{{ ansible_date_time.iso8601 }}"

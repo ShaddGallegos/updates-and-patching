@@ -2,47 +2,37 @@
 - name: Windows High CPU/Memory Reaction and Remediation
   hosts: windows
   gather_facts: true
-  vars:
-    # Performance thresholds
-    cpu_threshold: 80
-    memory_threshold: 85  # Percentage
-    memory_available_threshold: 2048  # MB
-    
-    # Remediation options
-    restart_edge_browser: true
-    restart_system_if_critical: false
-    
+
   tasks:
     - name: Verify Windows target
       ansible.builtin.fail:
         msg: "This playbook is designed for Windows systems only"
       when: ansible_facts['os_family'] != "Windows"
-      
+
     - name: Get detailed CPU usage via PowerShell
       ansible.windows.win_shell: |
         $cpu = Get-WmiObject -Class Win32_Processor | Measure-Object -Property LoadPercentage -Average
         Write-Output $cpu.Average
       register: cpu_usage_result
-      
+
     - name: Get detailed memory information
       ansible.windows.win_shell: |
         $os = Get-WmiObject -Class Win32_OperatingSystem
         $totalMem = [math]::Round($os.TotalVisibleMemorySize / 1024)
         $freeMem = [math]::Round($os.FreePhysicalMemory / 1024)
         $usedPercentage = [math]::Round((($totalMem - $freeMem) / $totalMem) * 100, 2)
-        
         Write-Output "Total_Memory_MB=$totalMem"
         Write-Output "Free_Memory_MB=$freeMem"
         Write-Output "Used_Percentage=$usedPercentage"
       register: memory_info_result
-      
+
     - name: Parse memory information
       ansible.builtin.set_fact:
         total_memory_mb: "{{ (memory_info_result.stdout_lines | select('match', '^Total_Memory_MB=') | first).split('=')[1] | int }}"
         free_memory_mb: "{{ (memory_info_result.stdout_lines | select('match', '^Free_Memory_MB=') | first).split('=')[1] | int }}"
         used_memory_percentage: "{{ (memory_info_result.stdout_lines | select('match', '^Used_Percentage=') | first).split('=')[1] | float }}"
         current_cpu_usage: "{{ cpu_usage_result.stdout | trim | int }}"
-        
+
     - name: Display current system performance
       ansible.builtin.debug:
         msg:
@@ -51,103 +41,242 @@
           - "Current Memory Usage: {{ used_memory_percentage }}%"
           - "Available Memory: {{ free_memory_mb }} MB"
           - "Total Memory: {{ total_memory_mb }} MB"
-          
+
     - name: Check performance thresholds
       ansible.builtin.set_fact:
         high_cpu_detected: "{{ current_cpu_usage > cpu_threshold }}"
         high_memory_detected: "{{ used_memory_percentage > memory_threshold }}"
         low_memory_available: "{{ free_memory_mb < memory_available_threshold }}"
-        
+
     - name: Get detailed process information when thresholds exceeded
       ansible.windows.win_shell: |
         Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 Name, CPU, WorkingSet, Id | ConvertTo-Json
       register: top_processes
       when: high_cpu_detected | bool or high_memory_detected | bool
-      
+
     - name: Check if Microsoft Edge is running and consuming resources
       ansible.windows.win_shell: |
         $edgeProcesses = Get-Process -Name "msedge" -ErrorAction SilentlyContinue
         if ($edgeProcesses) {
-            $totalCPU = ($edgeProcesses | Measure-Object -Property CPU -Sum).Sum
-            $totalMemory = ($edgeProcesses | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
-            Write-Output "EdgeRunning=true"
-            Write-Output "EdgeCPU=$totalCPU"
-            Write-Output "EdgeMemoryMB=$([math]::Round($totalMemory, 2))"
+              $totalCPU = ($edgeProcesses | Measure-Object -Property CPU -Sum).Sum
+              $totalMemory = ($edgeProcesses | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
+              Write-Output "EdgeRunning=true"
+              Write-Output "EdgeCPU=$totalCPU"
+              Write-Output "EdgeMemoryMB=$([math]::Round($totalMemory, 2))"
+            } else {
+              Write-Output "EdgeRunning=false"
+            }
+          register: edge_status
+
+        - name: Parse Edge status
+          ansible.builtin.set_fact:
+            edge_running: "{{ (edge_status.stdout_lines | select('match', '^EdgeRunning=') | first).split('=')[1] == 'true' }}"
+            edge_cpu: "{{ (edge_status.stdout_lines | select('match', '^EdgeCPU=') | first).split('=')[1] | default(0) | float if edge_running else 0 }}"
+            edge_memory_mb: "{{ (edge_status.stdout_lines | select('match', '^EdgeMemoryMB=') | first).split('=')[1] | default(0) | float if edge_running else 0 }}"
+          when: edge_status.stdout_lines is defined
+
+        - name: Terminate Microsoft Edge if consuming excessive resources
+          ansible.windows.win_shell: |
+            Get-Process -Name "msedge" -ErrorAction SilentlyContinue | Stop-Process -Force
+            Start-Sleep -Seconds 3
+          register: edge_kill_result
+          when:
+            - restart_edge_browser | bool
+            - edge_running | default(false) | bool
+            - (high_cpu_detected | bool or high_memory_detected | bool or low_memory_available | bool)
+          ignore_errors: true
+
+        - name: Wait before restarting Edge
+          ansible.builtin.pause:
+            seconds: 5
+          when: edge_kill_result is changed
+
+        - name: Restart Microsoft Edge with Red Hat homepage
+          ansible.windows.win_shell: |
+            Start-Process "microsoft-edge:https://redhat.com"
+          when:
+            - edge_kill_result is changed
+            - restart_edge_browser | bool
+          ignore_errors: true
+
+        - name: Generate performance remediation report
+          ansible.windows.win_copy:
+            content: |
+              Windows Performance Remediation Report
+              =====================================
+
+              System: {{ ansible_facts['hostname'] }}
+              Timestamp: {{ ansible_date_time.iso8601 }}
+
+              Performance Metrics:
+                - CPU Usage: {{ current_cpu_usage }}% (Threshold: {{ cpu_threshold }}%)
+                - Memory Usage: {{ used_memory_percentage }}% (Threshold: {{ memory_threshold }}%)
+                - Available Memory: {{ free_memory_mb }} MB (Threshold: {{ memory_available_threshold }} MB)
+
+              Alerts Triggered:
+                - High CPU: {{ high_cpu_detected }}
+                - High Memory: {{ high_memory_detected }}
+                - Low Available Memory: {{ low_memory_available }}
+
+              Microsoft Edge Status:
+                - Running: {{ edge_running | default('Unknown') }}
+                - CPU Usage: {{ edge_cpu | default('N/A') }}
+                - Memory Usage: {{ edge_memory_mb | default('N/A') }} MB
+                - Action Taken: {{ 'Restarted' if edge_kill_result is changed else 'No action' }}
+
+              Top Resource Consuming Processes:
+              {% if top_processes is defined %}
+              {{ top_processes.stdout }}
+              {% else %}
+              No process data collected (thresholds not exceeded)
+              {% endif %}
+
+              Remediation Actions Completed:
+                - Edge Browser Management: {{ 'Enabled' if restart_edge_browser else 'Disabled' }}
+                - System Restart: {{ 'Enabled' if restart_system_if_critical else 'Disabled' }}
+
+              Generated by Ansible at {{ ansible_date_time.iso8601 }}
+            dest: "C:\\temp\\performance_remediation_{{ ansible_date_time.epoch }}.txt"
+
+        - name: Critical system restart if performance severely degraded
+          ansible.windows.win_reboot:
+            reboot_timeout: 600
+            post_reboot_delay: 60
+            test_command: 'powershell.exe -Command "Get-Service"'
+          when:
+            - restart_system_if_critical | bool
+            - current_cpu_usage > 95 or used_memory_percentage > 95
+            - free_memory_mb < 512
+    - name: Get detailed CPU usage via PowerShell
+      ansible.windows.win_shell: |
+        $cpu = Get-WmiObject -Class Win32_Processor | Measure-Object -Property LoadPercentage -Average
+        Write-Output $cpu.Average
+      register: cpu_usage_result
+
+    - name: Get detailed memory information
+      ansible.windows.win_shell: |
+        $os = Get-WmiObject -Class Win32_OperatingSystem
+        $totalMem = [math]::Round($os.TotalVisibleMemorySize / 1024)
+        $freeMem = [math]::Round($os.FreePhysicalMemory / 1024)
+        $usedPercentage = [math]::Round((($totalMem - $freeMem) / $totalMem) * 100, 2)
+
+        Write-Output "Total_Memory_MB=$totalMem"
+        Write-Output "Free_Memory_MB=$freeMem"
+        Write-Output "Used_Percentage=$usedPercentage"
+      register: memory_info_result
+
+    - name: Parse memory information
+      ansible.builtin.set_fact:
+        total_memory_mb: "{{ (memory_info_result.stdout_lines | select('match', '^Total_Memory_MB=') | first).split('=')[1] | int }}"
+        free_memory_mb: "{{ (memory_info_result.stdout_lines | select('match', '^Free_Memory_MB=') | first).split('=')[1] | int }}"
+        used_memory_percentage: "{{ (memory_info_result.stdout_lines | select('match', '^Used_Percentage=') | first).split('=')[1] | float }}"
+        current_cpu_usage: "{{ cpu_usage_result.stdout | trim | int }}"
+
+    - name: Display current system performance
+      ansible.builtin.debug:
+        msg:
+          - "System: {{ ansible_facts['hostname'] }}"
+          - "Current CPU Usage: {{ current_cpu_usage }}%"
+          - "Current Memory Usage: {{ used_memory_percentage }}%"
+          - "Available Memory: {{ free_memory_mb }} MB"
+          - "Total Memory: {{ total_memory_mb }} MB"
+
+    - name: Check performance thresholds
+      ansible.builtin.set_fact:
+        high_cpu_detected: "{{ current_cpu_usage > cpu_threshold }}"
+        high_memory_detected: "{{ used_memory_percentage > memory_threshold }}"
+        low_memory_available: "{{ free_memory_mb < memory_available_threshold }}"
+
+    - name: Get detailed process information when thresholds exceeded
+      ansible.windows.win_shell: |
+        Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 Name, CPU, WorkingSet, Id | ConvertTo-Json
+      register: top_processes
+      when: high_cpu_detected | bool or high_memory_detected | bool
+
+    - name: Check if Microsoft Edge is running and consuming resources
+      ansible.windows.win_shell: |
+        $edgeProcesses = Get-Process -Name "msedge" -ErrorAction SilentlyContinue
+        if ($edgeProcesses) {
+          $totalCPU = ($edgeProcesses | Measure-Object -Property CPU -Sum).Sum
+          $totalMemory = ($edgeProcesses | Measure-Object -Property WorkingSet64 -Sum).Sum / 1MB
+          Write-Output "EdgeRunning=true"
+          Write-Output "EdgeCPU=$totalCPU"
+          Write-Output "EdgeMemoryMB=$([math]::Round($totalMemory, 2))"
         } else {
-            Write-Output "EdgeRunning=false"
+          Write-Output "EdgeRunning=false"
         }
       register: edge_status
-      
+
     - name: Parse Edge status
       ansible.builtin.set_fact:
         edge_running: "{{ (edge_status.stdout_lines | select('match', '^EdgeRunning=') | first).split('=')[1] == 'true' }}"
         edge_cpu: "{{ (edge_status.stdout_lines | select('match', '^EdgeCPU=') | first).split('=')[1] | default(0) | float if edge_running else 0 }}"
         edge_memory_mb: "{{ (edge_status.stdout_lines | select('match', '^EdgeMemoryMB=') | first).split('=')[1] | default(0) | float if edge_running else 0 }}"
       when: edge_status.stdout_lines is defined
-      
+
     - name: Terminate Microsoft Edge if consuming excessive resources
       ansible.windows.win_shell: |
         Get-Process -Name "msedge" -ErrorAction SilentlyContinue | Stop-Process -Force
         Start-Sleep -Seconds 3
       register: edge_kill_result
       when:
-        - restart_edge_browser | bool
-        - edge_running | default(false) | bool
-        - (high_cpu_detected | bool or high_memory_detected | bool or low_memory_available | bool)
+      - restart_edge_browser | bool
+      - edge_running | default(false) | bool
+      - (high_cpu_detected | bool or high_memory_detected | bool or low_memory_available | bool)
       ignore_errors: true
-      
+
     - name: Wait before restarting Edge
       ansible.builtin.pause:
         seconds: 5
       when: edge_kill_result is changed
-      
+
     - name: Restart Microsoft Edge with Red Hat homepage
       ansible.windows.win_shell: |
         Start-Process "microsoft-edge:https://redhat.com"
-      when: 
+      when:
         - edge_kill_result is changed
         - restart_edge_browser | bool
       ignore_errors: true
-      
+
     - name: Generate performance remediation report
       ansible.windows.win_copy:
         content: |
-          Windows Performance Remediation Report
-          =====================================
-          
-          System: {{ ansible_facts['hostname'] }}
-          Timestamp: {{ ansible_date_time.iso8601 }}
-          
-          Performance Metrics:
-          - CPU Usage: {{ current_cpu_usage }}% (Threshold: {{ cpu_threshold }}%)
-          - Memory Usage: {{ used_memory_percentage }}% (Threshold: {{ memory_threshold }}%)
-          - Available Memory: {{ free_memory_mb }} MB (Threshold: {{ memory_available_threshold }} MB)
-          
-          Alerts Triggered:
-          - High CPU: {{ high_cpu_detected }}
-          - High Memory: {{ high_memory_detected }}
-          - Low Available Memory: {{ low_memory_available }}
-          
-          Microsoft Edge Status:
-          - Running: {{ edge_running | default('Unknown') }}
-          - CPU Usage: {{ edge_cpu | default('N/A') }}
-          - Memory Usage: {{ edge_memory_mb | default('N/A') }} MB
-          - Action Taken: {{ 'Restarted' if edge_kill_result is changed else 'No action' }}
-          
-          Top Resource Consuming Processes:
-          {% if top_processes is defined %}
-          {{ top_processes.stdout }}
-          {% else %}
-          No process data collected (thresholds not exceeded)
-          {% endif %}
-          
-          Remediation Actions Completed:
-          - Edge Browser Management: {{ 'Enabled' if restart_edge_browser else 'Disabled' }}
-          - System Restart: {{ 'Enabled' if restart_system_if_critical else 'Disabled' }}
-          
-          Generated by Ansible at {{ ansible_date_time.iso8601 }}
+            Windows Performance Remediation Report
+            =====================================
+
+            System: {{ ansible_facts['hostname'] }}
+            Timestamp: {{ ansible_date_time.iso8601 }}
+
+            Performance Metrics:
+              - CPU Usage: {{ current_cpu_usage }}% (Threshold: {{ cpu_threshold }}%)
+              - Memory Usage: {{ used_memory_percentage }}% (Threshold: {{ memory_threshold }}%)
+              - Available Memory: {{ free_memory_mb }} MB (Threshold: {{ memory_available_threshold }} MB)
+
+            Alerts Triggered:
+              - High CPU: {{ high_cpu_detected }}
+              - High Memory: {{ high_memory_detected }}
+              - Low Available Memory: {{ low_memory_available }}
+
+            Microsoft Edge Status:
+              - Running: {{ edge_running | default('Unknown') }}
+              - CPU Usage: {{ edge_cpu | default('N/A') }}
+              - Memory Usage: {{ edge_memory_mb | default('N/A') }} MB
+              - Action Taken: {{ 'Restarted' if edge_kill_result is changed else 'No action' }}
+
+            Top Resource Consuming Processes:
+            {% if top_processes is defined %}
+            {{ top_processes.stdout }}
+            {% else %}
+            No process data collected (thresholds not exceeded)
+            {% endif %}
+
+            Remediation Actions Completed:
+              - Edge Browser Management: {{ 'Enabled' if restart_edge_browser else 'Disabled' }}
+              - System Restart: {{ 'Enabled' if restart_system_if_critical else 'Disabled' }}
+
+            Generated by Ansible at {{ ansible_date_time.iso8601 }}
         dest: "C:\\temp\\performance_remediation_{{ ansible_date_time.epoch }}.txt"
-        
+
     - name: Critical system restart if performance severely degraded
       ansible.windows.win_reboot:
         reboot_timeout: 600
@@ -156,4 +285,4 @@
       when:
         - restart_system_if_critical | bool
         - current_cpu_usage > 95 or used_memory_percentage > 95
-        - free_memory_mb < 512 
+        - free_memory_mb < 512

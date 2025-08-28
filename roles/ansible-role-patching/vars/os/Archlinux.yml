@@ -1,69 +1,26 @@
-# vars/os/Archlinux.yml  
-# Arch Linux specific variables
-# vim:ft=ansible:
 ---
-
-# Package manager
 patch_pkg_manager: pacman
-
-# Service names
 patch_network_service: NetworkManager
 patch_ssh_service: sshd
 patch_firewall_service: iptables
 patch_logging_service: systemd-journald
 
-# Critical services for Arch
-patch_critical_services:
-  - sshd
-  - systemd-logind
-  - NetworkManager
-
-# Common package exclusions (Arch rolling release)
+patch_critical_services: []
 patch_exclude_packages: []
+patch_kernel_packages: []
 
-# Reboot indicators
-patch_kernel_packages:
-  - linux
-  - linux-lts
-  - linux-zen
-  - linux-hardened
+patch_security_update_cmd: "pacman -Syu --noconfirm"
+patch_full_update_cmd: "pacman -Syu --noconfirm"
 
-# Update commands (Arch uses full system updates)
-patch_security_update_cmd: pacman -Syu --noconfirm
-patch_full_update_cmd: pacman -Syu --noconfirm
+patch_pacman_options: []
+patch_aur_helpers: []
+patch_arch_configs: []
 
-# Pacman specific options
-patch_pacman_options:
-  - "--noconfirm"
-  - "--needed"
-  - "--noprogressbar"
+pacman_conf: null
+path: /etc/makepkg.conf
+backup: true
+makepkg_conf: null
 
-# AUR helper support (if available)
-patch_aur_helpers:
-  - yay
-  - paru
-  - trizen
-
-# Arch-specific configurations
-patch_arch_configs:
-  pacman_conf:
-    path: /etc/pacman.conf
-    backup: true
-  makepkg_conf:
-    path: /etc/makepkg.conf
-    backup: true
-
-# Maintenance commands
-patch_maintenance_cmds:
-  - pacman -Sc --noconfirm
-  - pacman -Rns $(pacman -Qtdq) --noconfirm || true
-  - paccache -r
-
-# Arch Linux specific mirrors
-patch_mirror_countries:
-  - United States
-  - Germany
-  - France
-
-# Package verification
-patch_verify_cmd: pacman -Dk
+patch_maintenance_cmds: []
+patch_mirror_countries: []
+patch_verify_cmd: "pacman -Dk"

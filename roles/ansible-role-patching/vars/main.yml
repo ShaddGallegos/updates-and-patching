@@ -1,99 +1,39 @@
-# vars/main.yml for ansible-role-patching
-# Linux distribution-specific variables
-# vim:ft=ansible:
 ---
-
-# Package manager command mappings
 patch_pkg_manager_commands:
-  yum: yum
-  dnf: dnf
-  apt: apt-get
-  zypper: zypper
-  pacman: pacman
-  apk: apk
-  portage: emerge
-
-# Default critical services by OS family
+yum: yum
+dnf: dnf
+apt: apt-get
+zypper: zypper
+pacman: pacman
+apk: apk
+portage: emerge
 patch_default_critical_services:
-  RedHat:
-    - sshd
-    - systemd-logind
-    - NetworkManager
-    - firewalld
-  Debian:
-    - ssh
-    - systemd-logind
-    - NetworkManager
-    - ufw
-  Suse:
-    - sshd
-    - systemd-logind
-    - NetworkManager
-    - SuSEfirewall2
-  Arch:
-    - sshd
-    - systemd-logind
-    - NetworkManager
-
-# OS-specific package exclusions (common packages to avoid updating)
+RedHat:
+Debian:
+Suse:
+Arch:
 patch_default_exclusions:
-  RedHat:
-    - kernel*
-  Debian: []
-  Suse:
-    - kernel-*
-  Arch: []
-
-# Reboot requirement indicators by package manager
+RedHat:
+Debian: []
+Suse:
+Arch: []
 patch_reboot_indicators:
-  yum:
-    - kernel
-    - systemd
-    - glibc
-  dnf:
-    - kernel
-    - systemd
-    - glibc
-  apt:
-    - linux-image
-    - systemd
-    - libc6
-  zypper:
-    - kernel-default
-    - systemd
-    - glibc
-  pacman:
-    - linux
-    - systemd
-    - glibc
-
-# Security update commands by package manager
+yum:
+dnf:
+apt:
+zypper:
+pacman:
 patch_security_commands:
-  yum: "yum update -y --security"
-  dnf: "dnf update -y --security" 
-  apt: "unattended-upgrade -v"
-  zypper: "zypper patch --category security -y"
-
-# Package manager specific options
+yum: yum update -y --security
+dnf: dnf update -y --security
+apt: unattended-upgrade -v
+zypper: zypper patch --category security -y
 patch_mgr_options:
-  yum:
-    clean_cmd: "yum clean all"
-    check_cmd: "yum check"
-    history_cmd: "yum history"
-  dnf:
-    clean_cmd: "dnf clean all"
-    check_cmd: "dnf check"
-    history_cmd: "dnf history"
-  apt:
-    clean_cmd: "apt autoclean && apt autoremove"
-    check_cmd: "apt-get check"
-    history_cmd: "grep $(date +%Y-%m-%d) /var/log/apt/history.log"
-  zypper:
-    clean_cmd: "zypper clean"
-    check_cmd: "zypper verify"
-    history_cmd: "zypper history"
-  pacman:
-    clean_cmd: "pacman -Sc --noconfirm"
-    check_cmd: "pacman -Dk"
-    history_cmd: "grep $(date +%Y-%m-%d) /var/log/pacman.log"
-...
+yum: null
+clean_cmd: pacman -Sc --noconfirm
+check_cmd: pacman -Dk
+history_cmd: grep $(date +%Y-%m-%d) /var/log/pacman.log
+dnf: null
+apt: null
+zypper: null
+pacman: null

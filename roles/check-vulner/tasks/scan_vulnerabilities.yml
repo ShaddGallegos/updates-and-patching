@@ -3,192 +3,192 @@
 
 - name: Scan for security updates using package manager
   ansible.builtin.shell: |
-    {% if vulner_package_manager == 'dnf' %}
-    dnf updateinfo list security --available 2>/dev/null | grep -v "^Last metadata" | head -{{ vulner_max_vulnerabilities }}
-    {% else %}
-    yum updateinfo list security --available 2>/dev/null | head -{{ vulner_max_vulnerabilities }}
-    {% endif %}
+  {% if vulner_package_manager == 'dnf' %}
+  dnf updateinfo list security --available 2>/dev/null | grep -v "^Last metadata" | head -{{ vulner_max_vulnerabilities }}
+  {% else %}
+  yum updateinfo list security --available 2>/dev/null | head -{{ vulner_max_vulnerabilities }}
+  {% endif %}
   register: vulner_security_updates
   changed_when: false
   failed_when: false
 
 - name: Parse security updates
   ansible.builtin.set_fact:
-    vulner_available_security_updates: "{{ vulner_security_updates.stdout_lines | default([]) }}"
+  vulner_available_security_updates: "{{ vulner_security_updates.stdout_lines | default([]) }}"
 
 - name: Check for priority CVEs in installed packages
   ansible.builtin.shell: |
-    # Check each priority CVE
-    found_cves=""
-    {% for cve in vulner_priority_cves %}
-    # Check if {{ cve }} affects installed packages
-    {% if vulner_package_manager == 'dnf' %}
-    if dnf updateinfo list --cve {{ cve }} 2>/dev/null | grep -q "{{ cve }}"; then
-      affected_packages=$(dnf updateinfo list --cve {{ cve }} 2>/dev/null | grep -v "^Last metadata" | awk '{print $3}' | tr '\n' ',')
-      found_cves="$found_cves{{ cve }}:$affected_packages;"
-    fi
-    {% else %}
-    if yum updateinfo list --cve {{ cve }} 2>/dev/null | grep -q "{{ cve }}"; then
-      affected_packages=$(yum updateinfo list --cve {{ cve }} 2>/dev/null | awk '{print $3}' | tr '\n' ',')
-      found_cves="$found_cves{{ cve }}:$affected_packages;"
-    fi
-    {% endif %}
-    {% endfor %}
-    echo "$found_cves"
+  # Check each priority CVE
+  found_cves=""
+  {% for cve in vulner_priority_cves %}
+  # Check if {{ cve }} affects installed packages
+  {% if vulner_package_manager == 'dnf' %}
+  if dnf updateinfo list --cve {{ cve }} 2>/dev/null | grep -q "{{ cve }}"; then
+  affected_packages=$(dnf updateinfo list --cve {{ cve }} 2>/dev/null | grep -v "^Last metadata" | awk '{print $3}' | tr '\n' ',')
+  found_cves="$found_cves{{ cve }}:$affected_packages;"
+  fi
+  {% else %}
+  if yum updateinfo list --cve {{ cve }} 2>/dev/null | grep -q "{{ cve }}"; then
+  affected_packages=$(yum updateinfo list --cve {{ cve }} 2>/dev/null | awk '{print $3}' | tr '\n' ',')
+  found_cves="$found_cves{{ cve }}:$affected_packages;"
+  fi
+  {% endif %}
+  {% endfor %}
+  echo "$found_cves"
   register: vulner_priority_cve_check
   changed_when: false
 
 - name: Check specific vulnerable packages
   ansible.builtin.shell: |
-    vulnerable_packages=""
-    {% for package in vulner_critical_packages %}
-    # Check if {{ package }} has security updates
-    {% if vulner_package_manager == 'dnf' %}
-    if dnf updateinfo list security --available 2>/dev/null | grep -q "{{ package }}"; then
-      version_info=$(rpm -q {{ package }} 2>/dev/null || echo "not_installed")
-      if [ "$version_info" != "not_installed" ]; then
-        available_update=$(dnf updateinfo list security --available 2>/dev/null | grep "{{ package }}" | head -1 | awk '{print $3}')
-        vulnerable_packages="$vulnerable_packages{{ package }}:$version_info:$available_update;"
-      fi
-    fi
-    {% else %}
-    if yum updateinfo list security --available 2>/dev/null | grep -q "{{ package }}"; then
-      version_info=$(rpm -q {{ package }} 2>/dev/null || echo "not_installed")
-      if [ "$version_info" != "not_installed" ]; then
-        available_update=$(yum updateinfo list security --available 2>/dev/null | grep "{{ package }}" | head -1 | awk '{print $3}')
-        vulnerable_packages="$vulnerable_packages{{ package }}:$version_info:$available_update;"
-      fi
-    fi
-    {% endif %}
-    {% endfor %}
-    echo "$vulnerable_packages"
+  vulnerable_packages=""
+  {% for package in vulner_critical_packages %}
+  # Check if {{ package }} has security updates
+  {% if vulner_package_manager == 'dnf' %}
+  if dnf updateinfo list security --available 2>/dev/null | grep -q "{{ package }}"; then
+  version_info=$(rpm -q {{ package }} 2>/dev/null || echo "not_installed")
+  if [ "$version_info" != "not_installed" ]; then
+  available_update=$(dnf updateinfo list security --available 2>/dev/null | grep "{{ package }}" | head -1 | awk '{print $3}')
+  vulnerable_packages="$vulnerable_packages{{ package }}:$version_info:$available_update;"
+  fi
+  fi
+  {% else %}
+  if yum updateinfo list security --available 2>/dev/null | grep -q "{{ package }}"; then
+  version_info=$(rpm -q {{ package }} 2>/dev/null || echo "not_installed")
+  if [ "$version_info" != "not_installed" ]; then
+  available_update=$(yum updateinfo list security --available 2>/dev/null | grep "{{ package }}" | head -1 | awk '{print $3}')
+  vulnerable_packages="$vulnerable_packages{{ package }}:$version_info:$available_update;"
+  fi
+  fi
+  {% endif %}
+  {% endfor %}
+  echo "$vulnerable_packages"
   register: vulner_package_check
   changed_when: false
 
 - name: Check for kernel vulnerabilities
   ansible.builtin.shell: |
-    current_kernel="{{ ansible_facts['kernel'] }}"
-    kernel_vulns=""
-    
+  current_kernel="{{ ansible_facts['kernel'] }}"
+  kernel_vulns=""
+
     # Check for available kernel security updates
     {% if vulner_package_manager == 'dnf' %}
     if dnf updateinfo list security --available 2>/dev/null | grep -q kernel; then
-      available_kernel=$(dnf list available kernel 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
-      kernel_vulns="kernel:$current_kernel:$available_kernel"
+    available_kernel=$(dnf list available kernel 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
+  kernel_vulns="kernel:$current_kernel:$available_kernel"
     fi
     {% else %}
     if yum updateinfo list security --available 2>/dev/null | grep -q kernel; then
-      available_kernel=$(yum list available kernel 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
-      kernel_vulns="kernel:$current_kernel:$available_kernel"
+    available_kernel=$(yum list available kernel 2>/dev/null | tail -1 | awk '{print $2}' || echo "none")
+  kernel_vulns="kernel:$current_kernel:$available_kernel"
     fi
     {% endif %}
-    
+
     echo "$kernel_vulns"
   register: vulner_kernel_check
   changed_when: false
 
 - name: Scan for OpenSSH vulnerabilities (CVE-2024-6387 specific check)
   ansible.builtin.shell: |
-    openssh_vulns=""
-    if rpm -q openssh-server >/dev/null 2>&1; then
-      openssh_version=$(rpm -q openssh-server --qf '%{VERSION}-%{RELEASE}')
-      # Check if version is vulnerable to CVE-2024-6387 (affects 8.5p1-9.8p1)
-      if [[ "$openssh_version" =~ ^8\.[5-9]|9\.[0-8] ]]; then
-        openssh_vulns="CVE-2024-6387:openssh-server:$openssh_version:regresshion"
-      fi
-    fi
-    echo "$openssh_vulns"
+  openssh_vulns=""
+  if rpm -q openssh-server >/dev/null 2>&1; then
+  openssh_version=$(rpm -q openssh-server --qf '%{VERSION}-%{RELEASE}')
+  # Check if version is vulnerable to CVE-2024-6387 (affects 8.5p1-9.8p1)
+  if [[ "$openssh_version" =~ ^8\.[5-9]|9\.[0-8] ]]; then
+  openssh_vulns="CVE-2024-6387:openssh-server:$openssh_version:regresshion"
+  fi
+  fi
+  echo "$openssh_vulns"
   register: vulner_openssh_specific
   changed_when: false
 
 - name: Check system configuration vulnerabilities
   ansible.builtin.shell: |
-    config_vulns=""
-    
+  config_vulns=""
+
     # Check for weak SSH configuration
     if [ -f /etc/ssh/sshd_config ]; then
-      if grep -q "^PermitRootLogin yes" /etc/ssh/sshd_config 2>/dev/null; then
-        config_vulns="${config_vulns}SSH_ROOT_LOGIN:enabled;"
-      fi
-      if grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config 2>/dev/null; then
-        config_vulns="${config_vulns}SSH_PASSWORD_AUTH:enabled;"
-      fi
+    if grep -q "^PermitRootLogin yes" /etc/ssh/sshd_config 2>/dev/null; then
+  config_vulns="${config_vulns}SSH_ROOT_LOGIN:enabled;"
     fi
-    
+    if grep -q "^PasswordAuthentication yes" /etc/ssh/sshd_config 2>/dev/null; then
+  config_vulns="${config_vulns}SSH_PASSWORD_AUTH:enabled;"
+    fi
+    fi
+
     # Check for sudo configuration issues
     if sudo -l 2>/dev/null | grep -q NOPASSWD; then
-      config_vulns="${config_vulns}SUDO_NOPASSWD:enabled;"
+  config_vulns="${config_vulns}SUDO_NOPASSWD:enabled;"
     fi
-    
+
     # Check for world-writable files in critical directories
     world_writable=$(find /etc /usr/bin /usr/sbin -type f -perm -002 2>/dev/null | head -5 | tr '\n' ',' || echo "")
     if [ -n "$world_writable" ]; then
-      config_vulns="${config_vulns}WORLD_WRITABLE:$world_writable;"
+  config_vulns="${config_vulns}WORLD_WRITABLE:$world_writable;"
     fi
-    
+
     echo "$config_vulns"
   register: vulner_config_check
   changed_when: false
 
 - name: Aggregate vulnerability findings
   ansible.builtin.set_fact:
-    vulner_found_vulnerabilities: >-
-      {{
-        vulner_found_vulnerabilities +
-        (vulner_priority_cve_check.stdout.split(';') | reject('equalto', '') | list) +
-        (vulner_package_check.stdout.split(';') | reject('equalto', '') | list) +
-        (vulner_kernel_check.stdout.split(';') | reject('equalto', '') | list) +
-        (vulner_openssh_specific.stdout.split(';') | reject('equalto', '') | list) +
-        (vulner_config_check.stdout.split(';') | reject('equalto', '') | list)
-      }}
+  vulner_found_vulnerabilities: >-
+  {{
+  vulner_found_vulnerabilities +
+  (vulner_priority_cve_check.stdout.split(';') | reject('equalto', '') | list) +
+  (vulner_package_check.stdout.split(';') | reject('equalto', '') | list) +
+  (vulner_kernel_check.stdout.split(';') | reject('equalto', '') | list) +
+  (vulner_openssh_specific.stdout.split(';') | reject('equalto', '') | list) +
+  (vulner_config_check.stdout.split(';') | reject('equalto', '') | list)
+  }}
 
 - name: Categorize vulnerabilities by severity
   ansible.builtin.set_fact:
-    vulner_critical_vulnerabilities: >-
-      {{ vulner_found_vulnerabilities | select('search', 'CVE-2024-6387|CVE-2024-3094|kernel|SSH_ROOT_LOGIN') | list }}
-    vulner_high_vulnerabilities: >-
-      {{ vulner_found_vulnerabilities | select('search', 'CVE-2023|glibc|sudo|openssh') | list }}
-    vulner_medium_vulnerabilities: >-
-      {{ vulner_found_vulnerabilities | select('search', 'CVE-2022|SUDO_NOPASSWD|SSH_PASSWORD_AUTH') | list }}
-    vulner_low_vulnerabilities: >-
-      {{ vulner_found_vulnerabilities | select('search', 'WORLD_WRITABLE') | list }}
+  vulner_critical_vulnerabilities: >-
+  {{ vulner_found_vulnerabilities | select('search', 'CVE-2024-6387|CVE-2024-3094|kernel|SSH_ROOT_LOGIN') | list }}
+  vulner_high_vulnerabilities: >-
+  {{ vulner_found_vulnerabilities | select('search', 'CVE-2023|glibc|sudo|openssh') | list }}
+  vulner_medium_vulnerabilities: >-
+  {{ vulner_found_vulnerabilities | select('search', 'CVE-2022|SUDO_NOPASSWD|SSH_PASSWORD_AUTH') | list }}
+  vulner_low_vulnerabilities: >-
+  {{ vulner_found_vulnerabilities | select('search', 'WORLD_WRITABLE') | list }}
 
 - name: Update vulnerability counts
   ansible.builtin.set_fact:
-    vulner_critical_count: "{{ vulner_critical_vulnerabilities | length }}"
-    vulner_high_count: "{{ vulner_high_vulnerabilities | length }}"
-    vulner_medium_count: "{{ vulner_medium_vulnerabilities | length }}"
-    vulner_low_count: "{{ vulner_low_vulnerabilities | length }}"
-    vulner_total_count: "{{ vulner_found_vulnerabilities | length }}"
+  vulner_critical_count: "{{ vulner_critical_vulnerabilities | length }}"
+  vulner_high_count: "{{ vulner_high_vulnerabilities | length }}"
+  vulner_medium_count: "{{ vulner_medium_vulnerabilities | length }}"
+  vulner_low_count: "{{ vulner_low_vulnerabilities | length }}"
+  vulner_total_count: "{{ vulner_found_vulnerabilities | length }}"
 
 - name: Display vulnerability scan results
   ansible.builtin.debug:
-    msg:
-      - "=== Vulnerability Scan Results ==="
-      - "Total vulnerabilities found: {{ vulner_total_count }}"
-      - "  • Critical: {{ vulner_critical_count }}"
-      - "  • High: {{ vulner_high_count }}"
-      - "  • Medium: {{ vulner_medium_count }}"
-      - "  • Low: {{ vulner_low_count }}"
-      - ""
-      - "Critical vulnerabilities:"
-      - "{{ vulner_critical_vulnerabilities if vulner_critical_vulnerabilities | length > 0 else ['None found'] }}"
-      - ""
-      - "High vulnerabilities:"
-      - "{{ vulner_high_vulnerabilities if vulner_high_vulnerabilities | length > 0 else ['None found'] }}"
+  msg:
+  - "=== Vulnerability Scan Results ==="
+  - "Total vulnerabilities found: {{ vulner_total_count }}"
+  - " • Critical: {{ vulner_critical_count }}"
+  - " • High: {{ vulner_high_count }}"
+  - " • Medium: {{ vulner_medium_count }}"
+  - " • Low: {{ vulner_low_count }}"
+  - ""
+  - "Critical vulnerabilities:"
+  - "{{ vulner_critical_vulnerabilities if vulner_critical_vulnerabilities | length > 0 else ['None found'] }}"
+  - ""
+  - "High vulnerabilities:"
+  - "{{ vulner_high_vulnerabilities if vulner_high_vulnerabilities | length > 0 else ['None found'] }}"
 
 - name: Set legacy vulnerability facts for compatibility
   ansible.builtin.set_fact:
-    security_system_vulnerable: "{{ vulner_total_count > 0 }}"
-    security_system_vulner_list: "{{ vulner_found_vulnerabilities[:10] }}"  # Limit to top 10
-    vulner_scan_completed: true
-    vulner_scan_timestamp: "{{ ansible_date_time.iso8601 }}"
-    cacheable: true
+  security_system_vulnerable: "{{ vulner_total_count > 0 }}"
+  security_system_vulner_list: "{{ vulner_found_vulnerabilities[:10] }}" # Limit to top 10
+  vulner_scan_completed: true
+  vulner_scan_timestamp: "{{ ansible_date_time.iso8601 }}"
+  cacheable: true
 
 - name: Emergency alert for critical vulnerabilities
   ansible.builtin.debug:
-    msg:
-      - " CRITICAL ALERT: {{ vulner_critical_count }} critical vulnerabilities detected!"
-      - "Immediate action required for:"
-      - "{{ vulner_critical_vulnerabilities }}"
+  msg:
+  - " CRITICAL ALERT: {{ vulner_critical_count }} critical vulnerabilities detected!"
+  - "Immediate action required for:"
+  - "{{ vulner_critical_vulnerabilities }}"
   when: vulner_critical_count | int > 0

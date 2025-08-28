@@ -1,0 +1,142 @@
+---
+# Lifecycle Environment Management Tasks
+
+- name: "Get existing lifecycle environments"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/environments"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_lifecycle_envs
+  tags:
+    - lifecycle-environments
+
+- name: "Build lifecycle environment hierarchy"
+  set_fact:
+    lifecycle_env_hierarchy: >-
+      {{
+        lifecycle_environments |
+        map('combine', {'prior_id': null}) |
+        list
+      }}
+  tags:
+    - lifecycle-environments
+
+- name: "Create lifecycle environments in order"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/environments"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      label: "{{ item.label }}"
+      description: "{{ item.description }}"
+      prior_id: "{{ prior_environment_id | default(omit) }}"
+      registry_name_pattern: "{{ item.registry_name_pattern | default(omit) }}"
+      registry_unauthenticated_pull: "{{ item.registry_unauthenticated_pull | default(false) }}"
+  status_code: [200, 201, 422]
+  vars:
+    prior_environment_id: >-
+      {% if item.prior is defined and item.prior != "Library" %}
+        {{
+          existing_lifecycle_envs.json.results |
+          selectattr('name', 'equalto', item.prior) |
+          map(attribute='id') |
+          first |
+          default(null)
+        }}
+      {% elif item.prior == "Library" %}
+        {{
+          existing_lifecycle_envs.json.results |
+          selectattr('library', 'equalto', true) |
+          map(attribute='id') |
+          first
+        }}
+      {% else %}
+        {{ null }}
+      {% endif %}
+  loop: "{{ lifecycle_environments }}"
+  when:
+    - item.name not in (existing_lifecycle_envs.json.results | map(attribute='name') | list)
+    - not dry_run | bool
+  register: lifecycle_env_creation
+  tags:
+    - lifecycle-environments
+
+- name: "Get updated lifecycle environment list"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/environments"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: all_lifecycle_envs
+  tags:
+    - lifecycle-environments
+
+- name: "Display lifecycle environment hierarchy"
+  debug:
+    msg:
+      - "Environment: {{ item.name }}"
+      - "Label: {{ item.label }}"
+      - "Prior: {{ item.prior | default('Library') }}"
+      - "Description: {{ item.description }}"
+  loop: "{{ lifecycle_environments }}"
+  when: debug_mode | bool
+  tags:
+    - lifecycle-environments
+
+- name: "Validate lifecycle environment chain"
+  block:
+    - name: "Check environment chain integrity"
+      uri:
+        url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/environments/{{ env_id }}/paths"
+        method: GET
+        user: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        force_basic_auth: yes
+        validate_certs: yes
+      vars:
+        env_id: >-
+          {{
+            all_lifecycle_envs.json.results |
+            selectattr('name', 'equalto', item.name) |
+            map(attribute='id') |
+            first
+          }}
+      loop: "{{ lifecycle_environments }}"
+      when:
+        - item.name != "Library"
+        - validate_environment_chain | bool
+      register: environment_paths
+  rescue:
+    - name: "Environment chain validation failed"
+      debug:
+        msg: "Warning: Could not validate environment chain integrity"
+      when: validate_environment_chain | bool
+  tags:
+    - lifecycle-environments
+
+- name: "Set lifecycle environment facts"
+  set_fact:
+    lifecycle_environment_ids: >-
+      {{
+        all_lifecycle_envs.json.results |
+        map(attribute='id') |
+        list
+      }}
+    lifecycle_environment_mapping: >-
+      {{
+        dict(all_lifecycle_envs.json.results |
+        map(attribute=['name', 'id']) |
+        list)
+      }}
+  tags:
+    - lifecycle-environments

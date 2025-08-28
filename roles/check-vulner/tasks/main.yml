@@ -11,12 +11,12 @@
 
 - name: Include remediation tasks
   ansible.builtin.include_tasks: remediate_vulnerabilities.yml
-  when: 
-    - vulner_scan_enabled | bool
-    - vulner_auto_remediate | bool
+  when:
+  - vulner_scan_enabled | bool
+  - vulner_auto_remediate | bool
 
 - name: Include reporting tasks
   ansible.builtin.include_tasks: generate_reports.yml
-  when: 
-    - vulner_scan_enabled | bool
-    - vulner_generate_report | bool
+  when:
+  - vulner_scan_enabled | bool
+  - vulner_generate_report | bool

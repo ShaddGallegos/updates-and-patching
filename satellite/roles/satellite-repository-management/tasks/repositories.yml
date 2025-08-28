@@ -1,0 +1,114 @@
+---
+# Repository Management Tasks
+
+- name: "Get existing repositories"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/repositories"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_repositories
+  tags:
+    - repositories
+
+- name: "Create custom repositories"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products/{{ outer_item.name }}/repositories"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      label: "{{ item.label }}"
+      content_type: "yum"
+      download_policy: "{{ repo_download_policy }}"
+      mirror_on_sync: "{{ repo_mirror_on_sync }}"
+      verify_ssl_on_sync: "{{ repo_verify_ssl }}"
+      checksum_type: "{{ repo_checksum_type }}"
+      unprotected: "{{ repo_unprotected }}"
+  status_code: [200, 201, 422]
+  loop: "{{ outer_item.repositories }}"
+  loop_control:
+    loop_var: item
+  vars:
+    outer_item: "{{ satellite_product }}"
+  when:
+    - item.name not in (existing_repositories.json.results | map(attribute='name') | list)
+    - outer_item.custom | default(false)
+  with_items: "{{ satellite_products }}"
+  register: custom_repo_results
+  tags:
+    - repositories
+
+- name: "Configure repository download policies"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/repositories/{{ repository_id }}"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      download_policy: "{{ repo_download_policy }}"
+      mirror_on_sync: "{{ repo_mirror_on_sync }}"
+      verify_ssl_on_sync: "{{ repo_verify_ssl }}"
+      checksum_type: "{{ repo_checksum_type }}"
+  status_code: [200, 422]
+  vars:
+    repository_id: "{{ item.id }}"
+  loop: "{{ existing_repositories.json.results }}"
+  when:
+    - item.name in (satellite_products | subelements('repositories') | map(attribute='1.name') | list)
+    - not dry_run | bool
+  register: repo_config_results
+  tags:
+    - repositories
+
+- name: "Get updated repository list"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/repositories"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: updated_repositories
+  tags:
+    - repositories
+
+- name: "Extract repository information"
+  set_fact:
+    managed_repositories: >-
+      {{
+        updated_repositories.json.results |
+        selectattr('name', 'in', satellite_products | subelements('repositories') | map(attribute='1.name') | list) |
+        list
+      }}
+  tags:
+    - repositories
+
+- name: "Display repository status"
+  debug:
+    msg:
+      - "Repository: {{ item.name }}"
+      - "Product: {{ item.product.name }}"
+      - "URL: {{ item.full_path | default('N/A') }}"
+      - "Content Type: {{ item.content_type }}"
+      - "Download Policy: {{ item.download_policy }}"
+      - "Last Sync: {{ item.last_sync_words | default('Never') }}"
+  loop: "{{ managed_repositories }}"
+  when: debug_mode | bool
+  tags:
+    - repositories
+
+- name: "Set repository IDs for sync operations"
+  set_fact:
+    repository_ids: "{{ managed_repositories | map(attribute='id') | list }}"
+  tags:
+    - repositories

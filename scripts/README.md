@@ -2,7 +2,7 @@
 
 This directory contains professional-grade bash scripts for comprehensive Linux system management, patching, and security operations.
 
-##  Script Overview
+## Script Overview
 
 ### Core Management Scripts
 - **`rhel-patch-manager.sh`** - RHEL 7-10 specialized patching with YUM/DNF intelligence
@@ -15,7 +15,7 @@ This directory contains professional-grade bash scripts for comprehensive Linux 
 ### Orchestration
 - **`automation-wrapper.sh`** - Master orchestration script with predefined workflows
 
-##  Quick Start
+## Quick Start
 
 ### Standard System Audit
 ```bash
@@ -50,7 +50,7 @@ sudo ./linux-universal-patcher.sh --upgrade --format html
 sudo ./package-auditor.sh --type security --vulnerabilities
 ```
 
-##  Workflow Types
+## Workflow Types
 
 ### Standard Workflow
 - System information collection
@@ -58,7 +58,7 @@ sudo ./package-auditor.sh --type security --vulnerabilities
 - Security updates detection
 - Consolidated reporting
 
-### Security Workflow  
+### Security Workflow 
 - Current CVE vulnerability scanning
 - Security patch installation
 - Live kernel patching (RHEL)
@@ -74,7 +74,7 @@ sudo ./package-auditor.sh --type security --vulnerabilities
 - Multi-format professional reporting
 - Email delivery with SendGrid/SMTP support
 
-##  Individual Tool Usage
+## Individual Tool Usage
 
 ### RHEL Patch Manager
 ```bash
@@ -112,7 +112,7 @@ sudo ./vulnerability-scanner.sh --scan --fix --email security@company.com
 sudo ./vulnerability-scanner.sh --scan --cve-list "CVE-2024-6387,CVE-2024-1086"
 ```
 
-##  Reporting Features
+## Reporting Features
 
 ### Multi-Format Support
 - **HTML**: Professional dashboards with responsive design
@@ -129,18 +129,18 @@ sudo ./vulnerability-scanner.sh --scan --cve-list "CVE-2024-6387,CVE-2024-1086"
 ### Report Organization
 ```
 /tmp/reports_YYYYMMDD_HHMMSS/
- consolidated-report.html          # Executive dashboard
- system-info.json                  # Machine-readable system data
- security-scan-results.csv         # Security findings for analysis
- package-audit.yaml               # Package management status
- vulnerability-report.txt          # Human-readable security summary
+ consolidated-report.html # Executive dashboard
+ system-info.json # Machine-readable system data
+ security-scan-results.csv # Security findings for analysis
+ package-audit.yaml # Package management status
+ vulnerability-report.txt # Human-readable security summary
  logs/
-     automation-wrapper.log        # Master execution log
-     security-scanner.log          # Security operation details
-     patching-operations.log       # Patch management activity
+ automation-wrapper.log # Master execution log
+ security-scanner.log # Security operation details
+ patching-operations.log # Patch management activity
 ```
 
-##  Security Features
+## Security Features
 
 ### Current CVE Database
 Scripts include detection and remediation for:
@@ -157,7 +157,7 @@ Scripts include detection and remediation for:
 - Service restart/reload management
 - Rollback capabilities for failed operations
 
-##  Enterprise Features
+## Enterprise Features
 
 ### Professional Integration
 - **Logging**: Comprehensive audit trails with timestamps
@@ -181,7 +181,7 @@ Scripts include detection and remediation for:
 - **APK**: Alpine ecosystem with musl compatibility
 - **Portage**: Gentoo ecosystem with USE flag optimization
 
-##  Automation Scheduling
+## Automation Scheduling
 
 ### Cron Examples
 ```bash
@@ -204,7 +204,7 @@ sudo systemctl enable --now security-automation.timer
 sudo systemctl enable --now comprehensive-audit.timer
 ```
 
-##  Configuration Options
+## Configuration Options
 
 ### Environment Variables
 ```bash
@@ -222,7 +222,7 @@ export AUTO_REBOOT_AFTER_KERNEL_UPDATE="false"
 export SECURITY_ONLY_UPDATES="true"
 ```
 
-##  Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 1. **Permission Errors**: Ensure scripts run with appropriate privileges (sudo)
@@ -239,14 +239,14 @@ export SECURITY_ONLY_UPDATES="true"
 ./automation-wrapper.sh comprehensive --dry-run --verbose
 ```
 
-##  Integration Examples
+## Integration Examples
 
 ### Ansible Integration
 ```yaml
 - name: Run comprehensive security audit
-  command: /opt/scripts/automation-wrapper.sh security --email {{ admin_email }}
-  become: yes
-  register: security_audit
+ command: /opt/scripts/automation-wrapper.sh security --email {{ admin_email }}
+ become: yes
+ register: security_audit
 ```
 
 ### Docker Integration
@@ -256,7 +256,7 @@ RUN chmod +x /opt/automation-scripts/*.sh
 CMD ["/opt/automation-scripts/automation-wrapper.sh", "comprehensive"]
 ```
 
-##  Version History
+## Version History
 
 ### v2.0.0 (Current)
 - Complete rewrite for enterprise environments
@@ -273,9 +273,9 @@ CMD ["/opt/automation-scripts/automation-wrapper.sh", "comprehensive"]
 
 ---
 
-**Author**: sgallego  
-**Version**: 2.0.0  
-**License**: Enterprise Use  
+**Author**: sgallego 
+**Version**: 2.0.0 
+**License**: Enterprise Use 
 **Support**: Professional Linux system management automation
 
 ## Legacy Windows Scripts (Archived)
@@ -372,7 +372,7 @@ powershell.exe -ExecutionPolicy ByPass -File $file -Verbose
 
  Use option -SkipNetworkProfileCheck to skip the network profile check.
  Without specifying this the script will only run if the device's interfaces
- are in DOMAIN or PRIVATE zones.  Provide this switch if you want to enable
+ are in DOMAIN or PRIVATE zones. Provide this switch if you want to enable
  WinRM on a device with an interface in PUBLIC zone.
 
  Use option -SubjectName to specify the CN name of the certificate. This

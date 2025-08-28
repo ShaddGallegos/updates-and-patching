@@ -1,0 +1,51 @@
+---
+satellite_server_url: "https://satellite.example.com"
+satellite_username: "admin"
+satellite_password: "NTY4NjIw" # Demo default password
+satellite_organization: "Default Organization"
+satellite_location: "Default Location"
+demo_mode: true
+dry_run: false
+debug_mode: true
+verbose_output: true
+
+quick_demo:
+  enable_basic_repos: true
+  create_simple_content_view: true
+  register_demo_hosts: true
+  apply_security_updates: true
+  reports_directory: "./demo_reports"
+  generate_demo_reports: true
+  email_demo_reports: false
+
+demo_environments:
+  - description: "Satellite Demo Development Environment"
+  - description: "Satellite Demo Production Environment"
+
+demo_activation_keys:
+  lifecycle_environment: "Demo_Production"
+  auto_attach: true
+
+demo_security:
+  allow_insecure_connections: true # Demo only - DO NOT use in production
+  skip_ssl_verification: true
+  use_self_signed_certs: true
+
+demo_host_collections:
+  - description: "Demo server collection for testing"
+  - description: "Demo workstation collection"
+
+demo_updates:
+  install_security_updates: true
+  install_bugfix_updates: false
+  install_enhancement_updates: false
+  reboot_after_kernel_updates: false
+
+demo_reporting:
+  generate_html_reports: true
+  generate_json_reports: true
+  save_to_satellite_logs: true
+
+demo_notes: |
+  Default Satellite Demo Credentials:
+  For production environments: false

@@ -1,9 +1,9 @@
 import os
-
 import testinfra.utils.ansible_runner
 
 testinfra_hosts = testinfra.utils.ansible_runner.AnsibleRunner(
-    os.environ['MOLECULE_INVENTORY_FILE']).get_hosts('all')
+    os.environ['MOLECULE_INVENTORY_FILE']
+).get_hosts('all')
 
 
 def test_yum_files(host):
@@ -11,7 +11,7 @@ def test_yum_files(host):
     f = host.file('/etc/yum.conf')
     assert f.user == 'root'
     assert f.group == 'root'
-    assert f.mode == 0644
+    assert f.mode == 0o644
     if os_family == 'RedHat':
         assert f.contains('cachedir=/opt/cache/yum/')
     elif os_family == 'Suse':

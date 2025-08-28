@@ -1,0 +1,149 @@
+---
+# CVE-Specific Updates Management
+
+- name: "Get hosts for CVE updates"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/hosts"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      search: "{{ host_search_pattern }}"
+      per_page: 1000
+  vars:
+    host_search_pattern: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  register: target_hosts_for_cve
+  tags:
+    - cve-updates
+
+- name: "Check for CVE-specific packages that need updates"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/hosts/{{ item.id }}/packages"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      search: "upgradable=true"
+  loop: "{{ target_hosts_for_cve.json.results }}"
+  register: host_upgradable_packages
+  tags:
+    - cve-updates
+
+- name: "Create CVE update job for specific vulnerabilities"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ cve_host_search }}"
+      inputs:
+        action: "update"
+        packages: "{{ cve_packages | join(' ') }}"
+      description: "CVE Updates - {{ package_operations.cve_updates.target_cves | join(', ') }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: "{{ update_jobs.timeout }}"
+      status_code: [200, 201]
+  vars:
+    job_template_id: "{{ package_job_template.json.results[0].id }}"
+    cve_host_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+    cve_packages:
+      - "openssl*"    # CVE-2024-6387, others
+      - "openssh*"    # CVE-2024-6387
+      - "kernel*"     # CVE-2024-1086, CVE-2023-2002
+      - "glibc*"      # CVE-2023-4911
+      - "gstreamer*"  # CVE-2023-32629
+      - "sudo*"       # Multiple CVEs
+      - "systemd*"    # Multiple CVEs
+  when:
+    - package_job_template.json.total > 0
+    - not dry_run | bool
+  register: cve_update_job
+  tags:
+    - cve-updates
+
+- name: "Monitor CVE update job progress"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations/{{ item.json.id }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: cve_job_status
+  until: cve_job_status.json.status_label != 'running'
+  retries: "{{ (update_jobs.timeout / 60) | int }}"
+  delay: 60
+  loop: "{{ cve_update_job.results | default([]) }}"
+  when:
+    - cve_update_job is defined
+    - item.json is defined
+  tags:
+    - cve-updates
+
+- name: "Reboot hosts if kernel updated (CVE-2024-1086, CVE-2023-2002)"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ reboot_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ cve_host_search }}"
+      description: "Reboot after kernel CVE updates"
+      status_code: [200, 201]
+  vars:
+    reboot_job_template_id: "{{ reboot_template.json.results[0].id }}"
+    cve_host_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  when:
+    - package_operations.cve_updates.auto_reboot_if_needed | bool
+    - cve_job_status.results | selectattr('json.status_label', 'equalto', 'succeeded') | list | length > 0
+    - reboot_template.json.total > 0
+    - not dry_run | bool
+  register: cve_reboot_job
+  tags:
+    - cve-updates
+
+- name: "Display CVE update results"
+  debug:
+    msg:
+      - "CVE Update Job: {{ item.json.description if item.json is defined else 'Not created' }}"
+      - "Status: {{ item.json.status_label if item.json is defined else 'N/A' }}"
+      - "Target Hosts: {{ item.json.targeting.bookmark_id if item.json is defined else 0 }}"
+      - "Target CVEs: {{ package_operations.cve_updates.target_cves | join(', ') }}"
+  loop: "{{ cve_update_job.results | default([]) }}"
+  when: debug_mode | bool
+  tags:
+    - cve-updates

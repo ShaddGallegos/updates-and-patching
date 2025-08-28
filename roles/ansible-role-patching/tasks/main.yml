@@ -5,10 +5,10 @@
 - name: Include OS-specific variables
   ansible.builtin.include_vars: "{{ item }}"
   with_first_found:
-    - "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_major_version'] }}.yml"
-    - "{{ ansible_facts['distribution'] }}.yml"
-    - "{{ ansible_facts['os_family'] }}.yml"
-    - "default.yml"
+  - "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_major_version'] }}.yml"
+  - "{{ ansible_facts['distribution'] }}.yml"
+  - "{{ ansible_facts['os_family'] }}.yml"
+  - "default.yml"
   tags: [patch, variables]
 
 - name: Pre-patching validation
@@ -24,7 +24,7 @@
   ansible.builtin.include_tasks: "perform-patch{{ '-environment' if patch_env is defined and patch_env | length > 0 else '' }}.yml"
   tags: [patch, update]
 
-- name: Post-patching tasks  
+- name: Post-patching tasks
   ansible.builtin.include_tasks: post_patch_tasks.yml
   tags: [patch, post-tasks]
 
@@ -37,4 +37,3 @@
   ansible.builtin.include_tasks: generate_report.yml
   when: patch_generate_report
   tags: [patch, report]
-...

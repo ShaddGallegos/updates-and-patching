@@ -17,9 +17,8 @@
     name: "{{ item }}"
     state: restarted
     enabled: true
-  loop:
-    - "{{ yum_service_name }}"
-  when: 
+  loop: "{{ yum_service_name }}"
+  when:
     - yum_restart_services_on_change | bool
     - yum_enable_automatic_updates | bool
   listen: restart package manager services

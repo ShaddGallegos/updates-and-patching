@@ -58,7 +58,7 @@
       "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.pdf"
   delegate_to: localhost
   run_once: true
-  when: 
+  when:
     - report_include_pdf | bool
     - pdf_generation_available | bool
     - "'html' in report_output_formats"

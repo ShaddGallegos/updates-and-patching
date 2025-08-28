@@ -1,7 +1,4 @@
 ---
-# Modern RHEL System Report Generation Role
-# Supports RHEL 7, 8, 9, 10 with HTML and PDF output
-
 - name: Include pre-report preparation tasks
   ansible.builtin.include_tasks: pre_report.yml
 

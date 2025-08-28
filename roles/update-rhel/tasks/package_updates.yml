@@ -10,7 +10,7 @@
     skip_broken: "{{ update_rhel_skip_broken | default(true) }}"
     security: "{{ update_rhel_security_only | default(false) }}"
     bugfix: "{{ update_rhel_bugfix | default(false) }}"
-  when: 
+  when:
     - update_rhel_os_info.major_version == 7
     - update_rhel_updates_available > 0
   register: update_rhel_yum_result
@@ -27,7 +27,7 @@
     allowerasing: "{{ update_rhel_allow_erasing | default(false) }}"
     security: "{{ update_rhel_security_only | default(false) }}"
     bugfix: "{{ update_rhel_bugfix | default(false) }}"
-  when: 
+  when:
     - update_rhel_os_info.major_version >= 8
     - update_rhel_updates_available > 0
   register: update_rhel_dnf_result
@@ -48,7 +48,7 @@
       {% else %}
       No packages required updates or all packages were already current
       {% endif %}
-  when: 
+  when:
     - update_rhel_package_result is defined
     - update_rhel_verbose | default(true)
 

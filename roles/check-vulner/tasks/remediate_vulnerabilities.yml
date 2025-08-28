@@ -3,259 +3,259 @@
 
 - name: Verify remediation is enabled
   ansible.builtin.assert:
-    that:
-      - vulner_auto_remediate | bool
-    fail_msg: "Auto-remediation is disabled. Set vulner_auto_remediate: true to enable automatic fixes."
+  that:
+  - vulner_auto_remediate | bool
+  fail_msg: "Auto-remediation is disabled. Set vulner_auto_remediate: true to enable automatic fixes."
   when: vulner_found_vulnerabilities | length > 0
 
 - name: Create backup directory for configuration files
   ansible.builtin.file:
-    path: "{{ vulner_backup_directory }}"
-    state: directory
-    owner: root
-    group: root
-    mode: '0700'
+  path: "{{ vulner_backup_directory }}"
+  state: directory
+  owner: root
+  group: root
+  mode: '0700'
   when: vulner_found_vulnerabilities | length > 0
 
 - name: Backup current system state
   ansible.builtin.shell: |
-    # Create system state backup
-    backup_file="{{ vulner_backup_directory }}/system_state_$(date +%Y%m%d_%H%M%S).tar.gz"
-    
+  # Create system state backup
+  backup_file="{{ vulner_backup_directory }}/system_state_$(date +%Y%m%d_%H%M%S).tar.gz"
+
     # Backup critical configuration files
     tar -czf "$backup_file" \
-      /etc/ssh/sshd_config \
-      /etc/sudoers \
-      /etc/yum.conf \
-      /etc/dnf/dnf.conf \
-      /etc/security/ \
-      2>/dev/null || true
-    
-    echo "Backup created: $backup_file"
+    /etc/ssh/sshd_config \
+    /etc/sudoers \
+    /etc/yum.conf \
+    /etc/dnf/dnf.conf \
+    /etc/security/ \
+    2>/dev/null || true
+
+  echo "Backup created: $backup_file"
   register: vulner_backup_result
   when: vulner_found_vulnerabilities | length > 0 and vulner_create_backups
 
 - name: Install security updates for priority CVEs
   ansible.builtin.shell: |
-    updated_packages=""
-    {% for cve_info in vulner_found_vulnerabilities %}
-    {% if cve_info.startswith('CVE-') %}
-    cve_id="{{ cve_info.split(':')[0] }}"
-    {% if vulner_package_manager == 'dnf' %}
-    if dnf updateinfo list --cve "$cve_id" 2>/dev/null | grep -q "$cve_id"; then
-      echo "Updating packages for $cve_id"
-      dnf update -y --advisory="$cve_id" && updated_packages="$updated_packages$cve_id;"
-    fi
-    {% else %}
-    if yum updateinfo list --cve "$cve_id" 2>/dev/null | grep -q "$cve_id"; then
-      echo "Updating packages for $cve_id"
-      yum update -y --advisory="$cve_id" && updated_packages="$updated_packages$cve_id;"
-    fi
-    {% endif %}
-    {% endif %}
-    {% endfor %}
-    echo "$updated_packages"
+  updated_packages=""
+  {% for cve_info in vulner_found_vulnerabilities %}
+  {% if cve_info.startswith('CVE-') %}
+  cve_id="{{ cve_info.split(':')[0] }}"
+  {% if vulner_package_manager == 'dnf' %}
+  if dnf updateinfo list --cve "$cve_id" 2>/dev/null | grep -q "$cve_id"; then
+  echo "Updating packages for $cve_id"
+  dnf update -y --advisory="$cve_id" && updated_packages="$updated_packages$cve_id;"
+  fi
+  {% else %}
+  if yum updateinfo list --cve "$cve_id" 2>/dev/null | grep -q "$cve_id"; then
+  echo "Updating packages for $cve_id"
+  yum update -y --advisory="$cve_id" && updated_packages="$updated_packages$cve_id;"
+  fi
+  {% endif %}
+  {% endif %}
+  {% endfor %}
+  echo "$updated_packages"
   register: vulner_cve_updates
   when: vulner_found_vulnerabilities | length > 0 and vulner_auto_remediate
   become: true
 
 - name: Update vulnerable packages
   ansible.builtin.shell: |
-    updated_packages=""
-    {% for package_info in vulner_found_vulnerabilities %}
-    {% if ':' in package_info and not package_info.startswith('CVE-') and not package_info.startswith('SSH_') and not package_info.startswith('SUDO_') %}
-    package_name="{{ package_info.split(':')[0] }}"
-    if [ "$package_name" != "kernel" ]; then  # Handle kernel separately
-      echo "Updating $package_name"
-      {% if vulner_package_manager == 'dnf' %}
-      if dnf update -y "$package_name"; then
-        updated_packages="$updated_packages$package_name;"
-      fi
-      {% else %}
-      if yum update -y "$package_name"; then
-        updated_packages="$updated_packages$package_name;"
-      fi
-      {% endif %}
-    fi
-    {% endif %}
-    {% endfor %}
-    echo "$updated_packages"
+  updated_packages=""
+  {% for package_info in vulner_found_vulnerabilities %}
+  {% if ':' in package_info and not package_info.startswith('CVE-') and not package_info.startswith('SSH_') and not package_info.startswith('SUDO_') %}
+  package_name="{{ package_info.split(':')[0] }}"
+  if [ "$package_name" != "kernel" ]; then # Handle kernel separately
+  echo "Updating $package_name"
+  {% if vulner_package_manager == 'dnf' %}
+  if dnf update -y "$package_name"; then
+  updated_packages="$updated_packages$package_name;"
+  fi
+  {% else %}
+  if yum update -y "$package_name"; then
+  updated_packages="$updated_packages$package_name;"
+  fi
+  {% endif %}
+  fi
+  {% endif %}
+  {% endfor %}
+  echo "$updated_packages"
   register: vulner_package_updates
   when: vulner_found_vulnerabilities | length > 0 and vulner_auto_remediate
   become: true
 
 - name: Handle kernel updates
   block:
-    - name: Update kernel if vulnerable
-      ansible.builtin.shell: |
-        {% if vulner_package_manager == 'dnf' %}
-        dnf update -y kernel
-        {% else %}
-        yum update -y kernel
-        {% endif %}
-      register: vulner_kernel_update
-      when: vulner_found_vulnerabilities | select('search', 'kernel:') | list | length > 0
+- name: Update kernel if vulnerable
+  ansible.builtin.shell: |
+  {% if vulner_package_manager == 'dnf' %}
+  dnf update -y kernel
+  {% else %}
+  yum update -y kernel
+  {% endif %}
+  register: vulner_kernel_update
+  when: vulner_found_vulnerabilities | select('search', 'kernel:') | list | length > 0
 
-    - name: Schedule reboot for kernel update
-      ansible.builtin.set_fact:
-        vulner_reboot_required: true
-      when: vulner_kernel_update is changed
+- name: Schedule reboot for kernel update
+  ansible.builtin.set_fact:
+  vulner_reboot_required: true
+  when: vulner_kernel_update is changed
 
   when: vulner_found_vulnerabilities | length > 0 and vulner_auto_remediate
   become: true
 
 - name: Fix SSH configuration vulnerabilities
   block:
-    - name: Backup SSH configuration
-      ansible.builtin.copy:
-        src: /etc/ssh/sshd_config
-        dest: "{{ vulner_backup_directory }}/sshd_config.backup.{{ ansible_date_time.epoch }}"
-        remote_src: true
-      when: vulner_create_backups
+- name: Backup SSH configuration
+  ansible.builtin.copy:
+  src: /etc/ssh/sshd_config
+  dest: "{{ vulner_backup_directory }}/sshd_config.backup.{{ ansible_date_time.epoch }}"
+  remote_src: true
+  when: vulner_create_backups
 
-    - name: Disable root login via SSH
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PermitRootLogin'
-        line: 'PermitRootLogin no'
-        backup: false
-      notify: restart sshd
-      when: vulner_found_vulnerabilities | select('search', 'SSH_ROOT_LOGIN') | list | length > 0
+- name: Disable root login via SSH
+  ansible.builtin.lineinfile:
+  path: /etc/ssh/sshd_config
+  regexp: '^#?PermitRootLogin'
+  line: 'PermitRootLogin no'
+  backup: false
+  notify: restart sshd
+  when: vulner_found_vulnerabilities | select('search', 'SSH_ROOT_LOGIN') | list | length > 0
 
-    - name: Disable password authentication if key auth is available
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PasswordAuthentication'
-        line: 'PasswordAuthentication no'
-        backup: false
-      notify: restart sshd
-      when:
-        - vulner_found_vulnerabilities | select('search', 'SSH_PASSWORD_AUTH') | list | length > 0
-        - vulner_disable_password_auth
+- name: Disable password authentication if key auth is available
+  ansible.builtin.lineinfile:
+  path: /etc/ssh/sshd_config
+  regexp: '^#?PasswordAuthentication'
+  line: 'PasswordAuthentication no'
+  backup: false
+  notify: restart sshd
+  when:
+  - vulner_found_vulnerabilities | select('search', 'SSH_PASSWORD_AUTH') | list | length > 0
+  - vulner_disable_password_auth
 
   when: vulner_found_vulnerabilities | length > 0 and vulner_auto_remediate
   become: true
 
 - name: Fix sudo configuration vulnerabilities
   block:
-    - name: Backup sudo configuration
-      ansible.builtin.copy:
-        src: /etc/sudoers
-        dest: "{{ vulner_backup_directory }}/sudoers.backup.{{ ansible_date_time.epoch }}"
-        remote_src: true
-      when: vulner_create_backups
+- name: Backup sudo configuration
+  ansible.builtin.copy:
+  src: /etc/sudoers
+  dest: "{{ vulner_backup_directory }}/sudoers.backup.{{ ansible_date_time.epoch }}"
+  remote_src: true
+  when: vulner_create_backups
 
-    - name: Remove dangerous NOPASSWD sudo entries
-      ansible.builtin.shell: |
-        # Create a temporary sudoers file without dangerous NOPASSWD entries
-        cp /etc/sudoers /tmp/sudoers.tmp
-        sed -i '/NOPASSWD.*ALL/d' /tmp/sudoers.tmp
-        
-        # Validate the new sudoers file
-        if visudo -cf /tmp/sudoers.tmp; then
-          cp /tmp/sudoers.tmp /etc/sudoers
-          echo "Removed dangerous NOPASSWD entries"
-        else
-          echo "Failed to validate new sudoers file"
-          exit 1
-        fi
-      when: vulner_found_vulnerabilities | select('search', 'SUDO_NOPASSWD') | list | length > 0
+- name: Remove dangerous NOPASSWD sudo entries
+  ansible.builtin.shell: |
+  # Create a temporary sudoers file without dangerous NOPASSWD entries
+  cp /etc/sudoers /tmp/sudoers.tmp
+  sed -i '/NOPASSWD.*ALL/d' /tmp/sudoers.tmp
+
+    # Validate the new sudoers file
+    if visudo -cf /tmp/sudoers.tmp; then
+    cp /tmp/sudoers.tmp /etc/sudoers
+    echo "Removed dangerous NOPASSWD entries"
+    else
+    echo "Failed to validate new sudoers file"
+    exit 1
+    fi
+  when: vulner_found_vulnerabilities | select('search', 'SUDO_NOPASSWD') | list | length > 0
 
   when: vulner_found_vulnerabilities | length > 0 and vulner_auto_remediate and vulner_fix_sudo_config
   become: true
 
 - name: Fix file permission vulnerabilities
   ansible.builtin.shell: |
-    fixed_files=""
-    {% for vuln_info in vulner_found_vulnerabilities %}
-    {% if vuln_info.startswith('WORLD_WRITABLE:') %}
-    files="{{ vuln_info.split(':')[1] }}"
-    IFS=',' read -ra file_array <<< "$files"
-    for file in "${file_array[@]}"; do
-      if [ -f "$file" ]; then
-        echo "Fixing permissions for $file"
-        chmod o-w "$file" && fixed_files="$fixed_files$file;"
-      fi
-    done
-    {% endif %}
-    {% endfor %}
-    echo "$fixed_files"
+  fixed_files=""
+  {% for vuln_info in vulner_found_vulnerabilities %}
+  {% if vuln_info.startswith('WORLD_WRITABLE:') %}
+  files="{{ vuln_info.split(':')[1] }}"
+  IFS=',' read -ra file_array <<< "$files"
+  for file in "${file_array[@]}"; do
+  if [ -f "$file" ]; then
+  echo "Fixing permissions for $file"
+  chmod o-w "$file" && fixed_files="$fixed_files$file;"
+  fi
+  done
+  {% endif %}
+  {% endfor %}
+  echo "$fixed_files"
   register: vulner_permission_fixes
   when: vulner_found_vulnerabilities | length > 0 and vulner_auto_remediate
   become: true
 
 - name: Apply OpenSSH specific fixes for CVE-2024-6387
   block:
-    - name: Update OpenSSH to patched version
-      ansible.builtin.shell: |
-        {% if vulner_package_manager == 'dnf' %}
-        dnf update -y openssh openssh-server openssh-clients
-        {% else %}
-        yum update -y openssh openssh-server openssh-clients
-        {% endif %}
-      register: vulner_openssh_update
+- name: Update OpenSSH to patched version
+  ansible.builtin.shell: |
+  {% if vulner_package_manager == 'dnf' %}
+  dnf update -y openssh openssh-server openssh-clients
+  {% else %}
+  yum update -y openssh openssh-server openssh-clients
+  {% endif %}
+  register: vulner_openssh_update
 
-    - name: Configure SSH to mitigate regreSSHion vulnerability
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?LoginGraceTime'
-        line: 'LoginGraceTime 30'
-        backup: false
-      notify: restart sshd
+- name: Configure SSH to mitigate regreSSHion vulnerability
+  ansible.builtin.lineinfile:
+  path: /etc/ssh/sshd_config
+  regexp: '^#?LoginGraceTime'
+  line: 'LoginGraceTime 30'
+  backup: false
+  notify: restart sshd
 
-    - name: Limit SSH connections
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?MaxSessions'
-        line: 'MaxSessions 5'
-        backup: false
-      notify: restart sshd
+- name: Limit SSH connections
+  ansible.builtin.lineinfile:
+  path: /etc/ssh/sshd_config
+  regexp: '^#?MaxSessions'
+  line: 'MaxSessions 5'
+  backup: false
+  notify: restart sshd
 
   when:
-    - vulner_found_vulnerabilities | select('search', 'CVE-2024-6387') | list | length > 0
-    - vulner_auto_remediate
+  - vulner_found_vulnerabilities | select('search', 'CVE-2024-6387') | list | length > 0
+- vulner_auto_remediate
   become: true
 
 - name: Generate remediation summary
   ansible.builtin.set_fact:
-    vulner_remediation_summary:
-      timestamp: "{{ ansible_date_time.iso8601 }}"
-      backup_created: "{{ vulner_backup_result.stdout if vulner_backup_result is defined else 'No backup created' }}"
-      cve_updates: "{{ vulner_cve_updates.stdout if vulner_cve_updates is defined else '' }}"
-      package_updates: "{{ vulner_package_updates.stdout if vulner_package_updates is defined else '' }}"
-      kernel_updated: "{{ vulner_kernel_update is changed if vulner_kernel_update is defined else false }}"
-      ssh_fixed: "{{ vulner_found_vulnerabilities | select('search', 'SSH_') | list | length > 0 }}"
-      sudo_fixed: "{{ vulner_found_vulnerabilities | select('search', 'SUDO_') | list | length > 0 }}"
-      permissions_fixed: "{{ vulner_permission_fixes.stdout if vulner_permission_fixes is defined else '' }}"
-      reboot_required: "{{ vulner_reboot_required | default(false) }}"
+  vulner_remediation_summary:
+  timestamp: "{{ ansible_date_time.iso8601 }}"
+  backup_created: "{{ vulner_backup_result.stdout if vulner_backup_result is defined else 'No backup created' }}"
+  cve_updates: "{{ vulner_cve_updates.stdout if vulner_cve_updates is defined else '' }}"
+  package_updates: "{{ vulner_package_updates.stdout if vulner_package_updates is defined else '' }}"
+  kernel_updated: "{{ vulner_kernel_update is changed if vulner_kernel_update is defined else false }}"
+  ssh_fixed: "{{ vulner_found_vulnerabilities | select('search', 'SSH_') | list | length > 0 }}"
+  sudo_fixed: "{{ vulner_found_vulnerabilities | select('search', 'SUDO_') | list | length > 0 }}"
+  permissions_fixed: "{{ vulner_permission_fixes.stdout if vulner_permission_fixes is defined else '' }}"
+  reboot_required: "{{ vulner_reboot_required | default(false) }}"
 
 - name: Display remediation summary
   ansible.builtin.debug:
-    msg:
-      - "=== Vulnerability Remediation Summary ==="
-      - "Timestamp: {{ vulner_remediation_summary.timestamp }}"
-      - "Backup created: {{ vulner_remediation_summary.backup_created }}"
-      - "CVE updates applied: {{ vulner_remediation_summary.cve_updates.split(';') | reject('equalto', '') | list }}"
-      - "Package updates: {{ vulner_remediation_summary.package_updates.split(';') | reject('equalto', '') | list }}"
-      - "Kernel updated: {{ vulner_remediation_summary.kernel_updated }}"
-      - "SSH configuration fixed: {{ vulner_remediation_summary.ssh_fixed }}"
-      - "Sudo configuration fixed: {{ vulner_remediation_summary.sudo_fixed }}"
-      - "File permissions fixed: {{ vulner_remediation_summary.permissions_fixed.split(';') | reject('equalto', '') | list }}"
-      - "Reboot required: {{ vulner_remediation_summary.reboot_required }}"
+  msg:
+  - "=== Vulnerability Remediation Summary ==="
+  - "Timestamp: {{ vulner_remediation_summary.timestamp }}"
+  - "Backup created: {{ vulner_remediation_summary.backup_created }}"
+  - "CVE updates applied: {{ vulner_remediation_summary.cve_updates.split(';') | reject('equalto', '') | list }}"
+  - "Package updates: {{ vulner_remediation_summary.package_updates.split(';') | reject('equalto', '') | list }}"
+  - "Kernel updated: {{ vulner_remediation_summary.kernel_updated }}"
+  - "SSH configuration fixed: {{ vulner_remediation_summary.ssh_fixed }}"
+  - "Sudo configuration fixed: {{ vulner_remediation_summary.sudo_fixed }}"
+  - "File permissions fixed: {{ vulner_remediation_summary.permissions_fixed.split(';') | reject('equalto', '') | list }}"
+  - "Reboot required: {{ vulner_remediation_summary.reboot_required }}"
 
 - name: Schedule reboot if required
   ansible.builtin.reboot:
-    msg: "Rebooting to apply kernel security updates"
-    reboot_timeout: 300
-    pre_reboot_delay: 60
+  msg: "Rebooting to apply kernel security updates"
+  reboot_timeout: 300
+  pre_reboot_delay: 60
   when:
-    - vulner_remediation_summary.reboot_required
-    - vulner_auto_reboot
+  - vulner_remediation_summary.reboot_required
+  - vulner_auto_reboot
   become: true
 
 - name: Update remediation tracking
   ansible.builtin.set_fact:
-    vulner_remediation_completed: true
-    vulner_remediation_timestamp: "{{ ansible_date_time.iso8601 }}"
-    vulner_vulnerabilities_before: "{{ vulner_found_vulnerabilities | length }}"
-    cacheable: true
+  vulner_remediation_completed: true
+  vulner_remediation_timestamp: "{{ ansible_date_time.iso8601 }}"
+  vulner_vulnerabilities_before: "{{ vulner_found_vulnerabilities | length }}"
+  cacheable: true

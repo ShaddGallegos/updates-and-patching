@@ -5,105 +5,105 @@
 
 - name: Prepare email content
   set_fact:
-    email_subject: "[{{ report_company_name }}] {{ report_title }} - {{ ansible_date_time.date }}"
-    email_html_body: "{{ lookup('template', 'update_report.html.j2') }}"
-    email_text_body: "{{ lookup('template', 'update_report_text.j2') }}"
+  email_subject: "[{{ report_company_name }}] {{ report_title }} - {{ ansible_date_time.date }}"
+  email_html_body: "{{ lookup('template', 'update_report.html.j2') }}"
+  email_text_body: "{{ lookup('template', 'update_report_text.j2') }}"
 
 - name: Send email via SendGrid API
   uri:
-    url: https://api.sendgrid.com/v3/mail/send
-    method: POST
-    headers:
-      Authorization: "Bearer {{ sendgrid_api_key }}"
-      Content-Type: application/json
-    body_format: json
-    body:
-      personalizations:
-        - to: "{{ sendgrid_to_email_addresses | map('regex_replace', '^(.+)$', '{\"email\": \"\\1\"}') | map('from_json') | list }}"
-          subject: "{{ email_subject }}"
-      from:
-        email: "{{ sendgrid_from_email_address }}"
-        name: "{{ report_company_name }} Ansible Automation"
-      content:
-        - type: text/html
-          value: "{{ email_html_body }}"
-        - type: text/plain
-          value: "{{ email_text_body }}"
-      categories: "{{ sendgrid_categories }}"
-    status_code: 202
+  url: https://api.sendgrid.com/v3/mail/send
+  method: POST
+  headers:
+  Authorization: "Bearer {{ sendgrid_api_key }}"
+  Content-Type: application/json
+  body_format: json
+  body:
+  personalizations:
+  - to: "{{ sendgrid_to_email_addresses | map('regex_replace', '^(.+)$', '{\"email\": \"\\1\"}') | map('from_json') | list }}"
+  subject: "{{ email_subject }}"
+  from:
+  email: "{{ sendgrid_from_email_address }}"
+- name: "{{ report_company_name }} Ansible Automation"
+  content:
+  - type: text/html
+  value: "{{ email_html_body }}"
+  - type: text/plain
+  value: "{{ email_text_body }}"
+  categories: "{{ sendgrid_categories }}"
+  status_code: 202
   delegate_to: localhost
   become: false
   register: sendgrid_response
   when:
-    - report_sendgrid_enabled | bool
-    - sendgrid_api_key is defined
-    - sendgrid_api_key | length > 0
-    - report_storage_type in ['sendgrid', 'email', 'all']
+  - report_sendgrid_enabled | bool
+  - sendgrid_api_key is defined
+  - sendgrid_api_key | length > 0
+  - report_storage_type in ['sendgrid', 'email', 'all']
   run_once: true
 
 - name: Send email via SMTP
   mail:
-    host: "{{ smtp_host }}"
-    port: "{{ smtp_port }}"
-    username: "{{ smtp_account }}"
-    password: "{{ smtp_account_password }}"
-    to: "{{ smtp_to_email_addresses }}"
-    from: "{{ smtp_from_email_address }}"
-    subject: "{{ email_subject }}"
-    body: "{{ email_html_body }}"
-    subtype: html
-    secure: "{{ smtp_use_tls | ternary('starttls', 'never') }}"
-    charset: utf-8
-    attach: >-
-      {%- if report_file_enabled and 'json' in report_file_formats -%}
-      {{ report_base_path }}/{{ report_base_name }}-fleet-summary-{{ report_timestamp_formatted }}.txt
-      {%- endif -%}
+  host: "{{ smtp_host }}"
+  port: "{{ smtp_port }}"
+  username: "{{ smtp_account }}"
+  password: "{{ smtp_account_password }}"
+  to: "{{ smtp_to_email_addresses }}"
+  from: "{{ smtp_from_email_address }}"
+  subject: "{{ email_subject }}"
+  body: "{{ email_html_body }}"
+  subtype: html
+  secure: "{{ smtp_use_tls | ternary('starttls', 'never') }}"
+  charset: utf-8
+  attach: >-
+  {%- if report_file_enabled and 'json' in report_file_formats -%}
+  {{ report_base_path }}/{{ report_base_name }}-fleet-summary-{{ report_timestamp_formatted }}.txt
+  {%- endif -%}
   delegate_to: localhost
   become: false
   register: smtp_response
   when:
-    - report_email_enabled | bool
-    - send_email_with_smtp | bool
-    - smtp_account is defined
-    - smtp_account_password is defined
-    - smtp_to_email_addresses | length > 0
-    - report_storage_type in ['email', 'all']
+  - report_email_enabled | bool
+  - send_email_with_smtp | bool
+  - smtp_account is defined
+  - smtp_account_password is defined
+  - smtp_to_email_addresses | length > 0
+  - report_storage_type in ['email', 'all']
   run_once: true
 
 - name: Alternative SMTP with mail command (fallback)
   shell: |
-    echo "{{ email_text_body }}" | mail -s "{{ email_subject }}" {% for email in smtp_to_email_addresses %}{{ email }} {% endfor %}
+  echo "{{ email_text_body }}" | mail -s "{{ email_subject }}" {% for email in smtp_to_email_addresses %}{{ email }} {% endfor %}
   delegate_to: localhost
   become: false
   register: mail_cmd_response
   when:
-    - report_email_enabled | bool
-    - not send_email_with_smtp | bool
-    - smtp_to_email_addresses | length > 0
-    - report_storage_type in ['email', 'all']
-    - smtp_response is not defined or smtp_response is failed
+  - report_email_enabled | bool
+  - not send_email_with_smtp | bool
+  - smtp_to_email_addresses | length > 0
+  - report_storage_type in ['email', 'all']
+  - smtp_response is not defined or smtp_response is failed
   run_once: true
 
 - name: Verify email delivery
   debug:
-    msg: |
-      Email delivery status:
-      {% if sendgrid_response is defined and not sendgrid_response is failed %}
-       SendGrid: Successfully sent to {{ sendgrid_to_email_addresses | length }} recipients
-      {% elif sendgrid_response is defined and sendgrid_response is failed %}
-       SendGrid: Failed - {{ sendgrid_response.msg | default('Unknown error') }}
-      {% endif %}
-      {% if smtp_response is defined and not smtp_response is failed %}
-       SMTP: Successfully sent to {{ smtp_to_email_addresses | length }} recipients
-      {% elif smtp_response is defined and smtp_response is failed %}
-       SMTP: Failed - {{ smtp_response.msg | default('Unknown error') }}
-      {% endif %}
-      {% if mail_cmd_response is defined and not mail_cmd_response is failed %}
-       Mail Command: Successfully sent to {{ smtp_to_email_addresses | length }} recipients
-      {% elif mail_cmd_response is defined and mail_cmd_response is failed %}
-       Mail Command: Failed - {{ mail_cmd_response.stderr | default('Unknown error') }}
-      {% endif %}
-  when: 
-    - report_email_enabled | bool or report_sendgrid_enabled | bool
-    - report_debug_mode | bool
+  msg: |
+  Email delivery status:
+  {% if sendgrid_response is defined and not sendgrid_response is failed %}
+  SendGrid: Successfully sent to {{ sendgrid_to_email_addresses | length }} recipients
+  {% elif sendgrid_response is defined and sendgrid_response is failed %}
+  SendGrid: Failed - {{ sendgrid_response.msg | default('Unknown error') }}
+  {% endif %}
+  {% if smtp_response is defined and not smtp_response is failed %}
+  SMTP: Successfully sent to {{ smtp_to_email_addresses | length }} recipients
+  {% elif smtp_response is defined and smtp_response is failed %}
+  SMTP: Failed - {{ smtp_response.msg | default('Unknown error') }}
+  {% endif %}
+  {% if mail_cmd_response is defined and not mail_cmd_response is failed %}
+  Mail Command: Successfully sent to {{ smtp_to_email_addresses | length }} recipients
+  {% elif mail_cmd_response is defined and mail_cmd_response is failed %}
+  Mail Command: Failed - {{ mail_cmd_response.stderr | default('Unknown error') }}
+  {% endif %}
+  when:
+  - report_email_enabled | bool or report_sendgrid_enabled | bool
+  - report_debug_mode | bool
   run_once: true

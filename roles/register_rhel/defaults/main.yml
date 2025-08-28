@@ -1,35 +1,11 @@
 ---
-# defaults file for register_rhel
-
-# Registration type: 'cdn' for Red Hat CDN or 'satellite' for Red Hat Satellite
-register_rhel_type: cdn
-
-# Common settings
-register_rhel_verbose: true
-register_rhel_force: false
-
-# CDN Registration Settings
-# register_rhel_username: ""
-# register_rhel_password: ""
 register_rhel_auto_attach: true
-# register_rhel_pool_ids: []
-# register_rhel_consumer_type: ""
-# register_rhel_consumer_name: ""
-# register_rhel_consumer_id: ""
-
-# Satellite Registration Settings
-# register_rhel_satellite_url: "https://satellite.example.com"
-# register_rhel_org_id: "Example_Org"
-# register_rhel_activation_key: "my-activation-key"
-# register_rhel_satellite_username: ""
-# register_rhel_satellite_password: ""
+register_rhel_configure_repos: true
+register_rhel_force: false
 register_rhel_install_satellite_ca: true
 register_rhel_install_satellite_tools: false
-register_rhel_validate_certs: true
-
-# Repository Configuration
-register_rhel_configure_repos: true
-register_rhel_use_default_repos: true
+register_rhel_type: cdn
 register_rhel_update_cache: true
-# register_rhel_additional_repos: []
-# register_rhel_disable_repos: []
+register_rhel_use_default_repos: true
+register_rhel_validate_certs: true
+register_rhel_verbose: true

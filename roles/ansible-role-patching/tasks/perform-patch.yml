@@ -1,7 +1,4 @@
-# tasks/perform-patch.yml
-# Comprehensive Linux OS patching tasks
 ---
-
 - name: Check for available updates (dry run)
   block:
     - name: Check YUM/DNF updates (RedHat)
@@ -13,7 +10,7 @@
 
     - name: Check APT updates (Debian/Ubuntu)
       ansible.builtin.shell: "apt list --upgradable"
-      register: patch_apt_check  
+      register: patch_apt_check
       when: ansible_facts['os_family'] == 'Debian'
       changed_when: false
       failed_when: false
@@ -41,11 +38,17 @@
       - "{{ patch_available_updates.stdout_lines[:20] | default(['No updates available']) }}"
   vars:
     patch_available_updates: >-
-      {{ patch_yum_check if ansible_facts['os_family'] == 'RedHat'
-         else patch_apt_check if ansible_facts['os_family'] == 'Debian' 
-         else patch_zypper_check if ansible_facts['os_family'] == 'Suse'
-         else patch_pacman_check if ansible_facts['pkg_mgr'] == 'pacman'
-         else {'stdout_lines': ['Unknown package manager']} }}
+      {% if ansible_facts['os_family'] == 'RedHat' %}
+        {{ patch_yum_check }}
+      {% elif ansible_facts['os_family'] == 'Debian' %}
+        {{ patch_apt_check }}
+      {% elif ansible_facts['os_family'] == 'Suse' %}
+        {{ patch_zypper_check }}
+      {% elif ansible_facts['pkg_mgr'] == 'pacman' %}
+        {{ patch_pacman_check }}
+      {% else %}
+        {{ {'stdout_lines': ['Unknown package manager']} }}
+      {% endif %}
   tags: [patch, info]
 
 - name: Exit if dry run mode
@@ -53,16 +56,14 @@
   when: patch_dry_run
   tags: [patch, dry-run]
 
-# RedHat family (RHEL, CentOS, Rocky, AlmaLinux, Fedora)
+    # RedHat family (RHEL, CentOS, Rocky, AlmaLinux, Fedora)
 - name: YUM/DNF patching (RedHat family)
   block:
     - name: Install security updates only (YUM/DNF)
-      ansible.builtin.shell: |
-        {% if ansible_facts['pkg_mgr'] == 'yum' %}
-        yum update -y --security {% if patch_exclude | length > 0 %}--exclude={{ patch_exclude | join(',') }}{% endif %}
-        {% else %}
-        dnf update -y --security {% if patch_exclude | length > 0 %}--exclude={{ patch_exclude | join(',') }}{% endif %}
-        {% endif %}
+      ansible.builtin.shell: >
+        {{ 'yum' if ansible_facts['pkg_mgr'] == 'yum' else 'dnf' }}
+        update -y --security
+        {% if patch_exclude | length > 0 %}--exclude={{ patch_exclude | join(',') }}{% endif %}
       when: patch_security_only
       register: patch_security_result
       timeout: "{{ patch_install_timeout }}"
@@ -77,12 +78,11 @@
       timeout: "{{ patch_install_timeout }}"
       retries: "{{ patch_retries }}"
       delay: "{{ patch_retry_delay }}"
-
   when: ansible_facts['os_family'] == 'RedHat'
   become: true
   tags: [patch, redhat]
 
-# Debian family (Debian, Ubuntu)
+    # Debian family (Debian, Ubuntu)
 - name: APT patching (Debian family)
   block:
     - name: Update APT cache
@@ -91,8 +91,7 @@
         cache_valid_time: "{{ patch_cache_valid_time }}"
 
     - name: Install security updates only (APT)
-      ansible.builtin.shell: |
-        unattended-upgrade -v
+      ansible.builtin.shell: "unattended-upgrade -v"
       when: patch_security_only
       register: patch_apt_security_result
       timeout: "{{ patch_install_timeout }}"
@@ -109,12 +108,11 @@
       timeout: "{{ patch_install_timeout }}"
       retries: "{{ patch_retries }}"
       delay: "{{ patch_retry_delay }}"
-
   when: ansible_facts['os_family'] == 'Debian'
   become: true
   tags: [patch, debian]
 
-# SUSE family (openSUSE, SLES)
+    # SUSE family (openSUSE, SLES)
 - name: Zypper patching (SUSE family)
   block:
     - name: Update Zypper repositories
@@ -133,7 +131,7 @@
 
     - name: Full system update (Zypper)
       ansible.builtin.zypper:
-        name: '*' 
+        name: '*'
         state: latest
         type: "{{ 'patch' if patch_zypper_no_recommends else 'package' }}"
         disable_recommends: "{{ patch_zypper_no_recommends }}"
@@ -142,36 +140,35 @@
       timeout: "{{ patch_install_timeout }}"
       retries: "{{ patch_retries }}"
       delay: "{{ patch_retry_delay }}"
-
   when: ansible_facts['os_family'] == 'Suse'
   become: true
   tags: [patch, suse]
 
-# Arch Linux family
+    # Arch Linux family
 - name: Pacman patching (Arch family)
   block:
     - name: Clean Pacman cache
       ansible.builtin.command: "yes | pacman -Scc"
-      when: patch_clean_cache
+  when: patch_clean_cache
 
-    - name: Update Pacman database
-      ansible.builtin.pacman:
-        update_cache: true
+- name: Update Pacman database
+  ansible.builtin.pacman:
+  update_cache: true
 
-    - name: Full system upgrade (Pacman)
-      ansible.builtin.pacman:
-        upgrade: true
-        update_cache: false
-      register: patch_pacman_result
-      timeout: "{{ patch_install_timeout }}"
-      retries: "{{ patch_retries }}"
-      delay: "{{ patch_retry_delay }}"
+- name: Full system upgrade (Pacman)
+  ansible.builtin.pacman:
+  upgrade: true
+  update_cache: false
+  register: patch_pacman_result
+  timeout: "{{ patch_install_timeout }}"
+  retries: "{{ patch_retries }}"
+  delay: "{{ patch_retry_delay }}"
 
   when: ansible_facts['pkg_mgr'] == 'pacman'
   become: true
   tags: [patch, arch]
 
-# Alpine Linux
+    # Alpine Linux
 - name: APK patching (Alpine)
   block:
     - name: Update APK cache
@@ -189,17 +186,16 @@
   become: true
   tags: [patch, alpine]
 
-# Gentoo Linux
+    # Gentoo Linux
 - name: Portage patching (Gentoo)
   block:
     - name: Sync Portage tree
       ansible.builtin.shell: "emerge --sync"
-      
+
     - name: Update world (Portage)
       ansible.builtin.shell: "emerge -uDN @world"
       register: patch_portage_result
       timeout: "{{ patch_install_timeout }}"
-
   when: ansible_facts['pkg_mgr'] == 'portage'
   become: true
   tags: [patch, gentoo]
@@ -211,7 +207,7 @@
         {% if ansible_facts['pkg_mgr'] == 'yum' %}
         yum history list kernel | head -5 | grep -q "$(date +%Y-%m-%d)" && echo "kernel_updated" || echo "no_kernel_update"
         {% else %}
-        dnf history list kernel | head -5 | grep -q "$(date +%Y-%m-%d)" && echo "kernel_updated" || echo "no_kernel_update"  
+        dnf history list kernel | head -5 | grep -q "$(date +%Y-%m-%d)" && echo "kernel_updated" || echo "no_kernel_update"
         {% endif %}
         ;;
       "Debian")
@@ -241,14 +237,23 @@
 - name: Aggregate patch results
   ansible.builtin.set_fact:
     patch_update_result: >-
-      {{ patch_full_result if patch_full_result is defined
-         else patch_security_result if patch_security_result is defined  
-         else patch_apt_result if patch_apt_result is defined
-         else patch_zypper_result if patch_zypper_result is defined
-         else patch_pacman_result if patch_pacman_result is defined
-         else patch_apk_result if patch_apk_result is defined
-         else patch_portage_result if patch_portage_result is defined
-         else {'changed': false, 'msg': 'No updates performed'} }}
+      {% if patch_full_result is defined %}
+        {{ patch_full_result }}
+      {% elif patch_security_result is defined %}
+        {{ patch_security_result }}
+      {% elif patch_apt_result is defined %}
+        {{ patch_apt_result }}
+      {% elif patch_zypper_result is defined %}
+        {{ patch_zypper_result }}
+      {% elif patch_pacman_result is defined %}
+        {{ patch_pacman_result }}
+      {% elif patch_apk_result is defined %}
+        {{ patch_apk_result }}
+      {% elif patch_portage_result is defined %}
+        {{ patch_portage_result }}
+      {% else %}
+        {{ {'changed': false, 'msg': 'No updates performed'} }}
+      {% endif %}
     patch_updates_applied: "{{ patch_update_result.changed | default(false) }}"
     patch_completion_timestamp: "{{ ansible_date_time.iso8601 }}"
 
@@ -259,4 +264,3 @@
     msg: "Rebooting after system patching (kernel updated: {{ patch_kernel_was_updated }})"
   when: patch_reboot_required
   tags: [patch, reboot]
-...

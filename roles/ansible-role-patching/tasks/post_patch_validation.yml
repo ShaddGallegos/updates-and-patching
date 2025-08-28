@@ -35,7 +35,7 @@
   ansible.builtin.shell: |
     case "{{ ansible_facts['pkg_mgr'] }}" in
       "yum"|"dnf")
-        {{ ansible_facts['pkg_mgr'] }} check
+        {{ ansible_facts['pkg_mgr'] }}
         ;;
       "apt")
         apt-get check
@@ -88,9 +88,9 @@
 
 - name: Report package integrity issues
   ansible.builtin.debug:
-    msg:
-      - "Package integrity check result: {{ patch_broken_packages.stdout }}"
-      - "{% if patch_broken_packages.stdout != 'OK' %}WARNING: Package issues detected, manual review may be required{% endif %}"
+  msg:
+  - "Package integrity check result: {{ patch_broken_packages.stdout }}"
+  - "{% if patch_broken_packages.stdout != 'OK' %}WARNING: Package issues detected, manual review may be required{% endif %}"
   when: patch_broken_packages.stdout != "OK"
   tags: [validation, integrity]
 
@@ -131,24 +131,22 @@
 
 - name: Update reboot requirement based on system check
   ansible.builtin.set_fact:
-    patch_reboot_actually_required: >-
-      {{ patch_reboot_required or 
-         (patch_reboot_check.stdout == 'reboot_needed' if patch_reboot_check is defined else false) }}
+    patch_reboot_actually_required: "{{ patch_reboot_required or (patch_reboot_check.stdout == 'reboot_needed' if patch_reboot_check is defined else false) }}"
 
 - name: Display post-patch validation summary
   ansible.builtin.debug:
-    msg:
-      - "=== Post-Patch Validation Summary ==="
-      - "System Status: {{ 'Responsive' if patch_service_validation is succeeded else 'Issues Detected' }}"
-      - "Package Integrity: {{ patch_broken_packages.stdout }}"
-      - "Critical Services: {{ 'Running' if patch_service_validation is succeeded else 'Check Required' }}"
-      - "Kernel Updated: {{ patch_kernel_was_updated }}"
-      - "Reboot Required: {{ patch_reboot_actually_required }}"
-      - "Total Patch Duration: {{ patch_total_duration }}s"
+  msg:
+  - "=== Post-Patch Validation Summary ==="
+  - "System Status: {{ 'Responsive' if patch_service_validation is succeeded else 'Issues Detected' }}"
+  - "Package Integrity: {{ patch_broken_packages.stdout }}"
+  - "Critical Services: {{ 'Running' if patch_service_validation is succeeded else 'Check Required' }}"
+  - "Kernel Updated: {{ patch_kernel_was_updated }}"
+  - "Reboot Required: {{ patch_reboot_actually_required }}"
+  - "Total Patch Duration: {{ patch_total_duration }}s"
   tags: [validation, summary]
 
 - name: Set validation completion flag
   ansible.builtin.set_fact:
-    patch_validation_completed: true
-    patch_validation_timestamp: "{{ ansible_date_time.iso8601 }}"
-    patch_validation_status: "{{ 'PASSED' if patch_broken_packages.stdout == 'OK' else 'ISSUES_DETECTED' }}"
+  patch_validation_completed: true
+  patch_validation_timestamp: "{{ ansible_date_time.iso8601 }}"
+  patch_validation_status: "{{ 'PASSED' if patch_broken_packages.stdout == 'OK' else 'ISSUES_DETECTED' }}"

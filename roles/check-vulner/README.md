@@ -5,7 +5,7 @@ A comprehensive enterprise-grade Ansible role for vulnerability scanning, analys
 ## Features
 
 - **Current Vulnerability Scanning**: Checks for 10+ current priority CVEs and security issues
-- **Automated Remediation**: Automatically applies security updates and configuration fixes  
+- **Automated Remediation**: Automatically applies security updates and configuration fixes 
 - **Professional Reporting**: Generates HTML, CSV, JSON, and executive summary reports
 - **Multi-Format Output**: Email notifications, syslog integration, compliance reporting
 - **RHEL 7-10 Compatibility**: Full support for all current RHEL versions
@@ -29,7 +29,7 @@ The role scans for these current high-priority security issues:
 
 1. **CVE-2024-6387** - OpenSSH regreSSHion vulnerability
 2. **CVE-2024-3094** - XZ Utils backdoor
-3. **CVE-2023-4911** - glibc buffer overflow  
+3. **CVE-2023-4911** - glibc buffer overflow 
 4. **CVE-2023-2650** - OpenSSL certificate validation bypass
 5. **CVE-2023-32681** - Python requests session fixation
 6. **CVE-2022-40674** - expat XML parser vulnerability
@@ -46,27 +46,27 @@ Plus system configuration vulnerabilities and package-specific security issues.
 
 ```yaml
 # Vulnerability scanning settings
-vulner_auto_remediate: true              # Enable automatic vulnerability fixes
-vulner_create_backups: true              # Create system backups before changes
-vulner_scan_frequency_days: 7            # Recommended scan frequency
-vulner_max_vulnerabilities: 50           # Maximum vulnerabilities to scan
+vulner_auto_remediate: true # Enable automatic vulnerability fixes
+vulner_create_backups: true # Create system backups before changes
+vulner_scan_frequency_days: 7 # Recommended scan frequency
+vulner_max_vulnerabilities: 50 # Maximum vulnerabilities to scan
 
 # Package management
-vulner_package_manager: auto             # auto|yum|dnf - Package manager detection
-vulner_update_timeout: 1800              # Package update timeout (seconds)
+vulner_package_manager: auto # auto|yum|dnf - Package manager detection
+vulner_update_timeout: 1800 # Package update timeout (seconds)
 
 # Critical packages to monitor
 vulner_critical_packages:
-  - kernel
-  - glibc
-  - openssl
-  - openssh
-  - sudo
-  - bash
-  - systemd
-  - curl
-  - wget
-  - python3
+ - kernel
+ - glibc
+ - openssl
+ - openssh
+ - sudo
+ - bash
+ - systemd
+ - curl
+ - wget
+ - python3
 ```
 
 ### Reporting Configuration
@@ -75,9 +75,9 @@ vulner_critical_packages:
 # Report generation
 vulner_generate_reports: true
 vulner_report_formats:
-  - json
-  - html  
-  - csv
+ - json
+ - html 
+ - csv
 vulner_report_directory: /var/log/vulnerability-reports
 vulner_report_owner: root
 vulner_report_group: root
@@ -99,15 +99,15 @@ vulner_api_token: ""
 
 ```yaml
 # Remediation behavior
-vulner_auto_reboot: false                # Auto-reboot for kernel updates
-vulner_disable_password_auth: false      # Disable SSH password auth  
-vulner_fix_sudo_config: true             # Fix dangerous sudo configurations
+vulner_auto_reboot: false # Auto-reboot for kernel updates
+vulner_disable_password_auth: false # Disable SSH password auth 
+vulner_fix_sudo_config: true # Fix dangerous sudo configurations
 vulner_backup_directory: /var/backups/vulnerability-remediation
 
 # Compliance and security
-vulner_compliance_framework: "NIST"      # Compliance framework for reporting
-vulner_compliance_reporting: true        # Generate compliance reports
-vulner_role_version: "2.0.0"            # Role version for tracking
+vulner_compliance_framework: "NIST" # Compliance framework for reporting
+vulner_compliance_reporting: true # Generate compliance reports
+vulner_role_version: "2.0.0" # Role version for tracking
 ```
 
 ## Example Playbooks
@@ -117,14 +117,14 @@ vulner_role_version: "2.0.0"            # Role version for tracking
 ```yaml
 ---
 - name: Basic vulnerability scanning
-  hosts: all
-  become: true
-  roles:
-    - role: check-vulner
-      vars:
-        vulner_auto_remediate: false
-        vulner_generate_reports: true
-        vulner_report_formats: [html, json]
+ hosts: all
+ become: true
+ roles:
+ - role: check-vulner
+ vars:
+ vulner_auto_remediate: false
+ vulner_generate_reports: true
+ vulner_report_formats: [html, json]
 ```
 
 ### Full Remediation with Notifications
@@ -132,18 +132,18 @@ vulner_role_version: "2.0.0"            # Role version for tracking
 ```yaml
 ---
 - name: Complete vulnerability management
-  hosts: production_servers
-  become: true
-  roles:
-    - role: check-vulner
-      vars:
-        vulner_auto_remediate: true
-        vulner_create_backups: true
-        vulner_auto_reboot: false
-        vulner_send_email_notifications: true
-        vulner_notification_email: "security-alerts@company.com"
-        vulner_report_formats: [html, csv, json]
-        vulner_compliance_reporting: true
+ hosts: production_servers
+ become: true
+ roles:
+ - role: check-vulner
+ vars:
+ vulner_auto_remediate: true
+ vulner_create_backups: true
+ vulner_auto_reboot: false
+ vulner_send_email_notifications: true
+ vulner_notification_email: "security-alerts@company.com"
+ vulner_report_formats: [html, csv, json]
+ vulner_compliance_reporting: true
 ```
 
 ### Enterprise Integration
@@ -151,17 +151,17 @@ vulner_role_version: "2.0.0"            # Role version for tracking
 ```yaml
 ---
 - name: Enterprise vulnerability management
-  hosts: all
-  become: true
-  roles:
-    - role: check-vulner
-      vars:
-        vulner_auto_remediate: true
-        vulner_central_reporting: true
-        vulner_central_api_endpoint: "https://vuln-dashboard.company.com"
-        vulner_api_token: "{{ vault_vuln_api_token }}"
-        vulner_compliance_framework: "SOC2"
-        vulner_log_to_syslog: true
+ hosts: all
+ become: true
+ roles:
+ - role: check-vulner
+ vars:
+ vulner_auto_remediate: true
+ vulner_central_reporting: true
+ vulner_central_api_endpoint: "https://vuln-dashboard.company.com"
+ vulner_api_token: "{{ vault_vuln_api_token }}"
+ vulner_compliance_framework: "SOC2"
+ vulner_log_to_syslog: true
 ```
 
 ## Output and Reports
@@ -190,7 +190,7 @@ The role can automatically:
 - Apply security patches for known CVEs
 - Update vulnerable packages to patched versions
 - Fix insecure SSH configurations
-- Correct dangerous sudo configurations  
+- Correct dangerous sudo configurations 
 - Fix world-writable file permissions
 - Schedule system reboots for kernel updates
 
@@ -207,8 +207,8 @@ The role can automatically:
 ```yaml
 # Required collections
 collections:
-  - community.general   # For mail and advanced modules
-  - ansible.posix      # For syslog and system operations
+ - community.general # For mail and advanced modules
+ - ansible.posix # For syslog and system operations
 ```
 
 ## Tags
@@ -219,7 +219,7 @@ Use these tags for selective execution:
 # Scan only (no remediation)
 ansible-playbook -t scan playbook.yml
 
-# Remediation only  
+# Remediation only 
 ansible-playbook -t remediate playbook.yml
 
 # Reports only
@@ -234,12 +234,12 @@ ansible-playbook -t critical playbook.yml
 The role sets these facts for subsequent tasks:
 
 ```yaml
-vulner_found_vulnerabilities: []      # List of all vulnerabilities found
-vulner_critical_count: 0              # Number of critical issues
-vulner_total_count: 0                 # Total vulnerability count
-vulner_scan_completed: true           # Scan completion status
-vulner_remediation_completed: false   # Remediation status
-security_system_vulnerable: false     # Legacy compatibility fact
+vulner_found_vulnerabilities: [] # List of all vulnerabilities found
+vulner_critical_count: 0 # Number of critical issues
+vulner_total_count: 0 # Total vulnerability count
+vulner_scan_completed: true # Scan completion status
+vulner_remediation_completed: false # Remediation status
+security_system_vulnerable: false # Legacy compatibility fact
 ```
 
 ## Security Considerations
@@ -286,7 +286,7 @@ This role has been completely rewritten. Key changes:
 
 1. Fork the repository
 2. Create a feature branch
-3. Add tests for new functionality  
+3. Add tests for new functionality 
 4. Submit a pull request with detailed description
 
 ## License
@@ -295,8 +295,8 @@ MIT License - See LICENSE file for details
 
 ## Author Information
 
-**Original Role**: Basic CVE-2019-11135 checker  
-**Modernized**: Enterprise vulnerability management solution  
+**Original Role**: Basic CVE-2019-11135 checker 
+**Modernized**: Enterprise vulnerability management solution 
 **Maintained**: IT Security Team
 
 For support or questions: security-team@company.com

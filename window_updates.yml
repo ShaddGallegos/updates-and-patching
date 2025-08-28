@@ -13,7 +13,7 @@
     win_updates_reboot_timeout: 1200
     # Reporting
     win_updates_generate_report: true
-    
+
   tasks:
     - name: Validate Windows system requirements
       ansible.windows.win_shell: |
@@ -22,11 +22,11 @@
         Write-Output "OS Build: $build"
       register: os_version_check
       changed_when: false
-      
+
     - name: Display detected Windows version
       ansible.builtin.debug:
         msg: "Detected Windows build: {{ os_version_check.stdout | trim }}"
-        
+
     - name: Install Windows Updates
       ansible.windows.win_updates:
         category_names: "{{ categories | default(win_updates_categories) }}"
@@ -35,15 +35,15 @@
         reboot_timeout: "{{ win_updates_reboot_timeout }}"
         log_path: "C:\\Windows\\Temp\\ansible_win_updates.log"
       register: win_updates_result
-      
+
     - name: Generate update report
       ansible.builtin.template:
         src: windows_update_report.j2
         dest: "{{ ansible_env.TEMP }}\\windows_update_report_{{ ansible_date_time.epoch }}.html"
-      vars:
-        update_results: "{{ win_updates_result }}"
+        vars:
+          update_results: "{{ win_updates_result }}"
       when: win_updates_generate_report | bool
-      
+
     - name: Display update summary
       ansible.builtin.debug:
         msg:

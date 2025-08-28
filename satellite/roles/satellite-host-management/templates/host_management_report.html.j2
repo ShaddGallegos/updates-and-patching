@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Red Hat Satellite Host Management Report</title>
+    <style>
+        /* ... (CSS unchanged for brevity) ... */
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>Red Hat Satellite Host Management</h1>
+        <p class="subtitle">Comprehensive Host Operations Report</p>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-card">
+            <h3>Satellite Configuration</h3>
+            <p><strong>Server:</strong> {{ report_data.satellite_info.server | default(satellite_server_url) }}</p>
+            <p><strong>Organization:</strong> {{ report_data.satellite_info.organization | default(satellite_organization) }}</p>
+            <p><strong>Location:</strong> {{ report_data.satellite_info.location | default(satellite_location) }}</p>
+            <p><strong>Report Generated:</strong> {{ report_data.report_timestamp | default(ansible_date_time.iso8601) }}</p>
+        </div>
+        <div class="info-card">
+            <h3>Operation Statistics</h3>
+            <div class="summary-stats">
+                <div class="stat-box">
+                    <div class="stat-number">
+                        {{ [report_data.operation_summary.single_node_ops, report_data.operation_summary.host_group_ops, report_data.operation_summary.all_nodes_ops] | select('equalto', true) | list | length }}
+                    </div>
+                    <div class="stat-label">Host Operations</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-number">
+                        {{ [report_data.operation_summary.cve_updates, report_data.operation_summary.security_updates, report_data.operation_summary.bugfix_updates, report_data.operation_summary.all_updates] | select('equalto', true) | list | length }}
+                    </div>
+                    <div class="stat-label">Update Operations</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="operations-section">
+        <h2 class="operations-title">Operation Summary</h2>
+        <div class="operation-grid">
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.single_node_ops else '' }}">
+                <h4>Single Node Operations</h4>
+                <span class="operation-status {{ 'status-enabled' if report_data.operation_summary.single_node_ops else 'status-disabled' }}">
+                    {{ 'ENABLED' if report_data.operation_summary.single_node_ops else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Host Registration:</strong> {{ 'Completed' if report_data.operation_summary.single_node_ops else 'Skipped' }}</li>
+                    <li><strong>Activation Key Assignment:</strong> {{ 'Applied' if report_data.operation_summary.single_node_ops else 'Not Applied' }}</li>
+                    <li><strong>Host Collection:</strong> {{ 'Assigned' if report_data.operation_summary.single_node_ops else 'Not Assigned' }}</li>
+                    <li><strong>Package Updates:</strong> {{ 'Available' if report_data.operation_summary.single_node_ops else 'Unavailable' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.host_group_ops else '' }}">
+                <h4>Host Group Operations</h4>
+                <span class="operation-status {{ 'status-enabled' if report_data.operation_summary.host_group_ops else 'status-disabled' }}">
+                    {{ 'ENABLED' if report_data.operation_summary.host_group_ops else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Group Registration:</strong> {{ 'Completed' if report_data.operation_summary.host_group_ops else 'Skipped' }}</li>
+                    <li><strong>Bulk Operations:</strong> {{ 'Available' if report_data.operation_summary.host_group_ops else 'Unavailable' }}</li>
+                    <li><strong>Group Updates:</strong> {{ 'Scheduled' if report_data.operation_summary.host_group_ops else 'Not Scheduled' }}</li>
+                    <li><strong>Compliance Management:</strong> {{ 'Active' if report_data.operation_summary.host_group_ops else 'Inactive' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.all_nodes_ops else '' }}">
+                <h4>All Nodes Operations</h4>
+                <span class="operation-status {{ 'status-enabled' if report_data.operation_summary.all_nodes_ops else 'status-disabled' }}">
+                    {{ 'ENABLED' if report_data.operation_summary.all_nodes_ops else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Organization-wide Updates:</strong> {{ 'Executed' if report_data.operation_summary.all_nodes_ops else 'Not Executed' }}</li>
+                    <li><strong>Mass Registration:</strong> {{ 'Available' if report_data.operation_summary.all_nodes_ops else 'Unavailable' }}</li>
+                    <li><strong>Global Compliance:</strong> {{ 'Enforced' if report_data.operation_summary.all_nodes_ops else 'Not Enforced' }}</li>
+                    <li><strong>Fleet Management:</strong> {{ 'Active' if report_data.operation_summary.all_nodes_ops else 'Inactive' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.cve_updates else '' }}">
+                <h4>CVE Updates</h4>
+                <span class="operation-status {{ 'status-completed' if report_data.operation_summary.cve_updates else 'status-disabled' }}">
+                    {{ 'COMPLETED' if report_data.operation_summary.cve_updates else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Critical CVEs:</strong> {{ 'Patched' if report_data.operation_summary.cve_updates else 'Not Addressed' }}</li>
+                    <li><strong>Kernel Updates:</strong> {{ 'Applied' if report_data.operation_summary.cve_updates else 'Not Applied' }}</li>
+                    <li><strong>Security Patches:</strong> {{ 'Installed' if report_data.operation_summary.cve_updates else 'Not Installed' }}</li>
+                    <li><strong>Vulnerability Scanning:</strong> {{ 'Completed' if report_data.operation_summary.cve_updates else 'Not Performed' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.security_updates else '' }}">
+                <h4>Security Updates</h4>
+                <span class="operation-status {{ 'status-completed' if report_data.operation_summary.security_updates else 'status-disabled' }}">
+                    {{ 'COMPLETED' if report_data.operation_summary.security_updates else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Security Patches:</strong> {{ 'Applied' if report_data.operation_summary.security_updates else 'Not Applied' }}</li>
+                    <li><strong>System Hardening:</strong> {{ 'Updated' if report_data.operation_summary.security_updates else 'Not Updated' }}</li>
+                    <li><strong>Critical Updates:</strong> {{ 'Installed' if report_data.operation_summary.security_updates else 'Not Installed' }}</li>
+                    <li><strong>Security Baseline:</strong> {{ 'Maintained' if report_data.operation_summary.security_updates else 'Not Maintained' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.bugfix_updates else '' }}">
+                <h4>Bugfix Updates</h4>
+                <span class="operation-status {{ 'status-completed' if report_data.operation_summary.bugfix_updates else 'status-disabled' }}">
+                    {{ 'COMPLETED' if report_data.operation_summary.bugfix_updates else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Bug Fixes:</strong> {{ 'Applied' if report_data.operation_summary.bugfix_updates else 'Not Applied' }}</li>
+                    <li><strong>Stability Improvements:</strong> {{ 'Updated' if report_data.operation_summary.bugfix_updates else 'Not Updated' }}</li>
+                    <li><strong>Performance Fixes:</strong> {{ 'Installed' if report_data.operation_summary.bugfix_updates else 'Not Installed' }}</li>
+                    <li><strong>Regression Fixes:</strong> {{ 'Applied' if report_data.operation_summary.bugfix_updates else 'Not Applied' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.all_updates else '' }}">
+                <h4>Complete System Updates</h4>
+                <span class="operation-status {{ 'status-completed' if report_data.operation_summary.all_updates else 'status-disabled' }}">
+                    {{ 'COMPLETED' if report_data.operation_summary.all_updates else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>All Packages:</strong> {{ 'Updated' if report_data.operation_summary.all_updates else 'Not Updated' }}</li>
+                    <li><strong>System Synchronization:</strong> {{ 'Completed' if report_data.operation_summary.all_updates else 'Not Completed' }}</li>
+                    <li><strong>Latest Software:</strong> {{ 'Installed' if report_data.operation_summary.all_updates else 'Not Installed' }}</li>
+                    <li><strong>Full Compliance:</strong> {{ 'Achieved' if report_data.operation_summary.all_updates else 'Not Achieved' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.insights_integration else '' }}">
+                <h4>Red Hat Insights</h4>
+                <span class="operation-status {{ 'status-completed' if report_data.operation_summary.insights_integration else 'status-disabled' }}">
+                    {{ 'CONFIGURED' if report_data.operation_summary.insights_integration else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>Client Installation:</strong> {{ 'Completed' if report_data.operation_summary.insights_integration else 'Not Installed' }}</li>
+                    <li><strong>Registration:</strong> {{ 'Active' if report_data.operation_summary.insights_integration else 'Not Registered' }}</li>
+                    <li><strong>Data Collection:</strong> {{ 'Enabled' if report_data.operation_summary.insights_integration else 'Disabled' }}</li>
+                    <li><strong>Compliance Reporting:</strong> {{ 'Active' if report_data.operation_summary.insights_integration else 'Inactive' }}</li>
+                </ul>
+            </div>
+            <div class="operation-card {{ 'enabled' if report_data.operation_summary.rhc_integration else '' }}">
+                <h4>Red Hat Connector</h4>
+                <span class="operation-status {{ 'status-completed' if report_data.operation_summary.rhc_integration else 'status-disabled' }}">
+                    {{ 'CONFIGURED' if report_data.operation_summary.rhc_integration else 'DISABLED' }}
+                </span>
+                <ul class="details-list">
+                    <li><strong>RHC Installation:</strong> {{ 'Completed' if report_data.operation_summary.rhc_integration else 'Not Installed' }}</li>
+                    <li><strong>Satellite Connection:</strong> {{ 'Established' if report_data.operation_summary.rhc_integration else 'Not Connected' }}</li>
+                    <li><strong>Remote Management:</strong> {{ 'Enabled' if report_data.operation_summary.rhc_integration else 'Disabled' }}</li>
+                    <li><strong>Cloud Integration:</strong> {{ 'Active' if report_data.operation_summary.rhc_integration else 'Inactive' }}</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="timestamp">
+        <strong>Report Generated:</strong> {{ report_data.report_timestamp | default(ansible_date_time.iso8601) }} |
+        <strong>Ansible Automation Platform 2.5</strong> |
+        <strong>Red Hat Satellite 6.17</strong>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2025 Red Hat, Inc. | Enterprise Linux Management |
+        <a href="https://access.redhat.com/products/red-hat-satellite">Satellite Documentation</a> |
+        <a href="https://access.redhat.com/products/red-hat-insights">Insights Portal</a></p>
+    </div>
+</div>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 A comprehensive, modernized Ansible role for managing Windows updates across the latest Windows distributions with enhanced security, automation, and enterprise-grade features.
 
-##  New in v2.0
+## New in v2.0
 
 - **Distribution-Specific Support**: Optimized for Windows 11, Windows Server 2022, and Windows 10 22H2
 - **Enhanced Security Features**: Advanced security configurations and compliance integration
@@ -11,34 +11,34 @@ A comprehensive, modernized Ansible role for managing Windows updates across the
 - **Automated Cleanup**: Intelligent post-update cleanup and optimization
 - **Modern PowerShell**: Leverages latest PowerShell capabilities and Windows features
 
-##  Supported Windows Distributions
+## Supported Windows Distributions
 
 | Distribution | Version | Build | Status |
 |--------------|---------|-------|---------|
-| **Windows 11** | 21H2+ | 22000+ |  Fully Supported |
-| **Windows Server 2022** | All Editions | 20348+ |  Fully Supported |
-| **Windows 10 22H2** | Pro/Enterprise/Education | 19041+ |  Fully Supported |
-| Windows 10 (older) | < 22H2 | < 19041 |  Legacy Support |
-| Windows Server 2019 | All Editions | 17763+ |  Legacy Support |
+| **Windows 11** | 21H2+ | 22000+ | Fully Supported |
+| **Windows Server 2022** | All Editions | 20348+ | Fully Supported |
+| **Windows 10 22H2** | Pro/Enterprise/Education | 19041+ | Fully Supported |
+| Windows 10 (older) | < 22H2 | < 19041 | Legacy Support |
+| Windows Server 2019 | All Editions | 17763+ | Legacy Support |
 
-##  Quick Start
+## Quick Start
 
 ### Basic Usage
 
 ```yaml
 - hosts: windows
-  roles:
-    - ansible-role-win_updates-master
-  vars:
-    win_updates_category_names:
-      - SecurityUpdates
-      - CriticalUpdates
-      - UpdateRollups
-    win_updates_generate_report: true
-    win_updates_reboot: false
+ roles:
+ - ansible-role-win_updates-master
+ vars:
+ win_updates_category_names:
+ - SecurityUpdates
+ - CriticalUpdates
+ - UpdateRollups
+ win_updates_generate_report: true
+ win_updates_reboot: false
 ```
 
-##  Role Variables
+## Role Variables
 
 ### Core Configuration
 
@@ -65,7 +65,7 @@ A comprehensive, modernized Ansible role for managing Windows updates across the
 | `win_updates_cleanup_enabled` | `true` | Enable post-update cleanup |
 | `win_updates_optimize_settings` | `true` | Optimize Windows Update settings |
 
-##  Distribution-Specific Features
+## Distribution-Specific Features
 
 ### Windows 11 Features
 - **Smart App Control** integration
@@ -87,39 +87,39 @@ A comprehensive, modernized Ansible role for managing Windows updates across the
 - **Legacy feature** support warnings
 - **Microsoft Edge** WebView2 updates
 
-##  Usage Examples
+## Usage Examples
 
 ### Basic Security Updates
 
 ```yaml
 - name: Install security updates only
-  include_role:
-    name: ansible-role-win_updates-master
-  vars:
-    win_updates_category_names:
-      - SecurityUpdates
-    win_updates_generate_report: true
+ include_role:
+ name: ansible-role-win_updates-master
+ vars:
+ win_updates_category_names:
+ - SecurityUpdates
+ win_updates_generate_report: true
 ```
 
 ### Enterprise Maintenance Window
 
 ```yaml
 - name: Maintenance window update session
-  include_role:
-    name: ansible-role-win_updates-master
-  vars:
-    win_updates_category_names:
-      - SecurityUpdates
-      - CriticalUpdates
-      - UpdateRollups
-      - DefinitionUpdates
-    win_updates_reboot: true
-    win_updates_reboot_timeout: 1800
-    win_updates_generate_report: true
-    win_updates_cleanup_enabled: true
+ include_role:
+ name: ansible-role-win_updates-master
+ vars:
+ win_updates_category_names:
+ - SecurityUpdates
+ - CriticalUpdates
+ - UpdateRollups
+ - DefinitionUpdates
+ win_updates_reboot: true
+ win_updates_reboot_timeout: 1800
+ win_updates_generate_report: true
+ win_updates_cleanup_enabled: true
 ```
 
-##  Requirements
+## Requirements
 
 ### Ansible Controller
 - Ansible 2.12 or later
@@ -128,17 +128,17 @@ A comprehensive, modernized Ansible role for managing Windows updates across the
 
 ### Target Systems
 - Windows 11 (Build 22000+)
-- Windows Server 2022 (Build 20348+)  
+- Windows Server 2022 (Build 20348+) 
 - Windows 10 22H2 (Build 19041+)
 - PowerShell 5.1 or PowerShell Core 7.0+
 - WinRM configured and accessible
 - Administrator privileges
 
-##  License
+## License
 
 This role is licensed under the MIT License.
 
-##  Author Information
+## Author Information
 
 This role was modernized by the Enterprise Automation Team for Windows 11, Server 2022, and Windows 10 22H2 support.
 

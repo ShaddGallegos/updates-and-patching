@@ -34,18 +34,18 @@ A comprehensive Ansible role for configuring YUM/DNF package manager on Red Hat 
 
 ```yaml
 # Package manager settings
-yum_keepcache: 0                    # Keep downloaded packages (0=no, 1=yes)
-yum_debuglevel: 2                   # Debug logging level (0-10)
-yum_gpgcheck: 1                     # Enable GPG signature checking
-yum_skip_if_unavailable: 1          # Skip unavailable repositories
+yum_keepcache: 0 # Keep downloaded packages (0=no, 1=yes)
+yum_debuglevel: 2 # Debug logging level (0-10)
+yum_gpgcheck: 1 # Enable GPG signature checking
+yum_skip_if_unavailable: 1 # Skip unavailable repositories
 
 # Version-specific timeouts and limits
-yum_timeout: 300                    # RHEL 7-8: 300s, RHEL 9+: 600s
-yum_installonly_limit: 3            # RHEL 7-9: 3, RHEL 10+: 5
+yum_timeout: 300 # RHEL 7-8: 300s, RHEL 9+: 600s
+yum_installonly_limit: 3 # RHEL 7-9: 3, RHEL 10+: 5
 
 # Configuration management
-yum_backup_original: true           # Backup original config before changes
-yum_validate_config: true           # Validate configuration after changes
+yum_backup_original: true # Backup original config before changes
+yum_validate_config: true # Validate configuration after changes
 yum_restart_services_on_change: true # Restart services when config changes
 ```
 
@@ -53,21 +53,21 @@ yum_restart_services_on_change: true # Restart services when config changes
 
 ```yaml
 # DNF-specific settings (RHEL 8+)
-yum_best: 1                         # Always install best available version
+yum_best: 1 # Always install best available version
 yum_clean_requirements_on_remove: 1 # Clean unused dependencies
 
 # RHEL 9+ optimizations
-yum_zchunk: 1                       # Enable zchunk compression
-yum_countme: 1                      # Anonymous usage statistics
-yum_fastestmirror: 1                # Use fastest available mirror
+yum_zchunk: 1 # Enable zchunk compression
+yum_countme: 1 # Anonymous usage statistics
+yum_fastestmirror: 1 # Use fastest available mirror
 
 # RHEL 10+ advanced features
-yum_module_hotfixes: 1              # Enable module hotfixes
-yum_protect_running_kernel: 1       # Protect currently running kernel
+yum_module_hotfixes: 1 # Enable module hotfixes
+yum_protect_running_kernel: 1 # Protect currently running kernel
 
 # Enhanced security (RHEL 8+)
-yum_localpkg_gpgcheck: 1            # Check local packages with GPG
-yum_repo_gpgcheck: 0                # Repository GPG checking
+yum_localpkg_gpgcheck: 1 # Check local packages with GPG
+yum_repo_gpgcheck: 0 # Repository GPG checking
 ```
 
 ## Usage Examples
@@ -77,10 +77,10 @@ yum_repo_gpgcheck: 0                # Repository GPG checking
 ```yaml
 ---
 - name: Configure YUM/DNF on RHEL systems
-  hosts: rhel_servers
-  become: true
-  roles:
-    - role: ansible-role-yum
+ hosts: rhel_servers
+ become: true
+ roles:
+ - role: ansible-role-yum
 ```
 
 ### Advanced Configuration
@@ -88,15 +88,15 @@ yum_repo_gpgcheck: 0                # Repository GPG checking
 ```yaml
 ---
 - name: Advanced YUM/DNF configuration
-  hosts: production_servers
-  become: true
-  roles:
-    - role: ansible-role-yum
-      vars:
-        yum_keepcache: 1
-        yum_timeout: 900
-        yum_backup_original: true
-        yum_validate_config: true
+ hosts: production_servers
+ become: true
+ roles:
+ - role: ansible-role-yum
+ vars:
+ yum_keepcache: 1
+ yum_timeout: 900
+ yum_backup_original: true
+ yum_validate_config: true
 ```
 
 ### Version-Specific Settings
@@ -104,14 +104,14 @@ yum_repo_gpgcheck: 0                # Repository GPG checking
 ```yaml
 ---
 - name: Configure with version-specific optimizations
-  hosts: all
-  become: true
-  roles:
-    - role: ansible-role-yum
-      vars:
-        # These will be automatically applied based on RHEL version
-        yum_zchunk: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
-        yum_fastestmirror: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
+ hosts: all
+ become: true
+ roles:
+ - role: ansible-role-yum
+ vars:
+ # These will be automatically applied based on RHEL version
+ yum_zchunk: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
+ yum_fastestmirror: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
 ```
 
 ## Configuration Files
@@ -198,8 +198,8 @@ Enable detailed logging:
 
 ```yaml
 - role: ansible-role-yum
-  vars:
-    yum_debuglevel: 10
+ vars:
+ yum_debuglevel: 10
 ```
 
 ## Version History
@@ -213,8 +213,8 @@ MIT License - See LICENSE file for details
 
 ## Author Information
 
-**Updated for Modern RHEL**: System Administration Team  
-**Enterprise Infrastructure**: Multi-version RHEL support  
+**Updated for Modern RHEL**: System Administration Team 
+**Enterprise Infrastructure**: Multi-version RHEL support 
 **Contact**: sysadmin-team@company.com
 
 ---

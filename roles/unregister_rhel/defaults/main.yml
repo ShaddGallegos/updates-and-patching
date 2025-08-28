@@ -1,14 +1,5 @@
 ---
-# defaults file for unregister_rhel
-
-# Whether to display verbose output during unregistration
-unregister_rhel_verbose: true
-
-# Whether to perform Satellite-specific cleanup when detected
-unregister_rhel_clean_satellite: true
-
-# Whether to clean up log directories (can be large, disabled by default)
 unregister_rhel_clean_logs: false
-
-# Whether to force unregistration even if system appears unregistered
+unregister_rhel_clean_satellite: true
 unregister_rhel_force: false
+unregister_rhel_verbose: true

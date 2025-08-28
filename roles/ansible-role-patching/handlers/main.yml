@@ -5,164 +5,165 @@
 
 - name: reboot system
   ansible.builtin.reboot:
-    reboot_timeout: "{{ patch_reboot_timeout }}"
-    connect_timeout: "{{ patch_connect_timeout }}"
-    test_command: "{{ patch_test_command }}"
-    pre_reboot_delay: "{{ patch_pre_reboot_delay }}"
-    post_reboot_delay: "{{ patch_post_reboot_delay }}"
+  reboot_timeout: "{{ patch_reboot_timeout }}"
+  connect_timeout: "{{ patch_connect_timeout }}"
+  test_command: "{{ patch_test_command }}"
+  pre_reboot_delay: "{{ patch_pre_reboot_delay }}"
+  post_reboot_delay: "{{ patch_post_reboot_delay }}"
   become: true
   when:
-    - patch_allow_reboot | bool
-    - patch_reboot_required | default(false)
+  - patch_allow_reboot | bool
+  - patch_reboot_required | default(false)
 
 - name: restart network service
   ansible.builtin.systemd_service:
-    name: "{{ patch_network_service }}"
-    state: restarted
+- name: "{{ patch_network_service }}"
+  state: restarted
   become: true
   when: patch_restart_network | bool
 
 - name: restart ssh service
   ansible.builtin.systemd_service:
-    name: "{{ patch_ssh_service }}"
-    state: restarted
+- name: "{{ patch_ssh_service }}"
+  state: restarted
   become: true
   when: patch_restart_ssh | bool
 
 - name: restart firewall service
   ansible.builtin.systemd_service:
-    name: "{{ patch_firewall_service }}"
-    state: restarted
+- name: "{{ patch_firewall_service }}"
+  state: restarted
   become: true
-  when: 
-    - patch_restart_firewall | bool
-    - patch_firewall_service is defined
+  when:
+  - patch_restart_firewall | bool
+  - patch_firewall_service is defined
 
 - name: restart critical services
   ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    state: restarted
+- name: "{{ item }}"
+  state: restarted
   become: true
   loop: "{{ patch_critical_services }}"
-  when: 
-    - patch_restart_critical_services | bool
-    - patch_critical_services is defined
-    - patch_critical_services | length > 0
+  when:
+  - patch_restart_critical_services | bool
+  - patch_critical_services is defined
+  - patch_critical_services | length > 0
 
 - name: reload systemd daemon
   ansible.builtin.systemd:
-    daemon_reload: true
+  daemon_reload: true
   become: true
   when: patch_reload_systemd | bool
 
 - name: update package cache
   block:
-    - name: update yum/dnf cache
-      ansible.builtin.command: "{{ patch_pkg_manager }} clean all"
-      when: patch_pkg_manager in ['yum', 'dnf']
-      changed_when: true
+- name: update yum/dnf cache
+  ansible.builtin.command: "{{ patch_pkg_manager }} clean all"
+  when: patch_pkg_manager in ['yum', 'dnf']
+  changed_when: true
 
-    - name: update apt cache
-      ansible.builtin.apt:
-        update_cache: true
-        cache_valid_time: 0
-      when: patch_pkg_manager == 'apt'
+- name: update apt cache
+  ansible.builtin.apt:
+  update_cache: true
+  cache_valid_time: 0
+  when: patch_pkg_manager == 'apt'
 
-    - name: update zypper cache
-      ansible.builtin.command: zypper refresh
-      when: patch_pkg_manager == 'zypper'
-      changed_when: true
+- name: update zypper cache
+  ansible.builtin.command: zypper refresh
+  when: patch_pkg_manager == 'zypper'
+  changed_when: true
 
-    - name: update pacman cache
-      ansible.builtin.command: pacman -Sy
-      when: patch_pkg_manager == 'pacman'
-      changed_when: true
+- name: update pacman cache
+  ansible.builtin.command: pacman -Sy
+  when: patch_pkg_manager == 'pacman'
+  changed_when: true
 
-    - name: update apk cache
-      ansible.builtin.command: apk update
-      when: patch_pkg_manager == 'apk'
-      changed_when: true
+- name: update apk cache
+  ansible.builtin.command: apk update
+  when: patch_pkg_manager == 'apk'
+  changed_when: true
 
-    - name: sync portage tree
-      ansible.builtin.command: emerge --sync
-      when: patch_pkg_manager == 'portage'
-      changed_when: true
+- name: sync portage tree
+  ansible.builtin.command: emerge --sync
+  when: patch_pkg_manager == 'portage'
+  changed_when: true
   become: true
 
 - name: clean package cache
   block:
-    - name: clean yum/dnf cache
-      ansible.builtin.command: "{{ patch_pkg_manager }} clean all"
-      when: patch_pkg_manager in ['yum', 'dnf']
-      changed_when: true
+- name: clean yum/dnf cache
+  ansible.builtin.command: "{{ patch_pkg_manager }} clean all"
+  when: patch_pkg_manager in ['yum', 'dnf']
+  changed_when: true
 
-    - name: clean apt cache
-      ansible.builtin.command: apt autoclean
-      when: patch_pkg_manager == 'apt'
-      changed_when: true
+- name: clean apt cache
+  ansible.builtin.command: apt autoclean
+  when: patch_pkg_manager == 'apt'
+  changed_when: true
 
-    - name: clean zypper cache
-      ansible.builtin.command: zypper clean
-      when: patch_pkg_manager == 'zypper'
-      changed_when: true
+- name: clean zypper cache
+  ansible.builtin.command: zypper clean
+  when: patch_pkg_manager == 'zypper'
+  changed_when: true
 
-    - name: clean pacman cache
-      ansible.builtin.command: pacman -Sc --noconfirm
-      when: patch_pkg_manager == 'pacman'
-      changed_when: true
+- name: clean pacman cache
+  ansible.builtin.command: pacman -Sc --noconfirm
+  when: patch_pkg_manager == 'pacman'
+  changed_when: true
 
-    - name: clean apk cache
-      ansible.builtin.command: apk cache clean
-      when: patch_pkg_manager == 'apk'
-      changed_when: true
+- name: clean apk cache
+  ansible.builtin.command: apk cache clean
+  when: patch_pkg_manager == 'apk'
+  changed_when: true
   become: true
 
 - name: update boot configuration
   block:
-    - name: update grub configuration (RedHat/SUSE)
-      ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
-      when: ansible_os_family in ['RedHat', 'Suse']
-      changed_when: true
+- name: update grub configuration (RedHat/SUSE)
+  ansible.builtin.command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  when: ansible_os_family in ['RedHat', 'Suse']
+  changed_when: true
 
-    - name: update grub configuration (Debian)
-      ansible.builtin.command: update-grub
-      when: ansible_os_family == 'Debian'
-      changed_when: true
+- name: update grub configuration (Debian)
+  ansible.builtin.command: update-grub
+  when: ansible_os_family == 'Debian'
+  changed_when: true
 
-    - name: update grub configuration (Arch)
-      ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
-      when: ansible_os_family == 'Archlinux'
-      changed_when: true
+- name: update grub configuration (Arch)
+  ansible.builtin.command: grub-mkconfig -o /boot/grub/grub.cfg
+  changed_when: true
   become: true
-  when: patch_update_bootloader | bool
+  when:
+    - ansible_os_family == 'Archlinux'
+    - patch_update_bootloader | bool
 
 - name: restart logging service
   ansible.builtin.systemd_service:
-    name: "{{ patch_logging_service }}"
-    state: restarted
+- name: "{{ patch_logging_service }}"
+  state: restarted
   become: true
-  when: 
-    - patch_restart_logging | bool
-    - patch_logging_service is defined
+  when:
+  - patch_restart_logging | bool
+  - patch_logging_service is defined
 
 - name: restart monitoring agents
   ansible.builtin.systemd_service:
-    name: "{{ item }}"
-    state: restarted
+- name: "{{ item }}"
+  state: restarted
   become: true
   loop: "{{ patch_monitoring_services }}"
-  when: 
-    - patch_restart_monitoring | bool
-    - patch_monitoring_services is defined
-    - patch_monitoring_services | length > 0
+  when:
+  - patch_restart_monitoring | bool
+  - patch_monitoring_services is defined
+  - patch_monitoring_services | length > 0
 
 - name: cleanup temp files
   ansible.builtin.file:
-    path: "{{ patch_temp_dir }}"
-    state: absent
+  path: "{{ patch_temp_dir }}"
+  state: absent
   when: patch_cleanup_temp | bool
 
 - name: send notification
   ansible.builtin.debug:
-    msg: "Patching completed on {{ inventory_hostname }}. {{ patch_notification_message | default('Check reports for details.') }}"
+  msg: "Patching completed on {{ inventory_hostname }}. {{ patch_notification_message | default('Check reports for details.') }}"
   when: patch_send_notifications | bool

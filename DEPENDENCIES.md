@@ -29,8 +29,8 @@ Example configuration showing how to use these dependencies in an Execution Envi
 ### For Execution Environment Builds
 ```bash
 ansible-builder build --container-runtime podman \
-  --file execution-environment.yml \
-  --tag updates-patching-ee:latest
+ --file execution-environment.yml \
+ --tag updates-patching-ee:latest
 ```
 
 ### For Direct Installation

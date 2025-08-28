@@ -16,18 +16,18 @@ additional_build_steps:
   prepend_base: |
     RUN dnf update -y
     RUN dnf install -y python3-pip
-    
+
   append_base: |
     # Configure Ansible for enterprise environments
     RUN mkdir -p /etc/ansible
     COPY _build/configs/ansible.cfg /etc/ansible/ansible.cfg
-    
+
     # Set proper permissions for security
     RUN chmod 644 /etc/ansible/ansible.cfg
-    
+
     # Verify Python packages installation
     RUN python3 -m pip list
-    
+
     # Clean up to reduce image size
     RUN dnf clean all
     RUN rm -rf /var/cache/dnf
@@ -35,13 +35,13 @@ additional_build_steps:
   append_final: |
     # Final security and cleanup steps
     USER root
-    
+
     # Create ansible user for execution
     RUN useradd -m -s /bin/bash ansible
-    RUN echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/ansible
-    
+  RUN echo 'ansible ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/ansible
+
     # Set working directory
     WORKDIR /home/ansible
-    
+
     # Final cleanup
     RUN rm -rf /tmp/* /var/tmp/*

@@ -18,7 +18,7 @@
     reboot_timeout: "{{ reboot_timeout | default(600) }}"
     connect_timeout: "{{ update_rhel_connect_timeout | default(10) }}"
     test_command: "{{ update_rhel_test_command | default('whoami') }}"
-    pre_reboot_delay: 0  # We handled delay above
+    pre_reboot_delay: 0 # We handled delay above
     post_reboot_delay: "{{ update_rhel_post_reboot_delay | default(30) }}"
   register: update_rhel_reboot_result
 
@@ -60,7 +60,7 @@
       {% else %}
       INFO: Kernel version after reboot: {{ update_rhel_os_info_post_reboot.kernel }}
       {% endif %}
-  when: 
+  when:
     - update_rhel_verbose | default(true)
     - update_rhel_kernel_reboot_needed | default(false)
 
@@ -82,7 +82,7 @@
       - Output: {{ result.stdout }}
       {% endif %}
       {% endfor %}
-  when: 
+  when:
     - update_rhel_post_reboot_validation is defined
     - update_rhel_verbose | default(true)
 

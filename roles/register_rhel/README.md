@@ -80,13 +80,13 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: register_rhel
-      vars:
-        register_rhel_type: cdn
-        register_rhel_username: "{{ vault_rhn_username }}"
-        register_rhel_password: "{{ vault_rhn_password }}"
+ become: true
+ roles:
+ - role: register_rhel
+ vars:
+ register_rhel_type: cdn
+ register_rhel_username: "{{ vault_rhn_username }}"
+ register_rhel_password: "{{ vault_rhn_password }}"
 ```
 
 ### Satellite Registration with Activation Key
@@ -94,15 +94,15 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: register_rhel
-      vars:
-        register_rhel_type: satellite
-        register_rhel_satellite_url: "https://satellite.example.com"
-        register_rhel_org_id: "Example_Org"
-        register_rhel_activation_key: "rhel-servers-key"
-        register_rhel_install_satellite_tools: true
+ become: true
+ roles:
+ - role: register_rhel
+ vars:
+ register_rhel_type: satellite
+ register_rhel_satellite_url: "https://satellite.example.com"
+ register_rhel_org_id: "Example_Org"
+ register_rhel_activation_key: "rhel-servers-key"
+ register_rhel_install_satellite_tools: true
 ```
 
 ### Satellite Registration with Username/Password
@@ -110,15 +110,15 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: register_rhel
-      vars:
-        register_rhel_type: satellite
-        register_rhel_satellite_url: "https://satellite.example.com"
-        register_rhel_org_id: "Example_Org"
-        register_rhel_satellite_username: "{{ vault_satellite_username }}"
-        register_rhel_satellite_password: "{{ vault_satellite_password }}"
+ become: true
+ roles:
+ - role: register_rhel
+ vars:
+ register_rhel_type: satellite
+ register_rhel_satellite_url: "https://satellite.example.com"
+ register_rhel_org_id: "Example_Org"
+ register_rhel_satellite_username: "{{ vault_satellite_username }}"
+ register_rhel_satellite_password: "{{ vault_satellite_password }}"
 ```
 
 ### Custom Repository Configuration
@@ -126,18 +126,18 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: register_rhel
-      vars:
-        register_rhel_type: cdn
-        register_rhel_username: "{{ vault_rhn_username }}"
-        register_rhel_password: "{{ vault_rhn_password }}"
-        register_rhel_additional_repos:
-          - ansible-automation-platform-2.4-for-rhel-9-x86_64-rpms
-          - codeready-builder-for-rhel-9-x86_64-rpms
-        register_rhel_disable_repos:
-          - rhel-9-for-x86_64-supplementary-rpms
+ become: true
+ roles:
+ - role: register_rhel
+ vars:
+ register_rhel_type: cdn
+ register_rhel_username: "{{ vault_rhn_username }}"
+ register_rhel_password: "{{ vault_rhn_password }}"
+ register_rhel_additional_repos:
+ - ansible-automation-platform-2.4-for-rhel-9-x86_64-rpms
+ - codeready-builder-for-rhel-9-x86_64-rpms
+ register_rhel_disable_repos:
+ - rhel-9-for-x86_64-supplementary-rpms
 ```
 
 ## Default Repositories by RHEL Version

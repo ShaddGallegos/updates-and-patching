@@ -17,7 +17,7 @@
       Report Title: {{ report_title }}
       Total Hosts: {{ groups['all'] | length }}
       Output Directory: {{ report_output_dir }}
-      
+
       Generated Files:
       {% for format in report_output_formats %}
       - {{ report_filename_prefix }}_{{ report_date }}.{{ format }}
@@ -27,7 +27,7 @@
       {% endif %}
       - executive_summary_{{ report_date }}.html
       - index.html
-      
+
       Summary Statistics:
       - Total Hosts: {{ report_summary.total_hosts | default('N/A') }}
       - RHEL Versions: {{ report_summary.rhel_versions | default([]) | join(', ') }}
@@ -77,23 +77,23 @@
       - "Output Directory: {{ report_output_dir }}"
       - ""
       - "Generated Files:"
-      - "  • Main Index: {{ report_output_dir }}/index.html"
-      - "  • Detailed HTML Report: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html"
-      - "  • CSV Data: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.csv"
-      - "  • JSON Data: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.json"
-      - "  • PDF Report: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.pdf"
-      - "  • Executive Summary: {{ report_output_dir }}/executive_summary_{{ report_date }}.html"
-      - "  • Report Manifest: {{ report_output_dir }}/REPORT_MANIFEST.txt"
+      - " • Main Index: {{ report_output_dir }}/index.html"
+      - " • Detailed HTML Report: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html"
+      - " • CSV Data: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.csv"
+      - " • JSON Data: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.json"
+      - " • PDF Report: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.pdf"
+      - " • Executive Summary: {{ report_output_dir }}/executive_summary_{{ report_date }}.html"
+      - " • Report Manifest: {{ report_output_dir }}/REPORT_MANIFEST.txt"
       - ""
       - "Quick Summary:"
-      - "  • Total Hosts Analyzed: {{ groups['all'] | length }}"
-      - "  • RHEL Versions Found: {{ report_summary.rhel_versions | default([]) | join(', ') if report_summary is defined else 'N/A' }}"
-      - "  • Security Updates Available: {{ report_summary.total_security_updates | default('N/A') if report_summary is defined else 'N/A' }}"
-      - "  • Hosts Needing Updates: {{ report_summary.hosts_needing_updates | default('N/A') if report_summary is defined else 'N/A' }}"
+      - " • Total Hosts Analyzed: {{ groups['all'] | length }}"
+      - " • RHEL Versions Found: {{ report_summary.rhel_versions | default([]) | join(', ') if report_summary is defined else 'N/A' }}"
+      - " • Security Updates Available: {{ report_summary.total_security_updates | default('N/A') if report_summary is defined else 'N/A' }}"
+      - " • Hosts Needing Updates: {{ report_summary.hosts_needing_updates | default('N/A') if report_summary is defined else 'N/A' }}"
       - ""
       - "To view reports:"
-      - "  • Open in browser: {{ report_urls.main_report }}"
-      - "  • Web server available if enabled"
+      - " • Open in browser: {{ report_urls.main_report }}"
+      - " • Web server available if enabled"
       - "======================================================================"
   run_once: true
 

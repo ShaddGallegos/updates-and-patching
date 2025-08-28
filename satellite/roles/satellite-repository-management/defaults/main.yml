@@ -1,0 +1,76 @@
+---
+satellite_server_url: "{{ ansible_fqdn }}"
+satellite_username: "admin"
+satellite_password: "{{ satellite_admin_password | default('NTY4NjIw') }}"
+satellite_organization: "Red_Hat"
+satellite_location: "Denver"
+redhat_username: "{{ rhn_username }}"
+redhat_password: "{{ rhn_password }}"
+redhat_activation_key: "{{ rhn_activation_key | default('') }}"
+rhel_version: "9"
+rhel_architecture: "x86_64"
+
+satellite_products:
+  - label: "rhel-9-for-x86_64"
+    repositories:
+      - label: "rhel-9-for-x86_64-appstream-rpms"
+        releasever: "9"
+        basearch: "x86_64"
+      - label: "rhel-9-for-x86_64-baseos-rpms"
+        releasever: "9"
+        basearch: "x86_64"
+      - label: "rhel-9-for-x86_64-supplementary-rpms"
+        releasever: "9"
+        basearch: "x86_64"
+  - label: "satellite-6.17"
+    repositories:
+      - label: "satellite-6.17-for-rhel-9-x86_64-rpms"
+        releasever: "9"
+        basearch: "x86_64"
+      - label: "satellite-maintenance-6.17-for-rhel-9-x86_64-rpms"
+        releasever: "9"
+        basearch: "x86_64"
+
+repo_sync_immediate: true
+repo_download_policy: "immediate" # immediate, on_demand, background
+repo_mirror_on_sync: true
+repo_verify_ssl: true
+
+sync_plans:
+  - description: "Daily sync plan for RHEL 9 repositories"
+    interval: "daily"
+    sync_date: "{{ ansible_date_time.date }} 02:00:00 UTC"
+    enabled: true
+    products: "{{ satellite_products | map(attribute='label') | list }}"
+  - description: "Weekly sync plan for RHEL 9 repositories"
+    interval: "weekly"
+    sync_date: "{{ ansible_date_time.date }} 03:00:00 UTC"
+    cron_expression: "0 3 * * 0"
+    enabled: false
+    products: "{{ satellite_products | map(attribute='label') | list }}"
+
+enable_all_repositories: true
+disable_unused_repositories: false
+validate_repo_sync: true
+sync_timeout: 7200 # 2 hours in seconds
+max_concurrent_syncs: 5
+enable_detailed_logging: true
+generate_sync_reports: true
+email_sync_reports: false
+email_recipients: []
+repo_ssl_ca_cert: ""
+repo_ssl_client_cert: ""
+repo_ssl_client_key: ""
+repo_gpg_key: ""
+repo_unprotected: false
+repo_checksum_type: "sha256"
+cleanup_old_packages: false
+cleanup_retention_days: 30
+orphan_cleanup: false
+pulp_workers: 4
+sync_batch_size: 100
+metadata_expire: 86400 # 24 hours
+debug_mode: false
+dry_run: false
+force_sync: false
+skip_repo_validation: false

@@ -11,10 +11,10 @@ This role automatically detects whether a RHEL system is registered to Red Hat S
 - **Smart Detection**: Automatically determines registration type (Satellite vs direct RHN)
 - **Comprehensive Cleanup**: Removes all subscription data, certificates, and configurations
 - **Satellite-Specific Cleanup**: Additional cleanup for Satellite-managed systems including:
-  - Katello agent packages and services
-  - Puppet configurations and data
-  - Foreman configurations
-  - Satellite cron jobs and logs
+ - Katello agent packages and services
+ - Puppet configurations and data
+ - Foreman configurations
+ - Satellite cron jobs and logs
 - **Safe Operation**: All tasks use `ignore_errors: true` to prevent failures on missing items
 - **Configurable**: Multiple variables to control behavior
 
@@ -44,9 +44,9 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - unregister_rhel
+ become: true
+ roles:
+ - unregister_rhel
 ```
 
 ### Custom Configuration
@@ -54,12 +54,12 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: unregister_rhel
-      vars:
-        unregister_rhel_verbose: false
-        unregister_rhel_clean_logs: true
+ become: true
+ roles:
+ - role: unregister_rhel
+ vars:
+ unregister_rhel_verbose: false
+ unregister_rhel_clean_logs: true
 ```
 
 ## What Gets Cleaned Up

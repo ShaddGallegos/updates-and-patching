@@ -1,21 +1,11 @@
 ---
-# Modern RHEL System Reporting Role Defaults
-
-# Report configuration
 report_title: "RHEL System Status Report"
 report_company: "Red Hat Enterprise Linux Infrastructure"
 report_logo_url: "https://www.redhat.com/cms/managed-files/Logo-Red_Hat-A-Reverse-RGB.png"
-
-# Output settings
 report_output_dir: "/tmp/reports_{{ ansible_date_time.epoch }}"
-report_output_formats:
-  - html
-  - csv
-  - json
+report_output_formats: []
 report_include_pdf: true
 report_filename_prefix: "rhel_system_report"
-
-# Report content options
 report_include_system_info: true
 report_include_updates: true
 report_include_security: true
@@ -24,42 +14,26 @@ report_include_services: true
 report_include_storage: true
 report_include_network: true
 report_include_performance: false
-
-# Update analysis settings
 report_analyze_security_updates: true
 report_analyze_bugfix_updates: true
 report_analyze_enhancement_updates: true
 report_show_update_details: true
-
-# System health checks
 report_check_disk_usage: true
 report_check_memory_usage: true
 report_check_cpu_load: true
 report_check_service_status: true
-
-# Thresholds for warnings
 disk_usage_warning_threshold: 85
 memory_usage_warning_threshold: 90
 cpu_load_warning_threshold: 80
-
-# Package manager settings (auto-detected)
-report_package_manager: "auto"  # auto, yum, dnf
-
-# HTML report styling
-report_html_theme: "professional"  # professional, minimal, dark
+report_package_manager: "auto"
+report_html_theme: "professional"
 report_html_responsive: true
 report_html_charts: true
-
-# PDF generation settings (requires wkhtmltopdf)
 report_pdf_page_size: "A4"
 report_pdf_orientation: "Portrait"
 report_pdf_margins: "0.75in"
-
-# Web server for viewing reports
 report_enable_web_server: false
 report_web_server_port: 8080
 report_web_server_host: "0.0.0.0"
-
-# Cleanup settings
 report_cleanup_old_reports: true
 report_keep_reports_days: 30

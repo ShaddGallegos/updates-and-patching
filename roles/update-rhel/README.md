@@ -13,7 +13,7 @@ This role provides intelligent, modular package updates for Red Hat Enterprise L
 - **Intelligent Package Manager Detection**: Automatic yum/dnf selection based on RHEL version
 - **Enhanced Delta RPM Support**: Automatic installation of appropriate delta RPM packages
 - **Comprehensive Reboot Management**: Smart kernel update detection and reboot handling
-- **Advanced Error Handling**: Detailed error recovery and reporting mechanisms  
+- **Advanced Error Handling**: Detailed error recovery and reporting mechanisms 
 - **Post-Update Validation**: System health checks and custom command execution
 - **Extensive Debugging**: Detailed logging and status reporting throughout the process
 - **Flexible Update Options**: Security-only, bugfix, selective package updates
@@ -89,9 +89,9 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - update-rhel
+ become: true
+ roles:
+ - update-rhel
 ```
 
 ### Security Updates Only with Reboot
@@ -99,13 +99,13 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: update-rhel
-      vars:
-        update_rhel_security_only: true
-        update_reboot_kernel: true
-        update_rhel_verbose: true
+ become: true
+ roles:
+ - role: update-rhel
+ vars:
+ update_rhel_security_only: true
+ update_reboot_kernel: true
+ update_rhel_verbose: true
 ```
 
 ### Comprehensive Update with Custom Validation
@@ -113,18 +113,18 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: update-rhel
-      vars:
-        update_reboot_kernel: true
-        update_rhel_force_reboot: false
-        update_rhel_post_reboot_commands:
-          - "systemctl status"
-          - "df -h" 
-          - "free -m"
-          - "uptime"
-        reboot_timeout: 900
+ become: true
+ roles:
+ - role: update-rhel
+ vars:
+ update_reboot_kernel: true
+ update_rhel_force_reboot: false
+ update_rhel_post_reboot_commands:
+ - "systemctl status"
+ - "df -h" 
+ - "free -m"
+ - "uptime"
+ reboot_timeout: 900
 ```
 
 ### Selective Package Updates with Error Handling
@@ -132,17 +132,17 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - role: update-rhel
-      vars:
-        update_distro_packages: "security"
-        update_distro_packages_excludes:
-          - kernel*
-          - docker*
-        update_rhel_skip_broken: true
-        update_rhel_ignore_errors: false
-        update_rhel_clean_cache: true
+ become: true
+ roles:
+ - role: update-rhel
+ vars:
+ update_distro_packages: "security"
+ update_distro_packages_excludes:
+ - kernel*
+ - docker*
+ update_rhel_skip_broken: true
+ update_rhel_ignore_errors: false
+ update_rhel_clean_cache: true
 ```
 
 ### High-Performance Update Configuration
@@ -150,16 +150,16 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  serial: 5
-  roles:
-    - role: update-rhel
-      vars:
-        update_rhel_nobest: false
-        update_rhel_allow_erasing: true
-        update_rhel_clean_cache: true
-        update_rhel_pre_reboot_delay: 5
-        update_rhel_post_reboot_delay: 15
+ become: true
+ serial: 5
+ roles:
+ - role: update-rhel
+ vars:
+ update_rhel_nobest: false
+ update_rhel_allow_erasing: true
+ update_rhel_clean_cache: true
+ update_rhel_pre_reboot_delay: 5
+ update_rhel_post_reboot_delay: 15
 ```
 
 ## Architecture
@@ -167,7 +167,7 @@ None.
 The role uses a modular task-based architecture:
 
 - **`main.yml`**: Orchestrates the update process using include_tasks
-- **`pre_update.yml`**: Pre-update preparation, fact gathering, and delta RPM setup  
+- **`pre_update.yml`**: Pre-update preparation, fact gathering, and delta RPM setup 
 - **`package_updates.yml`**: Version-specific package updates with yum/dnf logic
 - **`post_update.yml`**: Post-update analysis and reboot requirement detection
 - **`reboot_handling.yml`**: Comprehensive reboot management and validation
@@ -182,7 +182,7 @@ The role uses a modular task-based architecture:
 
 ### RHEL 8+
 - Uses `dnf` package manager with advanced options
-- Installs `drpm` for delta RPM support  
+- Installs `drpm` for delta RPM support 
 - Enhanced DNF-specific options (nobest, allow_erasing)
 - Improved reboot detection using dnf needs-restarting
 - Better dependency resolution and conflict handling
@@ -191,7 +191,7 @@ The role uses a modular task-based architecture:
 
 1. **Pre-Update Phase**: System preparation and fact gathering
 2. **Package Update Phase**: Version-appropriate package manager execution
-3. **Post-Update Phase**: Update analysis and reboot requirement detection  
+3. **Post-Update Phase**: Update analysis and reboot requirement detection 
 4. **Reboot Phase**: Intelligent reboot handling with validation (if needed)
 
 ## License

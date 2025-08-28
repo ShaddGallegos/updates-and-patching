@@ -5,257 +5,257 @@
 
 - name: Ensure report directory exists
   file:
-    path: "{{ report_base_path }}"
-    state: directory
-    mode: '0755'
+  path: "{{ report_base_path }}"
+  state: directory
+  mode: '0755'
   delegate_to: localhost
   become: false
   run_once: true
 
 - name: Generate HTML report
   template:
-    src: update_report.html.j2
-    dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.html"
-    mode: '0644'
+  src: update_report.html.j2
+  dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.html"
+  mode: '0644'
   delegate_to: localhost
   become: false
   when: "'html' in report_file_formats"
 
 - name: Generate JSON report
   copy:
-    content: |
-      {
-        "metadata": {
-          "report_type": "rhel_update_report",
-          "version": "2.0.0",
-          "hostname": "{{ inventory_hostname }}",
-          "fqdn": "{{ ansible_fqdn | default(inventory_hostname) }}",
-          "timestamp": "{{ ansible_date_time.iso8601 }}",
-          "report_id": "{{ inventory_hostname }}-{{ report_timestamp_formatted }}",
-          "ansible_user": "{{ ansible_user | default('unknown') }}",
-          "playbook_name": "{{ ansible_play_name | default('RHEL Update Check') }}"
-        },
-        "system_info": {
-          "distribution": "{{ ansible_distribution }}",
-          "distribution_version": "{{ ansible_distribution_version }}",
-          "distribution_major_version": "{{ ansible_distribution_major_version }}",
-          "distribution_minor_version": "{{ rhel_minor_version }}",
-          "kernel_version": "{{ ansible_kernel }}",
-          "architecture": "{{ ansible_architecture }}",
-          "package_manager": "{{ rhel_package_manager }}",
-          "hostname": "{{ ansible_hostname }}",
-          "domain": "{{ ansible_domain | default('') }}",
-          "ip_address": "{{ ansible_default_ipv4.address | default('unknown') }}",
-          "uptime": "{{ ansible_uptime_seconds | default(0) }}"
-        },
-        "subscription_info": {% if rhel_subscription_status is defined and rhel_subscription_status.stdout is defined %}
-        {
-          "status": "{{ rhel_subscription_status.rc == 0 | ternary('Active', 'Inactive') }}",
-          "raw_output": "{{ rhel_subscription_status.stdout | replace('\n', '\\n') }}"
-        }{% else %}null{% endif %},
-        "repository_info": {% if rhel_repo_info is defined and rhel_repo_info.stdout is defined %}
-        {
-          "enabled_repos": {{ rhel_repo_info.stdout_lines | to_json }},
-          "repo_count": {{ rhel_repo_info.stdout_lines | length }}
-        }{% else %}null{% endif %},
-        "update_summary": {
-          "total_updates_available": {{ update_stats.total_updates }},
-          "security_updates_count": {{ update_stats.security_updates_count }},
-          "compliance_status": "{{ update_stats.compliant_status }}",
-          "last_check": "{{ update_stats.last_check }}",
-          "reboot_required": {% if available_updates.results is defined %}{{ available_updates.results | selectattr('name', 'match', 'kernel.*') | list | length > 0 }}{% else %}false{% endif %}
-        },
-        "available_updates": {% if available_updates.results is defined %}{{ available_updates.results | to_json }}{% else %}[]{% endif %},
-        "security_updates": {% if security_updates.stdout_lines is defined %}{{ security_updates.stdout_lines | to_json }}{% else %}[]{% endif %},
-        "errata_info": {% if rhel_errata_info is defined and rhel_errata_info.stdout_lines is defined %}{{ rhel_errata_info.stdout_lines | to_json }}{% else %}null{% endif %}
-      }
-    dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.json"
-    mode: '0644'
+  content: |
+  {
+  "metadata": {
+  "report_type": "rhel_update_report",
+  "version": "2.0.0",
+  "hostname": "{{ inventory_hostname }}",
+  "fqdn": "{{ ansible_fqdn | default(inventory_hostname) }}",
+  "timestamp": "{{ ansible_date_time.iso8601 }}",
+  "report_id": "{{ inventory_hostname }}-{{ report_timestamp_formatted }}",
+  "ansible_user": "{{ ansible_user | default('unknown') }}",
+  "playbook_name": "{{ ansible_play_name | default('RHEL Update Check') }}"
+  },
+  "system_info": {
+  "distribution": "{{ ansible_distribution }}",
+  "distribution_version": "{{ ansible_distribution_version }}",
+  "distribution_major_version": "{{ ansible_distribution_major_version }}",
+  "distribution_minor_version": "{{ rhel_minor_version }}",
+  "kernel_version": "{{ ansible_kernel }}",
+  "architecture": "{{ ansible_architecture }}",
+  "package_manager": "{{ rhel_package_manager }}",
+  "hostname": "{{ ansible_hostname }}",
+  "domain": "{{ ansible_domain | default('') }}",
+  "ip_address": "{{ ansible_default_ipv4.address | default('unknown') }}",
+  "uptime": "{{ ansible_uptime_seconds | default(0) }}"
+  },
+  "subscription_info": {% if rhel_subscription_status is defined and rhel_subscription_status.stdout is defined %}
+  {
+  "status": "{{ rhel_subscription_status.rc == 0 | ternary('Active', 'Inactive') }}",
+  "raw_output": "{{ rhel_subscription_status.stdout | replace('\n', '\\n') }}"
+  }{% else %}null{% endif %},
+  "repository_info": {% if rhel_repo_info is defined and rhel_repo_info.stdout is defined %}
+  {
+  "enabled_repos": {{ rhel_repo_info.stdout_lines | to_json }},
+  "repo_count": {{ rhel_repo_info.stdout_lines | length }}
+  }{% else %}null{% endif %},
+  "update_summary": {
+  "total_updates_available": {{ update_stats.total_updates }},
+  "security_updates_count": {{ update_stats.security_updates_count }},
+  "compliance_status": "{{ update_stats.compliant_status }}",
+  "last_check": "{{ update_stats.last_check }}",
+  "reboot_required": {% if available_updates.results is defined %}{{ available_updates.results | selectattr('name', 'match', 'kernel.*') | list | length > 0 }}{% else %}false{% endif %}
+  },
+  "available_updates": {% if available_updates.results is defined %}{{ available_updates.results | to_json }}{% else %}[]{% endif %},
+  "security_updates": {% if security_updates.stdout_lines is defined %}{{ security_updates.stdout_lines | to_json }}{% else %}[]{% endif %},
+  "errata_info": {% if rhel_errata_info is defined and rhel_errata_info.stdout_lines is defined %}{{ rhel_errata_info.stdout_lines | to_json }}{% else %}null{% endif %}
+  }
+  dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.json"
+  mode: '0644'
   delegate_to: localhost
   become: false
   when: "'json' in report_file_formats"
 
 - name: Generate YAML report
   copy:
-    content: |
-      ---
-      metadata:
-        report_type: rhel_update_report
-        version: "2.0.0"
-        hostname: "{{ inventory_hostname }}"
-        fqdn: "{{ ansible_fqdn | default(inventory_hostname) }}"
-        timestamp: "{{ ansible_date_time.iso8601 }}"
-        report_id: "{{ inventory_hostname }}-{{ report_timestamp_formatted }}"
-        ansible_user: "{{ ansible_user | default('unknown') }}"
-        playbook_name: "{{ ansible_play_name | default('RHEL Update Check') }}"
-      
-      system_info:
-        distribution: "{{ ansible_distribution }}"
-        distribution_version: "{{ ansible_distribution_version }}"
-        distribution_major_version: "{{ ansible_distribution_major_version }}"
-        distribution_minor_version: "{{ rhel_minor_version }}"
-        kernel_version: "{{ ansible_kernel }}"
-        architecture: "{{ ansible_architecture }}"
-        package_manager: "{{ rhel_package_manager }}"
-        hostname: "{{ ansible_hostname }}"
-        domain: "{{ ansible_domain | default('') }}"
-        ip_address: "{{ ansible_default_ipv4.address | default('unknown') }}"
-        uptime_seconds: {{ ansible_uptime_seconds | default(0) }}
-      
-      {% if rhel_subscription_status is defined and rhel_subscription_status.stdout is defined %}
-      subscription_info:
-        status: "{{ rhel_subscription_status.rc == 0 | ternary('Active', 'Inactive') }}"
-        raw_output: |
-          {{ rhel_subscription_status.stdout | indent(4) }}
-      {% endif %}
-      
-      {% if rhel_repo_info is defined and rhel_repo_info.stdout_lines is defined %}
-      repository_info:
-        enabled_repos:
-      {% for repo in rhel_repo_info.stdout_lines %}
-          - "{{ repo }}"
-      {% endfor %}
-        repo_count: {{ rhel_repo_info.stdout_lines | length }}
-      {% endif %}
-      
-      update_summary:
-        total_updates_available: {{ update_stats.total_updates }}
-        security_updates_count: {{ update_stats.security_updates_count }}
-        compliance_status: "{{ update_stats.compliant_status }}"
-        last_check: "{{ update_stats.last_check }}"
-        reboot_required: {% if available_updates.results is defined %}{{ available_updates.results | selectattr('name', 'match', 'kernel.*') | list | length > 0 }}{% else %}false{% endif %}
-      
-      {% if available_updates.results is defined and available_updates.results | length > 0 %}
-      available_updates:
-      {% for update in available_updates.results %}
-        - name: "{{ update.name }}"
-          version: "{{ update.version }}"
-          repository: "{{ update.repo | default('unknown') }}"
-          size: "{{ update.size | default(0) }}"
-      {% endfor %}
-      {% else %}
-      available_updates: []
-      {% endif %}
-      
-      {% if security_updates.stdout_lines is defined and security_updates.stdout_lines | length > 0 %}
-      security_updates:
-      {% for sec_update in security_updates.stdout_lines %}
-        - "{{ sec_update }}"
-      {% endfor %}
-      {% else %}
-      security_updates: []
-      {% endif %}
-      
-      {% if rhel_errata_info is defined and rhel_errata_info.stdout_lines is defined %}
-      errata_info:
-      {% for errata in rhel_errata_info.stdout_lines %}
-        - "{{ errata }}"
-      {% endfor %}
-      {% endif %}
-    dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.yaml"
-    mode: '0644'
+  content: |
+  ---
+  metadata:
+  report_type: rhel_update_report
+  version: "2.0.0"
+  hostname: "{{ inventory_hostname }}"
+  fqdn: "{{ ansible_fqdn | default(inventory_hostname) }}"
+  timestamp: "{{ ansible_date_time.iso8601 }}"
+  report_id: "{{ inventory_hostname }}-{{ report_timestamp_formatted }}"
+  ansible_user: "{{ ansible_user | default('unknown') }}"
+  playbook_name: "{{ ansible_play_name | default('RHEL Update Check') }}"
+
+system_info:
+distribution: "{{ ansible_distribution }}"
+distribution_version: "{{ ansible_distribution_version }}"
+distribution_major_version: "{{ ansible_distribution_major_version }}"
+distribution_minor_version: "{{ rhel_minor_version }}"
+kernel_version: "{{ ansible_kernel }}"
+architecture: "{{ ansible_architecture }}"
+package_manager: "{{ rhel_package_manager }}"
+hostname: "{{ ansible_hostname }}"
+domain: "{{ ansible_domain | default('') }}"
+ip_address: "{{ ansible_default_ipv4.address | default('unknown') }}"
+uptime_seconds: {{ ansible_uptime_seconds | default(0) }}
+
+{% if rhel_subscription_status is defined and rhel_subscription_status.stdout is defined %}
+subscription_info:
+status: "{{ rhel_subscription_status.rc == 0 | ternary('Active', 'Inactive') }}"
+raw_output: |
+{{ rhel_subscription_status.stdout | indent(4) }}
+{% endif %}
+
+{% if rhel_repo_info is defined and rhel_repo_info.stdout_lines is defined %}
+repository_info:
+enabled_repos:
+{% for repo in rhel_repo_info.stdout_lines %}
+- "{{ repo }}"
+{% endfor %}
+repo_count: {{ rhel_repo_info.stdout_lines | length }}
+{% endif %}
+
+update_summary:
+total_updates_available: {{ update_stats.total_updates }}
+security_updates_count: {{ update_stats.security_updates_count }}
+compliance_status: "{{ update_stats.compliant_status }}"
+last_check: "{{ update_stats.last_check }}"
+reboot_required: {% if available_updates.results is defined %}{{ available_updates.results | selectattr('name', 'match', 'kernel.*') | list | length > 0 }}{% else %}false{% endif %}
+
+{% if available_updates.results is defined and available_updates.results | length > 0 %}
+available_updates:
+{% for update in available_updates.results %}
+- name: "{{ update.name }}"
+  version: "{{ update.version }}"
+  repository: "{{ update.repo | default('unknown') }}"
+  size: "{{ update.size | default(0) }}"
+  {% endfor %}
+  {% else %}
+  available_updates: []
+  {% endif %}
+
+    {% if security_updates.stdout_lines is defined and security_updates.stdout_lines | length > 0 %}
+  security_updates:
+    {% for sec_update in security_updates.stdout_lines %}
+- "{{ sec_update }}"
+    {% endfor %}
+    {% else %}
+  security_updates: []
+    {% endif %}
+
+    {% if rhel_errata_info is defined and rhel_errata_info.stdout_lines is defined %}
+  errata_info:
+    {% for errata in rhel_errata_info.stdout_lines %}
+- "{{ errata }}"
+    {% endfor %}
+    {% endif %}
+  dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.yaml"
+  mode: '0644'
   delegate_to: localhost
   become: false
   when: "'yaml' in report_file_formats"
 
 - name: Generate CSV report
   copy:
-    content: |
-      Hostname,Distribution,Version,Total_Updates,Security_Updates,Compliance_Status,Reboot_Required,Last_Check,IP_Address
-      {{ inventory_hostname }},{{ ansible_distribution }},{{ ansible_distribution_version }},{{ update_stats.total_updates }},{{ update_stats.security_updates_count }},{{ update_stats.compliant_status }},{% if available_updates.results is defined %}{{ available_updates.results | selectattr('name', 'match', 'kernel.*') | list | length > 0 }}{% else %}false{% endif %},{{ update_stats.last_check }},{{ ansible_default_ipv4.address | default('unknown') }}
-      
-      Package_Name,Current_Version,Available_Version,Repository,Size,Type
-      {% if available_updates.results is defined %}
-      {% for update in available_updates.results %}
-      {{ update.name }},{{ update.arch | default('noarch') }},{{ update.version }},{{ update.repo | default('unknown') }},{{ update.size | default(0) }},{% if security_updates.stdout is defined and update.name in security_updates.stdout %}Security{% else %}Regular{% endif %}
-      {% endfor %}
-      {% endif %}
-    dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.csv"
-    mode: '0644'
+  content: |
+  Hostname,Distribution,Version,Total_Updates,Security_Updates,Compliance_Status,Reboot_Required,Last_Check,IP_Address
+  {{ inventory_hostname }},{{ ansible_distribution }},{{ ansible_distribution_version }},{{ update_stats.total_updates }},{{ update_stats.security_updates_count }},{{ update_stats.compliant_status }},{% if available_updates.results is defined %}{{ available_updates.results | selectattr('name', 'match', 'kernel.*') | list | length > 0 }}{% else %}false{% endif %},{{ update_stats.last_check }},{{ ansible_default_ipv4.address | default('unknown') }}
+
+    Package_Name,Current_Version,Available_Version,Repository,Size,Type
+    {% if available_updates.results is defined %}
+    {% for update in available_updates.results %}
+    {{ update.name }},{{ update.arch | default('noarch') }},{{ update.version }},{{ update.repo | default('unknown') }},{{ update.size | default(0) }},{% if security_updates.stdout is defined and update.name in security_updates.stdout %}Security{% else %}Regular{% endif %}
+    {% endfor %}
+    {% endif %}
+  dest: "{{ report_base_path }}/{{ report_base_name }}-{{ inventory_hostname }}-{{ report_timestamp_formatted }}.csv"
+  mode: '0644'
   delegate_to: localhost
   become: false
   when: "'csv' in report_file_formats"
 
 - name: Generate consolidated report summary
   copy:
-    content: |
-      RHEL Update Report Summary
-      =========================
-      Generated: {{ ansible_date_time.iso8601 }}
-      Report ID: {{ report_timestamp_formatted }}
-      
-      {% for host in play_hosts %}
-      {% set host_updates = hostvars[host].available_updates.results | default([]) %}
-      {% set host_security = hostvars[host].security_updates.stdout_lines | default([]) %}
-      Host: {{ host }}
-        Distribution: {{ hostvars[host].ansible_distribution }} {{ hostvars[host].ansible_distribution_version }}
-        Package Manager: {{ hostvars[host].rhel_package_manager }}
-        Total Updates: {{ host_updates | length }}
-        Security Updates: {{ host_security | length }}  
-        Status: {{ (host_updates | length == 0) | ternary('Compliant', 'Updates Available') }}
-        {% if hostvars[host].rhel_subscription_status is defined %}
-        Subscription: {{ hostvars[host].rhel_subscription_status.rc == 0 | ternary('Active', 'Inactive') }}
-        {% endif %}
-      
-      {% endfor %}
-      
-      Fleet Summary:
-      ==============
-      Total Hosts: {{ play_hosts | length }}
-      Compliant Hosts: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}
-      Hosts Needing Updates: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}
-    dest: "{{ report_base_path }}/{{ report_base_name }}-fleet-summary-{{ report_timestamp_formatted }}.txt"
-    mode: '0644'
+  content: |
+  RHEL Update Report Summary
+  =========================
+  Generated: {{ ansible_date_time.iso8601 }}
+  Report ID: {{ report_timestamp_formatted }}
+
+    {% for host in play_hosts %}
+    {% set host_updates = hostvars[host].available_updates.results | default([]) %}
+    {% set host_security = hostvars[host].security_updates.stdout_lines | default([]) %}
+  Host: {{ host }}
+  Distribution: {{ hostvars[host].ansible_distribution }} {{ hostvars[host].ansible_distribution_version }}
+  Package Manager: {{ hostvars[host].rhel_package_manager }}
+  Total Updates: {{ host_updates | length }}
+  Security Updates: {{ host_security | length }}
+  Status: {{ (host_updates | length == 0) | ternary('Compliant', 'Updates Available') }}
+    {% if hostvars[host].rhel_subscription_status is defined %}
+  Subscription: {{ hostvars[host].rhel_subscription_status.rc == 0 | ternary('Active', 'Inactive') }}
+    {% endif %}
+
+    {% endfor %}
+
+  Fleet Summary:
+    ==============
+  Total Hosts: {{ play_hosts | length }}
+  Compliant Hosts: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}
+  Hosts Needing Updates: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}
+  dest: "{{ report_base_path }}/{{ report_base_name }}-fleet-summary-{{ report_timestamp_formatted }}.txt"
+  mode: '0644'
   delegate_to: localhost
   become: false
   run_once: true
 
 - name: Archive reports if requested
   archive:
-    path: "{{ report_base_path }}/*.{{ item }}"
-    dest: "{{ report_base_path }}/{{ report_base_name }}-{{ report_timestamp_formatted }}.{{ report_archive_format }}"
-    format: "{{ report_archive_format }}"
+  path: "{{ report_base_path }}/*.{{ item }}"
+  dest: "{{ report_base_path }}/{{ report_base_name }}-{{ report_timestamp_formatted }}.{{ report_archive_format }}"
+  format: "{{ report_archive_format }}"
   delegate_to: localhost
   become: false
   loop: "{{ report_file_formats }}"
-  when: 
-    - report_compress_files | bool
-    - report_archive_format in ['zip', 'gz']
+  when:
+  - report_compress_files | bool
+  - report_archive_format in ['zip', 'gz']
   run_once: true
 
 - name: Clean old reports
   find:
-    paths: /tmp
-    patterns: "reports_*"
-    file_type: directory
-    age: "{{ report_retention_days }}d"
+  paths: /tmp
+  patterns: "reports_*"
+  file_type: directory
+  age: "{{ report_retention_days }}d"
   register: old_report_dirs
   delegate_to: localhost
   become: false
-  when: 
-    - report_cleanup_old_reports | bool
-    - report_retention_enabled | bool
+  when:
+  - report_cleanup_old_reports | bool
+  - report_retention_enabled | bool
   run_once: true
 
 - name: Remove old report directories
   file:
-    path: "{{ item.path }}"
-    state: absent
+  path: "{{ item.path }}"
+  state: absent
   delegate_to: localhost
-  become: false  
+  become: false
   loop: "{{ old_report_dirs.files | default([]) }}"
-  when: 
-    - report_cleanup_old_reports | bool
-    - old_report_dirs.files is defined
+  when:
+  - report_cleanup_old_reports | bool
+  - old_report_dirs.files is defined
   run_once: true
 
 - name: Display report location
   debug:
-    msg: |
-      Reports generated successfully:
-      Location: {{ report_base_path }}
-      Formats: {{ report_file_formats | join(', ') }}
-      {% if report_compress_files %}
-      Archive: {{ report_base_path }}/{{ report_base_name }}-{{ report_timestamp_formatted }}.{{ report_archive_format }}
-      {% endif %}
+  msg: |
+  Reports generated successfully:
+  Location: {{ report_base_path }}
+  Formats: {{ report_file_formats | join(', ') }}
+  {% if report_compress_files %}
+  Archive: {{ report_base_path }}/{{ report_base_name }}-{{ report_timestamp_formatted }}.{{ report_archive_format }}
+  {% endif %}
   run_once: true

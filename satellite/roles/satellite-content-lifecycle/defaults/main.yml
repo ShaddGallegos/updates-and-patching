@@ -1,0 +1,148 @@
+---
+satellite_server_url: "{{ ansible_fqdn }}"
+satellite_username: "admin"
+satellite_password: "{{ satellite_admin_password | default('NTY4NjIw') }}"
+satellite_organization: "Red_Hat"
+satellite_location: "Denver"
+
+lifecycle_environments:
+  - label: "Library"
+    description: "Default Library environment"
+    prior_id: null
+    registry_name_pattern: ""
+    registry_unauthenticated_pull: false
+  - label: "rhel-9-dev-x86_64"
+    description: "RHEL 9 Development Environment for x86_64"
+    prior: "Library"
+    registry_name_pattern: "dev-<%= organization %>/<%= repository %>"
+    registry_unauthenticated_pull: false
+  - label: "rhel-9-test-x86_64"
+    description: "RHEL 9 Testing Environment for x86_64"
+    prior: "RHEL_9_DEV_x86_64"
+    registry_name_pattern: "test-<%= organization %>/<%= repository %>"
+    registry_unauthenticated_pull: false
+  - label: "rhel-9-prod-x86_64"
+    description: "RHEL 9 Production Environment for x86_64"
+    prior: "RHEL_9_TEST_x86_64"
+    registry_name_pattern: "prod-<%= organization %>/<%= repository %>"
+    registry_unauthenticated_pull: false
+
+content_views:
+  - label: "rhel-9-baseos-appstream"
+    description: "RHEL 9 BaseOS and AppStream repositories"
+    composite: false
+    auto_publish: false
+    solve_dependencies: true
+    repositories: []
+    filters: []
+  - label: "rhel-9-supplementary"
+    description: "RHEL 9 Supplementary packages"
+    composite: false
+    auto_publish: false
+    solve_dependencies: true
+    repositories: []
+    filters: []
+
+composite_content_views:
+  - label: "rhel-9-composite"
+    description: "RHEL 9 Composite Content View"
+    composite: true
+    auto_publish: true
+    solve_dependencies: true
+    component_content_views: []
+    lifecycle_environments: []
+
+content_view_filters:
+  - content_view: "RHEL_9_BaseOS_AppStream"
+    type: "rpm"
+    inclusion: false
+    rules:
+      - type: "rpm"
+        errata_id: ""
+  - content_view: "RHEL_9_BaseOS_AppStream"
+    type: "erratum"
+    inclusion: true
+    rules:
+      - type: "erratum"
+        types: ["security"]
+
+content_view_publication:
+  auto_publish_on_sync: false
+  publish_description_template: "Published by Ansible on {{ ansible_date_time.iso8601 }}"
+  force_publish: false
+
+content_view_promotion:
+  auto_promote: true
+  promote_description_template: "Promoted by Ansible on {{ ansible_date_time.iso8601 }}"
+  force_promote: false
+  promote_to_all_environments: true
+
+activation_keys:
+  - description: "RHEL 9 Development Activation Key"
+    lifecycle_environment: "RHEL_9_DEV_x86_64"
+    content_view: "RHEL_9-composite"
+    unlimited_hosts: false
+    max_hosts: 50
+    auto_attach: true
+    service_level: "Standard"
+    release_version: "9"
+    subscriptions: []
+    host_collections: []
+  - description: "RHEL 9 Testing Activation Key"
+    lifecycle_environment: "RHEL_9_TEST_x86_64"
+    content_view: "RHEL_9-composite"
+    unlimited_hosts: false
+    max_hosts: 100
+    auto_attach: true
+    service_level: "Standard"
+    release_version: "9"
+    subscriptions: []
+    host_collections: []
+  - description: "RHEL 9 Production Activation Key"
+    lifecycle_environment: "RHEL_9_PROD_x86_64"
+    content_view: "RHEL_9-composite"
+    unlimited_hosts: false
+    max_hosts: 500
+    auto_attach: true
+    service_level: "Premium"
+    release_version: "9"
+    subscriptions: []
+    host_collections: []
+
+host_collections:
+  - description: "RHEL 9 Development Servers"
+    max_hosts: 50
+    unlimited_hosts: false
+  - description: "RHEL 9 Testing Servers"
+    max_hosts: 100
+    unlimited_hosts: false
+  - description: "RHEL 9 Production Servers"
+    max_hosts: 500
+    unlimited_hosts: false
+
+content_view_settings:
+  default_content_view_name: "Default Organization View"
+  version_limit: 5
+  auto_cleanup_old_versions: true
+  cleanup_retention_days: 30
+
+lifecycle_environment_settings:
+  validate_environment_chain: true
+  auto_create_missing_priors: false
+
+publication_settings:
+  timeout: 3600
+  async_publish: true
+  publish_batch_size: 10
+
+promotion_settings:
+  timeout: 1800
+  async_promote: true
+  validate_promotion: true
+
+debug_mode: false
+dry_run: false
+validate_content_views: true
+generate_reports: true
+skip_existing: true
+force_recreation: false

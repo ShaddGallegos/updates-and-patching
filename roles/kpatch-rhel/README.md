@@ -8,35 +8,35 @@ This role automates the complete lifecycle of kpatch live kernel patching on Red
 
 ## Features
 
-###  **Comprehensive Patch Management**
+### **Comprehensive Patch Management**
 - **Multi-Action Support**: Install, enable, disable, list, remove, and info operations
 - **Automatic Patch Discovery**: Auto-detection of available patches for current kernel
 - **Selective Patching**: Support for specific patch lists or automatic installation
 - **Emergency Controls**: Emergency disable functionality for critical situations
 - **Backup Management**: Automatic kernel module backups before patching
 
-###  **Advanced System Validation**
+### **Advanced System Validation**
 - **RHEL Version Compatibility**: Full support for RHEL 7, 8, 9, and 10
 - **Architecture Validation**: x86_64 architecture verification
 - **Subscription Verification**: Red Hat subscription status validation
 - **Kernel Compatibility**: Kernel development package availability checks
 - **Live Patching Support**: System capability assessment
 
-###  **Comprehensive Verification**
+### **Comprehensive Verification**
 - **Multi-Level Testing**: Command functionality, patch loading, kernel symbols
 - **Conflict Detection**: Automatic detection of patch conflicts and errors
 - **System Stability Checks**: Load average, memory usage, and error monitoring
 - **Functional Testing**: Network, filesystem, and process management validation
 - **Health Monitoring**: Real-time system health assessment
 
-###  **Enterprise Monitoring & Reporting**
+### **Enterprise Monitoring & Reporting**
 - **Detailed Status Reports**: Comprehensive patch status and system health
 - **Performance Metrics**: System load, memory usage, and stability indicators
 - **Verification Results**: Pass/fail status for all validation tests
 - **Operation Logging**: Complete audit trail of all patch operations
 - **Facts Integration**: Ansible facts for automation and monitoring integration
 
-###  **Intelligent Cleanup Management**
+### **Intelligent Cleanup Management**
 - **Automatic Cleanup**: Removal of old patches and temporary files
 - **Retention Policies**: Configurable patch retention based on count or age
 - **Backup Cleanup**: Automatic cleanup of old kernel module backups
@@ -141,9 +141,9 @@ None.
 ```yaml
 ---
 - hosts: rhel_servers
-  become: true
-  roles:
-    - kpatch-rhel
+ become: true
+ roles:
+ - kpatch-rhel
 ```
 
 ### Install Specific Patches with Verification
@@ -151,16 +151,16 @@ None.
 ```yaml
 ---
 - hosts: production_servers
-  become: true
-  roles:
-    - role: kpatch-rhel
-      vars:
-        kpatch_action: install
-        kpatch_patch_list:
-          - "kpatch-patch-4.18.0-372.9.1.el8_6"
-        kpatch_verify_patches: true
-        kpatch_backup_before_install: true
-        kpatch_verbose_output: true
+ become: true
+ roles:
+ - role: kpatch-rhel
+ vars:
+ kpatch_action: install
+ kpatch_patch_list:
+ - "kpatch-patch-4.18.0-372.9.1.el8_6"
+ kpatch_verify_patches: true
+ kpatch_backup_before_install: true
+ kpatch_verbose_output: true
 ```
 
 ### Emergency Patch Disable
@@ -168,13 +168,13 @@ None.
 ```yaml
 ---
 - hosts: problematic_servers
-  become: true
-  roles:
-    - role: kpatch-rhel
-      vars:
-        kpatch_action: disable
-        kpatch_emergency_disable: true
-        kpatch_verify_patches: true
+ become: true
+ roles:
+ - role: kpatch-rhel
+ vars:
+ kpatch_action: disable
+ kpatch_emergency_disable: true
+ kpatch_verify_patches: true
 ```
 
 ### List All Patches with Detailed Status
@@ -182,13 +182,13 @@ None.
 ```yaml
 ---
 - hosts: all_servers
-  become: true
-  roles:
-    - role: kpatch-rhel
-      vars:
-        kpatch_action: list
-        kpatch_verbose_output: true
-        kpatch_skip_validation: true
+ become: true
+ roles:
+ - role: kpatch-rhel
+ vars:
+ kpatch_action: list
+ kpatch_verbose_output: true
+ kpatch_skip_validation: true
 ```
 
 ### Production Environment with Full Monitoring
@@ -196,18 +196,18 @@ None.
 ```yaml
 ---
 - hosts: production
-  become: true
-  serial: 1  # One server at a time in production
-  roles:
-    - role: kpatch-rhel
-      vars:
-        kpatch_action: install
-        kpatch_verify_patches: true
-        kpatch_backup_before_install: true
-        kpatch_verification_timeout: 120
-        kpatch_log_patches: true
-        kpatch_cleanup_old_patches: true
-        kpatch_keep_patches_count: 2
+ become: true
+ serial: 1 # One server at a time in production
+ roles:
+ - role: kpatch-rhel
+ vars:
+ kpatch_action: install
+ kpatch_verify_patches: true
+ kpatch_backup_before_install: true
+ kpatch_verification_timeout: 120
+ kpatch_log_patches: true
+ kpatch_cleanup_old_patches: true
+ kpatch_keep_patches_count: 2
 ```
 
 ### Development Environment with Relaxed Validation
@@ -215,15 +215,15 @@ None.
 ```yaml
 ---
 - hosts: dev_servers
-  become: true
-  roles:
-    - role: kpatch-rhel
-      vars:
-        kpatch_action: install
-        kpatch_validate_subscription: false
-        kpatch_backup_before_install: false
-        kpatch_force_install: true
-        kpatch_cleanup_old_patches: true
+ become: true
+ roles:
+ - role: kpatch-rhel
+ vars:
+ kpatch_action: install
+ kpatch_validate_subscription: false
+ kpatch_backup_before_install: false
+ kpatch_force_install: true
+ kpatch_cleanup_old_patches: true
 ```
 
 ## Operation Modes
@@ -260,7 +260,7 @@ The role performs comprehensive verification including:
 
 1. **Command Functionality**: Verifies kpatch command operation
 2. **Patch Loading**: Confirms patches are properly loaded
-3. **Kernel Symbols**: Validates kernel symbol integrity  
+3. **Kernel Symbols**: Validates kernel symbol integrity 
 4. **Conflict Detection**: Checks for patch conflicts
 5. **System Stability**: Monitors load, memory, and errors
 6. **Functional Testing**: Tests network, filesystem, and processes
@@ -291,35 +291,35 @@ The role performs comprehensive verification including:
 ### Common Issues
 
 1. **Subscription Problems**
-   ```yaml
-   kpatch_validate_subscription: false  # Bypass subscription validation
-   ```
+ ```yaml
+ kpatch_validate_subscription: false # Bypass subscription validation
+ ```
 
 2. **Patch Installation Failures**
-   ```yaml
-   kpatch_force_install: true  # Force installation
-   kpatch_install_retries: 5   # Increase retry count
-   ```
+ ```yaml
+ kpatch_force_install: true # Force installation
+ kpatch_install_retries: 5 # Increase retry count
+ ```
 
 3. **Verification Failures**
-   ```yaml
-   kpatch_verify_patches: false  # Skip verification (not recommended)
-   ```
+ ```yaml
+ kpatch_verify_patches: false # Skip verification (not recommended)
+ ```
 
 4. **Service Issues**
-   ```bash
-   systemctl status kpatch
-   journalctl -u kpatch
-   ```
+ ```bash
+ systemctl status kpatch
+ journalctl -u kpatch
+ ```
 
 ### Emergency Recovery
 
 ```yaml
 # Emergency disable all patches
 - role: kpatch-rhel
-  vars:
-    kpatch_emergency_disable: true
-    kpatch_skip_validation: true
+ vars:
+ kpatch_emergency_disable: true
+ kpatch_skip_validation: true
 ```
 
 ## Performance Impact
@@ -358,7 +358,7 @@ Apache-2.0
 
 ## Author Information
 
-Created by Santiago Gallego  
+Created by Santiago Gallego 
 Modernized kpatch management for RHEL 7-10 with enterprise features
 
 ## Contributing

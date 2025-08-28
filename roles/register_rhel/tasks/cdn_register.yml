@@ -3,46 +3,46 @@
 
 - name: Unregister if forcing re-registration
   redhat_subscription:
-    state: absent
-  when: 
-    - already_registered
-    - register_rhel_force | default(false)
+  state: absent
+  when:
+  - already_registered
+  - register_rhel_force | default(false)
   ignore_errors: true
 
 - name: Register with Red Hat CDN
   redhat_subscription:
-    state: present
-    username: "{{ register_rhel_username }}"
-    password: "{{ register_rhel_password }}"
-    pool_ids: "{{ register_rhel_pool_ids | default(omit) }}"
-    consumer_type: "{{ register_rhel_consumer_type | default(omit) }}"
-    consumer_name: "{{ register_rhel_consumer_name | default(omit) }}"
-    consumer_id: "{{ register_rhel_consumer_id | default(omit) }}"
-    force_register: "{{ register_rhel_force | default(false) }}"
+  state: present
+  username: "{{ register_rhel_username }}"
+  password: "{{ register_rhel_password }}"
+  pool_ids: "{{ register_rhel_pool_ids | default(omit) }}"
+  consumer_type: "{{ register_rhel_consumer_type | default(omit) }}"
+  consumer_name: "{{ register_rhel_consumer_name | default(omit) }}"
+  consumer_id: "{{ register_rhel_consumer_id | default(omit) }}"
+  force_register: "{{ register_rhel_force | default(false) }}"
   register: cdn_registration_result
 
 - name: Display CDN registration result
   debug:
-    msg: |
-      CDN Registration completed successfully.
-      System is now registered to Red Hat Customer Portal.
-  when: 
-    - cdn_registration_result is succeeded
-    - register_rhel_verbose | default(true)
+  msg: |
+  CDN Registration completed successfully.
+  System is now registered to Red Hat Customer Portal.
+  when:
+  - cdn_registration_result is succeeded
+  - register_rhel_verbose | default(true)
 
 - name: Auto-attach subscriptions if requested
   command: subscription-manager attach --auto
-  when: 
-    - register_rhel_auto_attach | default(true)
-    - cdn_registration_result is succeeded
+  when:
+  - register_rhel_auto_attach | default(true)
+  - cdn_registration_result is succeeded
   register: attach_result
   failed_when: false
 
 - name: Display auto-attach result
   debug:
-    msg: |
-      Auto-attach result: {{ attach_result.stdout if attach_result.stdout else 'No output' }}
-  when: 
-    - register_rhel_auto_attach | default(true)
-    - attach_result is defined
-    - register_rhel_verbose | default(true)
+  msg: |
+  Auto-attach result: {{ attach_result.stdout if attach_result.stdout else 'No output' }}
+  when:
+  - register_rhel_auto_attach | default(true)
+  - attach_result is defined
+  - register_rhel_verbose | default(true)

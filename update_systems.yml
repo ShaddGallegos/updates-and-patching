@@ -8,7 +8,7 @@
     apply_critical_updates: true
     auto_reboot: false
     generate_reports: true
-    
+
   tasks:
     - name: Update Linux systems
       include_role:
@@ -18,8 +18,8 @@
         patching_reboot: "{{ auto_reboot }}"
         patching_generate_report: "{{ generate_reports }}"
       when: ansible_facts['os_family'] != "Windows"
-      
-    - name: Update Windows systems  
+
+    - name: Update Windows systems
       include_role:
         name: ansible-role-win_updates-master
       vars:
@@ -29,13 +29,13 @@
         win_updates_reboot: "{{ auto_reboot }}"
         win_updates_generate_report: "{{ generate_reports }}"
       when: ansible_facts['os_family'] == "Windows"
-      
+
     - name: Generate consolidated report
       include_role:
         name: simple_report
       vars:
         simple_report_collect_all_hosts: true
-        simple_report_format: 
+        simple_report_format:
           - html
           - json
       when: generate_reports | bool

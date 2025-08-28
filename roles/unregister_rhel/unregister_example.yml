@@ -4,10 +4,11 @@
 - name: Unregister RHEL systems from RHN/Satellite
   hosts: all
   become: true
-  
+
   roles:
     - role: unregister_rhel
-      vars:
-        unregister_rhel_verbose: true
-        unregister_rhel_clean_satellite: true
-        unregister_rhel_clean_logs: false
+
+  vars:
+    unregister_rhel_verbose: true
+    unregister_rhel_clean_satellite: true
+    unregister_rhel_clean_logs: false

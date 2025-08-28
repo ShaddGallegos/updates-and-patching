@@ -4,9 +4,9 @@
 - name: Gather system facts
   ansible.builtin.setup:
     gather_subset:
-      - 'hardware'
-      - 'system'
-      - 'virtual'
+      - hardware
+      - system
+      - virtual
   tags: [validation, facts]
 
 - name: Display system information
@@ -23,13 +23,14 @@
   ansible.builtin.setup:
     filter: ansible_mounts
   when: patch_check_disk_space
+  tags: [validation, disk]
 
 - name: Verify minimum disk space requirements
   ansible.builtin.assert:
     that:
       - item.size_available > (patch_min_disk_space_mb * 1024 * 1024)
     fail_msg: |
-      Insufficient disk space on {{ item.mount }}. 
+      Insufficient disk space on {{ item.mount }}.
       Available: {{ (item.size_available / 1024 / 1024) | int }}MB
       Required: {{ patch_min_disk_space_mb }}MB
     quiet: true
@@ -46,6 +47,7 @@
   failed_when: false
   vars:
     _patch_pkg_mgr_cmd: "{{ patch_pkg_manager_commands[ansible_facts['pkg_mgr']] | default(ansible_facts['pkg_mgr']) }}"
+  tags: [validation, package-manager]
 
 - name: Validate package manager is functional
   ansible.builtin.assert:
@@ -65,11 +67,11 @@
 
 - name: Warn about critical services that will be affected
   ansible.builtin.debug:
-    msg: 
+    msg:
       - "WARNING: Critical services detected that may be affected by patching:"
       - "{{ patch_critical_services | default([]) | join(', ') }}"
       - "Consider stopping these services before patching if necessary"
-  when: 
+  when:
     - patch_critical_services is defined
     - patch_critical_services | length > 0
   tags: [validation, services]
@@ -103,7 +105,7 @@
     msg:
       - "Held/locked packages found:"
       - "{{ patch_held_packages.stdout_lines }}"
-  when: 
+  when:
     - patch_held_packages.stdout != "none"
     - patch_held_packages.stdout != "unknown package manager"
   tags: [validation, packages]
@@ -112,3 +114,4 @@
   ansible.builtin.set_fact:
     patch_validation_completed: true
     patch_validation_timestamp: "{{ ansible_date_time.iso8601 }}"
+  tags: [validation]

@@ -5,10 +5,8 @@
 [main]
 # Cache directory - version-specific for optimal performance
 {% if rhel_version >= 8 %}
-# RHEL 8/9/10 use dnf as the primary package manager
 cachedir=/var/cache/dnf/$basearch/$releasever
 {% else %}
-# RHEL 7 uses yum as the primary package manager
 cachedir=/var/cache/yum/$basearch/$releasever
 {% endif %}
 
@@ -25,14 +23,12 @@ obsoletes=1
 gpgcheck=1
 plugins=1
 {% if rhel_version >= 10 %}
-# RHEL 10+ optimized settings
 installonly_limit=5
 {% else %}
 installonly_limit=3
 {% endif %}
 minrate=1
 {% if rhel_version >= 9 %}
-# Enhanced timeout for RHEL 9+
 timeout=600
 {% else %}
 timeout=300
@@ -43,17 +39,14 @@ skip_if_unavailable=1
 
 # Version-specific optimizations
 {% if rhel_version >= 8 %}
-# DNF configuration options for RHEL 8/9/10
 best=1
 clean_requirements_on_remove=1
 {% if rhel_version >= 9 %}
-# RHEL 9+ features
 zchunk=1
 countme=1
 fastestmirror=1
 {% endif %}
 {% if rhel_version >= 10 %}
-# RHEL 10+ advanced features
 module_hotfixes=1
 protect_running_kernel=1
 {% endif %}
@@ -61,24 +54,14 @@ protect_running_kernel=1
 
 # Security settings
 {% if rhel_version >= 8 %}
-# Enhanced GPG checking for modern RHEL
 localpkg_gpgcheck=1
 repo_gpgcheck=0
 {% endif %}
+
 # Metadata settings
-#  This is the default, if you make this bigger yum/dnf won't see if the metadata
-# is newer on the remote and so you'll "gain" the bandwidth of not having to
-# download the new metadata and "pay" for it by yum/dnf not having correct
-# information.
-#  It is esp. important, to have correct metadata, for distributions like
-# Fedora which don't keep old packages around. If you don't like this checking
-# interrupting your command line usage, it's much better to have something
-# manually check the metadata once an hour.
 {% if rhel_version >= 9 %}
-# RHEL 9+ optimized metadata expiration
 # metadata_expire=6h
 {% else %}
-# Standard metadata expiration
 # metadata_expire=90m
 {% endif %}
 

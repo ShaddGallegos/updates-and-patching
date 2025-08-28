@@ -1,0 +1,110 @@
+satellite_server_url: "{{ ansible_fqdn }}"
+satellite_username: admin
+satellite_password: "{{ satellite_admin_password | default('NTY4NjIw') }}"
+satellite_organization: Red_Hat
+satellite_location: Denver
+
+host_registration:
+  activation_key: ""
+  force_registration: false
+  update_packages_on_registration: true
+  install_katello_agent: true
+
+host_management_operations:
+  enable_remote_execution: true
+  enable_insights: true
+  enable_rhc: true
+  configure_satellite_tools: true
+
+target_hosts:
+  single_node: null
+
+hostname: ""
+ip_address: ""
+activation_key: RHEL_9_PROD_AK
+host_collection: RHEL_9_PROD_Servers
+host_groups: []
+all_nodes: null
+exclude_patterns: []
+
+package_operations:
+  cve_updates: null
+  enabled: false
+  target_cves:
+    - CVE-2024-6387
+    - CVE-2024-1086
+    - CVE-2023-4911
+    - CVE-2023-32629
+    - CVE-2023-2002
+  auto_reboot_if_needed: false
+  security_updates: null
+  auto_install: false
+  exclude_packages: []
+  reboot_if_kernel_updated: true
+  bugfix_updates: null
+  all_updates: null
+
+remote_execution:
+  ssh_user: root
+  ssh_key_path: /var/lib/foreman-proxy/.ssh/id_rsa_foreman_proxy
+  sudo_password: ""
+  connection_timeout: 120
+  execution_timeout: 3600
+
+insights_config:
+  auto_register: true
+  collect_insights: true
+  upload_frequency: weekly
+  tags:
+    - satellite-managed
+    - rhel-9
+  display_name_template: "{{ ansible_hostname }}.{{ ansible_domain | default('localdomain') }}"
+
+rhc_config:
+  auto_connect: true
+  activation_key: ""
+  insights_tags:
+    - rhc-enabled
+    - satellite-connected
+
+host_collection_operations:
+  auto_add_new_hosts: true
+  remove_hosts_on_unregister: true
+  bulk_actions_enabled: true
+
+update_jobs:
+  job_template: Package Action - Katello Script Default
+  timeout: 3600
+  concurrency_level: 5
+  batch_size: 10
+  max_retries: 3
+
+compliance_settings:
+  enable_openscap: false
+  compliance_policy: ""
+  scan_schedule: weekly
+
+monitoring_settings:
+  collect_facts: true
+  fact_collection_interval: daily
+  performance_monitoring: false
+
+advanced_settings:
+  auto_unregister_missing_hosts: false
+  missing_host_threshold_days: 30
+  cleanup_old_reports: true
+  report_retention_days: 90
+  debug_mode: false
+  dry_run: false
+  validate_host_operations: true
+  generate_reports: true
+  email_reports: false
+  email_recipients: []
+
+bulk_operations:
+  enabled: false
+  operation_type: register
+  target_pattern: "*"
+  exclude_patterns: []
+  max_concurrent_operations: 10
+# End of defaults file

@@ -5,90 +5,90 @@
 
 - name: Send Slack notification
   uri:
-    url: "{{ notification_webhook_url }}"
-    method: POST
-    headers:
-      Content-Type: application/json
-    body_format: json
-    body:
-      channel: "{{ notification_slack_channel | default('#infrastructure') }}"
-      username: "Ansible RHEL Reporter"
-      icon_emoji: ":ansible:"
-      text: |
-         *RHEL Update Report Generated*
-        
-        *Fleet Summary:*
-        • Total Hosts: {{ play_hosts | length }}
-        • Compliant: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}
-        • Need Updates: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}
-        
-        *Report Location:* `{{ report_base_path }}`
-        *Generated:* {{ ansible_date_time.iso8601 }}
+  url: "{{ notification_webhook_url }}"
+  method: POST
+  headers:
+  Content-Type: application/json
+  body_format: json
+  body:
+  channel: "{{ notification_slack_channel | default('#infrastructure') }}"
+  username: "Ansible RHEL Reporter"
+  icon_emoji: ":ansible:"
+  text: |
+  *RHEL Update Report Generated*
+
+  *Fleet Summary:*
+  • Total Hosts: {{ play_hosts | length }}
+  • Compliant: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}
+  • Need Updates: {{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}
+
+  *Report Location:* `{{ report_base_path }}`
+  *Generated:* {{ ansible_date_time.iso8601 }}
   delegate_to: localhost
   become: false
   when:
-    - notification_webhook_url is defined
-    - notification_webhook_url | length > 0
-    - notification_slack_channel is defined
+  - notification_webhook_url is defined
+- notification_webhook_url | length > 0
+- notification_slack_channel is defined
   run_once: true
 
 - name: Send Microsoft Teams notification
   uri:
-    url: "{{ notification_teams_webhook }}"
-    method: POST
-    headers:
-      Content-Type: application/json
-    body_format: json
-    body:
-      "@type": MessageCard
-      "@context": "http://schema.org/extensions"
-      themeColor: "0076D7"
-      summary: "RHEL Update Report Generated"
-      sections:
-        - activityTitle: " RHEL Update Report"
-          activitySubtitle: "Fleet update compliance status"
-          facts:
-            - name: "Total Hosts"
-              value: "{{ play_hosts | length }}"
-            - name: "Compliant Hosts"
-              value: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}"
-            - name: "Hosts Needing Updates"
-              value: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}"
-            - name: "Report Location"
-              value: "{{ report_base_path }}"
-            - name: "Generated"
-              value: "{{ ansible_date_time.iso8601 }}"
+  url: "{{ notification_teams_webhook }}"
+  method: POST
+  headers:
+  Content-Type: application/json
+  body_format: json
+  body:
+  "@type": MessageCard
+  "@context": "http://schema.org/extensions"
+  themeColor: "0076D7"
+  summary: "RHEL Update Report Generated"
+  sections:
+  - activityTitle: " RHEL Update Report"
+  activitySubtitle: "Fleet update compliance status"
+  facts:
+- name: "Total Hosts"
+  value: "{{ play_hosts | length }}"
+- name: "Compliant Hosts"
+  value: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}"
+- name: "Hosts Needing Updates"
+  value: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}"
+- name: "Report Location"
+  value: "{{ report_base_path }}"
+- name: "Generated"
+  value: "{{ ansible_date_time.iso8601 }}"
   delegate_to: localhost
   become: false
   when:
-    - notification_teams_webhook is defined
-    - notification_teams_webhook | length > 0
+  - notification_teams_webhook is defined
+  - notification_teams_webhook | length > 0
   run_once: true
 
 - name: Send generic webhook notification
   uri:
-    url: "{{ notification_webhook_url }}"
-    method: POST
-    headers:
-      Content-Type: application/json
-    body_format: json
-    body:
-      event_type: "rhel_update_report"
-      timestamp: "{{ ansible_date_time.iso8601 }}"
-      report_id: "{{ report_timestamp_formatted }}"
-      fleet_summary:
-        total_hosts: "{{ play_hosts | length }}"
-        compliant_hosts: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}"
-        hosts_needing_updates: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}"
-      report_location: "{{ report_base_path }}"
-      metadata:
-        company: "{{ report_company_name }}"
-        generated_by: "{{ ansible_user | default('ansible') }}"
+  url: "{{ notification_webhook_url }}"
+  method: POST
+  headers:
+  Content-Type: application/json
+  body_format: json
+  body:
+  event_type: "rhel_update_report"
+  timestamp: "{{ ansible_date_time.iso8601 }}"
+  report_id: "{{ report_timestamp_formatted }}"
+  fleet_summary:
+  total_hosts: "{{ play_hosts | length }}"
+  compliant_hosts: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | map('equalto', 0) | select() | list | length }}"
+  hosts_needing_updates: "{{ play_hosts | map('extract', hostvars, 'available_updates') | map(attribute='results', default=[]) | map('length') | reject('equalto', 0) | list | length }}"
+  report_location: "{{ report_base_path }}"
+  metadata:
+  company: "{{ report_company_name }}"
+  generated_by: "{{ ansible_user | default('ansible') }}"
   delegate_to: localhost
   become: false
   when:
-    - notification_webhook_url is defined
-    - notification_webhook_url | length > 0
-    - notification_slack_channel is not defined
-    - notification_teams_webhook is not defined
+  - notification_webhook_url is defined
+  - notification_webhook_url | length > 0
+  - notification_slack_channel is not defined
+  - notification_teams_webhook is not defined
   run_once: true

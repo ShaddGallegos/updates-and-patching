@@ -1,23 +1,16 @@
 ---
 galaxy_info:
-  author: ShaddGallegos
-  description: Register RHEL systems with Red Hat CDN or Satellite with comprehensive configuration
-  company: Red Hat
-  license: Apache-2.0
-  min_ansible_version: 2.9
+  author: Unknown
+  description: Ansible role
+  company: ""
+  license: license (MIT)
+  min_ansible_version: "2.1"
   platforms:
     - name: EL
       versions:
-        - 7
-        - 8
-        - 9
-  galaxy_tags:
-    - rhel
-    - subscription
-    - satellite
-    - register
-    - cdn
-    - redhat
-    - repositories
+        - "7"
+        - "8"
+        - "9"
+  galaxy_tags: []
 
 dependencies: []

@@ -66,6 +66,6 @@
 
 - name: Skip updates if none available
   meta: end_host
-  when: 
+  when:
     - update_rhel_updates_available == 0
     - not update_rhel_force_run | default(false)

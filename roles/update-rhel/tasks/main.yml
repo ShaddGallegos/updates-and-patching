@@ -4,7 +4,7 @@
 - name: Validate RHEL version compatibility
   fail:
     msg: "This role supports RHEL 7, 8, 9, and 10 only. Detected: {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
-  when: 
+  when:
     - ansible_distribution != "RedHat"
     - ansible_distribution_major_version|int not in [7, 8, 9, 10]
 
@@ -20,7 +20,7 @@
 
 - name: Display current system information
   debug:
-    msg: 
+    msg:
       - "System: {{ update_rhel_os_info.distribution }} {{ update_rhel_os_info.version }}"
       - "Kernel: {{ update_rhel_os_info.kernel }}"
       - "Package Manager: {{ update_rhel_os_info.package_manager }}"
@@ -37,7 +37,7 @@
 
 # Include reboot tasks if required
 - include_tasks: reboot_handling.yml
-  when: 
+  when:
     - update_rhel_reboot_needed | default(false)
     - update_reboot_kernel | default(false)
 
@@ -74,13 +74,13 @@
       {% if update_rhel_show_updates | default(false) %}
       Updates available:
       {% for update in available_updates.results[:10] %}
-        - {{ update.name }}-{{ update.version }}
+      - {{ update.name }}-{{ update.version }}
       {% endfor %}
       {% if available_updates.results|length > 10 %}
       ... and {{ available_updates.results|length - 10 }} more
       {% endif %}
       {% endif %}
-  when: 
+  when:
     - available_updates.results is defined
     - update_rhel_verbose | default(true)
 
@@ -91,7 +91,7 @@
     state: latest
     update_cache: true
     skip_broken: "{{ update_rhel_skip_broken | default(true) }}"
-  when: 
+  when:
     - ansible_distribution_major_version|int == 7
     - available_updates.results|length > 0
   register: yum_update_result
@@ -106,7 +106,7 @@
     skip_broken: "{{ update_rhel_skip_broken | default(true) }}"
     nobest: "{{ update_rhel_nobest | default(false) }}"
     allowerasing: "{{ update_rhel_allow_erasing | default(false) }}"
-  when: 
+  when:
     - ansible_distribution_major_version|int >= 8
     - available_updates.results|length > 0
   register: dnf_update_result
@@ -125,7 +125,7 @@
       {% else %}
       No packages were updated or all packages were already current.
       {% endif %}
-  when: 
+  when:
     - package_update_result is defined
     - update_rhel_verbose | default(true)
 
@@ -158,7 +158,7 @@
 - name: Show latest installed kernel version
   debug:
     msg: "Latest installed kernel: {{ latest_kernel_version | default('Unable to determine') }}"
-  when: 
+  when:
     - update_rhel_verbose | default(true)
     - latest_kernel_version is defined
 
@@ -219,7 +219,7 @@
 
     - name: Display OS information after reboot
       debug:
-        msg: 
+        msg:
           - "Post-reboot OS: {{ os_info_post_update.distribution }} {{ os_info_post_update.distribution_version }}"
           - "Post-reboot kernel: {{ os_info_post_update.kernel }}"
       when: update_rhel_verbose | default(true)
@@ -227,11 +227,10 @@
     - name: Verify kernel update success
       debug:
         msg: "Kernel update successful! Now running: {{ ansible_kernel }}"
-      when: 
+      when:
         - latest_kernel_version is defined
         - ansible_kernel == latest_kernel_version
-
-  when: 
+  when:
     - update_reboot_kernel | default(false)
     - system_reboot_needed | bool
 

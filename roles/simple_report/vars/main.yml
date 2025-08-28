@@ -1,6 +1,4 @@
 ---
-# vars file for simple_patching
-# This file contains the variables used in the simple_report role
 simple_report_apply_all_updates: "{{ survey_apply_all_updates }}"
 simple_report_apply_bugfix_updates: "{{ survey_apply_bugfix_updates }}"
 simple_report_apply_enhancement_updates: "{{ survey_apply_enhancement_updates }}"

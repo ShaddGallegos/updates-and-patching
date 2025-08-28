@@ -52,7 +52,7 @@ patch_debian_optimizations:
     - name: Enable security updates
       repo: "deb http://security.debian.org/debian-security bullseye-security main"
   bookworm:
-    - name: Enable security updates  
+    - name: Enable security updates
       repo: "deb http://security.debian.org/debian-security bookworm-security main"
 
 patch_ubuntu_optimizations:
@@ -61,7 +61,7 @@ patch_ubuntu_optimizations:
       repo: "deb http://security.ubuntu.com/ubuntu bionic-security main"
   focal:
     - name: Enable security updates
-      repo: "deb http://security.ubuntu.com/ubuntu focal-security main"  
+      repo: "deb http://security.ubuntu.com/ubuntu focal-security main"
   jammy:
     - name: Enable security updates
       repo: "deb http://security.ubuntu.com/ubuntu jammy-security main"
@@ -74,7 +74,7 @@ patch_apt_configs:
   - path: /etc/apt/apt.conf.d/50unattended-upgrades
     content: |
       Unattended-Upgrade::Allowed-Origins {
-          "${distro_id}:${distro_codename}-security";
+        "${distro_id}:${distro_codename}-security";
       };
       Unattended-Upgrade::AutoFixInterruptedDpkg "true";
       Unattended-Upgrade::MinimalSteps "true";

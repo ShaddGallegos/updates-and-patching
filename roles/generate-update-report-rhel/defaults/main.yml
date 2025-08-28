@@ -1,98 +1,69 @@
-# defaults/main.yml for generate-update-report-rhel
-# Enhanced RHEL 7-10 update reporting with flexible output options
-# vim:ft=ansible:
----
-
-# RHEL version support configuration
 rhel_supported_versions:
-  - "7"
-  - "8" 
-  - "9"
-  - "10"
-
-# Report generation settings
-report_enabled: true
-report_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
-report_base_name: "rhel-update-report"
-
-# Report storage options
-report_storage_type: file          # file, email, sendgrid, all
-report_local_storage: true         # Always create local copy
-
-# File storage configuration  
-report_file_enabled: true
-report_base_path: /tmp/reports_{{ report_timestamp }}
-report_create_timestamped_folder: true
-report_file_formats:
+  - '7'
+- '8'
+- '9'
+- '10'
+  report_enabled: true
+  report_timestamp: '{{ ansible_date_time.iso8601_basic_short }}'
+  report_base_name: rhel-update-report
+  report_storage_type: file
+  report_local_storage: true
+  report_file_enabled: true
+  report_base_path: /tmp/reports_{{ report_timestamp }}
+  report_create_timestamped_folder: true
+  report_file_formats:
   - html
-  - json
-  - yaml
-  - csv
-
-# Report retention
-report_retention_enabled: true
-report_retention_days: 30
-report_cleanup_old_reports: true
-
-# Email configuration (standard SMTP)
-report_email_enabled: false
-send_email_with_smtp: false
-smtp_host: smtp.gmail.com
-smtp_port: 587
-smtp_use_tls: true
-smtp_account: ''
-smtp_account_password: ''
-smtp_to_email_addresses: []
-smtp_from_email_address: "{{ ansible_user }}@{{ ansible_domain | default('localhost') }}"
-
-# SendGrid configuration
-report_sendgrid_enabled: false
-sendgrid_api_key: ''
-sendgrid_from_email_address: "noreply@{{ ansible_domain | default('localhost') }}"
-sendgrid_to_email_addresses:
-  - "{{ sendgrid_from_email_address }}"
-sendgrid_template_id: ''           # Optional SendGrid template
-sendgrid_categories:
+- json
+- yaml
+- csv
+  report_retention_enabled: true
+  report_retention_days: 30
+  report_cleanup_old_reports: true
+  report_email_enabled: false
+  send_email_with_smtp: false
+  smtp_host: smtp.gmail.com
+  smtp_port: 587
+  smtp_use_tls: true
+  smtp_account: ''
+  smtp_account_password: ''
+  smtp_to_email_addresses: []
+  smtp_from_email_address: '{{ ansible_user }}@{{ ansible_domain | default(''localhost'')
+    }}'
+  report_sendgrid_enabled: false
+  sendgrid_api_key: ''
+  sendgrid_from_email_address: noreply@{{ ansible_domain | default('localhost') }}
+  sendgrid_to_email_addresses:
+  - '{{ sendgrid_from_email_address }}'
+  sendgrid_template_id: ''
+  sendgrid_categories:
   - ansible
-  - rhel-updates
-  - infrastructure
-
-# Report content configuration
-report_include_compliant_hosts: true
-report_include_system_info: true
-report_include_security_updates: true
-report_include_package_details: true
-report_include_reboot_required: true
-report_include_update_history: false
-
-# RHEL specific reporting
-rhel_check_subscription_status: true
-rhel_include_satellite_info: true
-rhel_include_repository_info: true
-rhel_include_errata_info: true
-
-# Security categorization
-report_security_categories:
-  critical: "Critical"
-  important: "Important" 
-  moderate: "Moderate"
-  low: "Low"
-
-# Report customization
-report_company_name: "{{ ansible_domain | default('Organization') }}"
-report_title: "RHEL Update Compliance Report"
-report_description: "System update status across RHEL 7, 8, 9, and 10 infrastructure"
-report_include_charts: true
-report_include_summary_stats: true
-
-# Notification settings
-notification_enabled: false
-notification_webhook_url: ''
-notification_slack_channel: ''
-notification_teams_webhook: ''
-
-# Advanced options
-report_compress_files: false
-report_archive_format: zip         # zip, tar.gz
-report_include_logs: false
-report_debug_mode: false
+- rhel-updates
+- infrastructure
+  report_include_compliant_hosts: true
+  report_include_system_info: true
+  report_include_security_updates: true
+  report_include_package_details: true
+  report_include_reboot_required: true
+  report_include_update_history: false
+  rhel_check_subscription_status: true
+  rhel_include_satellite_info: true
+  rhel_include_repository_info: true
+  rhel_include_errata_info: true
+  report_security_categories:
+  critical: Critical
+  important: Important
+  moderate: Moderate
+  low: Low
+  report_company_name: '{{ ansible_domain | default(''Organization'') }}'
+  report_title: RHEL Update Compliance Report
+  report_description: System update status across RHEL 7, 8, 9, and 10 infrastructure
+  report_include_charts: true
+  report_include_summary_stats: true
+  notification_enabled: false
+  notification_webhook_url: ''
+  notification_slack_channel: ''
+  notification_teams_webhook: ''
+  report_compress_files: false
+  report_archive_format: zip
+  report_include_logs: false
+  report_debug_mode: false

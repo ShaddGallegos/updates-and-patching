@@ -3,7 +3,7 @@
 
 - name: Wait for patches to be fully loaded
   ansible.builtin.wait_for:
-    timeout: "{{ kpatch_verification_timeout }}"
+  timeout: "{{ kpatch_verification_timeout }}"
   delegate_to: localhost
   run_once: true
 
@@ -15,176 +15,176 @@
 
 - name: Parse verification results
   ansible.builtin.set_fact:
-    kpatch_verification_enabled: "{{ (kpatch_verification_status.stdout | regex_findall('\\[enabled\\]')) | length }}"
-    kpatch_verification_disabled: "{{ (kpatch_verification_status.stdout | regex_findall('\\[disabled\\]')) | length }}"
-    kpatch_verification_total: "{{ (kpatch_verification_status.stdout_lines | select('match', '^kpatch-patch.*') | list) | length }}"
+  kpatch_verification_enabled: "{{ (kpatch_verification_status.stdout | regex_findall('\\[enabled\\]')) | length }}"
+  kpatch_verification_disabled: "{{ (kpatch_verification_status.stdout | regex_findall('\\[disabled\\]')) | length }}"
+  kpatch_verification_total: "{{ (kpatch_verification_status.stdout_lines | select('match', '^kpatch-patch.*') | list) | length }}"
 
 - name: Check kernel module loading
   ansible.builtin.shell: |
-    lsmod | grep -E "kpatch|livepatch" || echo "no_kpatch_modules"
+  lsmod | grep -E "kpatch|livepatch" || echo "no_kpatch_modules"
   register: kpatch_module_check
   changed_when: false
 
 - name: Verify kpatch service health
   ansible.builtin.systemd:
-    name: kpatch
+- name: kpatch
   register: kpatch_service_health
 
 - name: Check system stability after patching
   ansible.builtin.shell: |
-    # Check system load
-    load_avg=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | tr -d ',')
-    
+  # Check system load
+  load_avg=$(uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | tr -d ',')
+
     # Check for kernel errors
     dmesg_errors=$(dmesg | tail -20 | grep -i "error\|warning\|fail" | wc -l)
-    
+
     # Check memory usage
-    mem_usage=$(free | awk '/^Mem:/{printf "%.0f", $3/$2 * 100}')
-    
+  mem_usage=$(free | awk '/^Mem:/{printf "%.0f", $3/$2 * 100}')
+
     echo "load_avg=$load_avg,dmesg_errors=$dmesg_errors,mem_usage=$mem_usage"
   register: system_stability_check
   changed_when: false
 
 - name: Parse system stability metrics
   ansible.builtin.set_fact:
-    system_load: "{{ system_stability_check.stdout | regex_search('load_avg=([^,]+)', '\\1') | first | float }}"
-    dmesg_errors: "{{ system_stability_check.stdout | regex_search('dmesg_errors=([^,]+)', '\\1') | first | int }}"
-    memory_usage: "{{ system_stability_check.stdout | regex_search('mem_usage=([^,]+)', '\\1') | first | int }}"
+  system_load: "{{ system_stability_check.stdout | regex_search('load_avg=([^,]+)', '\\1') | first | float }}"
+  dmesg_errors: "{{ system_stability_check.stdout | regex_search('dmesg_errors=([^,]+)', '\\1') | first | int }}"
+  memory_usage: "{{ system_stability_check.stdout | regex_search('mem_usage=([^,]+)', '\\1') | first | int }}"
 
 - name: Perform comprehensive patch verification
   ansible.builtin.shell: |
-    verification_results=""
-    
-    # Test 1: Verify kpatch command functionality
+  verification_results=""
+
+  # Test 1: Verify kpatch command functionality
     if kpatch --version >/dev/null 2>&1; then
-      verification_results="$verification_results kpatch_cmd:PASS"
+  verification_results="$verification_results kpatch_cmd:PASS"
     else
-      verification_results="$verification_results kpatch_cmd:FAIL"
+  verification_results="$verification_results kpatch_cmd:FAIL"
     fi
-    
-    # Test 2: Check if patches are properly loaded
+
+  # Test 2: Check if patches are properly loaded
     enabled_count=$(kpatch list | grep -c '\[enabled\]' || echo "0")
     if [ "$enabled_count" -gt 0 ]; then
-      verification_results="$verification_results patch_load:PASS"
+  verification_results="$verification_results patch_load:PASS"
     else
-      verification_results="$verification_results patch_load:NONE"
+  verification_results="$verification_results patch_load:NONE"
     fi
-    
-    # Test 3: Verify kernel symbols
+
+  # Test 3: Verify kernel symbols
     if [ -f /proc/kallsyms ]; then
-      kpatch_symbols=$(grep -c "kpatch\|livepatch" /proc/kallsyms || echo "0")
-      if [ "$kpatch_symbols" -gt 0 ]; then
-        verification_results="$verification_results symbols:PASS"
-      else
-        verification_results="$verification_results symbols:NONE"
-      fi
+    kpatch_symbols=$(grep -c "kpatch\|livepatch" /proc/kallsyms || echo "0")
+    if [ "$kpatch_symbols" -gt 0 ]; then
+  verification_results="$verification_results symbols:PASS"
     else
-      verification_results="$verification_results symbols:SKIP"
+  verification_results="$verification_results symbols:NONE"
     fi
-    
-    # Test 4: Check for conflicts
+    else
+  verification_results="$verification_results symbols:SKIP"
+    fi
+
+  # Test 4: Check for conflicts
     if dmesg | tail -50 | grep -qi "kpatch.*error\|livepatch.*error"; then
-      verification_results="$verification_results conflicts:FOUND"
+  verification_results="$verification_results conflicts:FOUND"
     else
-      verification_results="$verification_results conflicts:NONE"
+  verification_results="$verification_results conflicts:NONE"
     fi
-    
+
     echo "$verification_results"
   register: comprehensive_verification
   changed_when: false
 
 - name: Parse comprehensive verification results
   ansible.builtin.set_fact:
-    verification_results:
-      kpatch_command: "{{ 'PASS' if 'kpatch_cmd:PASS' in comprehensive_verification.stdout else 'FAIL' }}"
-      patch_loading: "{{ 'PASS' if 'patch_load:PASS' in comprehensive_verification.stdout else 'NONE' if 'patch_load:NONE' in comprehensive_verification.stdout else 'UNKNOWN' }}"
-      kernel_symbols: "{{ 'PASS' if 'symbols:PASS' in comprehensive_verification.stdout else 'NONE' if 'symbols:NONE' in comprehensive_verification.stdout else 'SKIP' }}"
-      conflicts_detected: "{{ 'YES' if 'conflicts:FOUND' in comprehensive_verification.stdout else 'NO' }}"
+  verification_results:
+  kpatch_command: "{{ 'PASS' if 'kpatch_cmd:PASS' in comprehensive_verification.stdout else 'FAIL' }}"
+  patch_loading: "{{ 'PASS' if 'patch_load:PASS' in comprehensive_verification.stdout else 'NONE' if 'patch_load:NONE' in comprehensive_verification.stdout else 'UNKNOWN' }}"
+  kernel_symbols: "{{ 'PASS' if 'symbols:PASS' in comprehensive_verification.stdout else 'NONE' if 'symbols:NONE' in comprehensive_verification.stdout else 'SKIP' }}"
+  conflicts_detected: "{{ 'YES' if 'conflicts:FOUND' in comprehensive_verification.stdout else 'NO' }}"
 
 - name: Check for critical system functions
   ansible.builtin.shell: |
-    # Test basic system operations
-    test_results=""
-    
+  # Test basic system operations
+  test_results=""
+
     # Network connectivity
     if ping -c 1 127.0.0.1 >/dev/null 2>&1; then
-      test_results="$test_results network:OK"
+  test_results="$test_results network:OK"
     else
-      test_results="$test_results network:FAIL"
+  test_results="$test_results network:FAIL"
     fi
-    
+
     # File system operations
     if touch /tmp/kpatch_test_$$ && rm -f /tmp/kpatch_test_$$; then
-      test_results="$test_results filesystem:OK"
+  test_results="$test_results filesystem:OK"
     else
-      test_results="$test_results filesystem:FAIL"
+  test_results="$test_results filesystem:FAIL"
     fi
-    
+
     # Process management
     if ps aux | head -5 >/dev/null 2>&1; then
-      test_results="$test_results processes:OK"
+  test_results="$test_results processes:OK"
     else
-      test_results="$test_results processes:FAIL"
+  test_results="$test_results processes:FAIL"
     fi
-    
+
     echo "$test_results"
   register: system_function_test
   changed_when: false
 
 - name: Set comprehensive verification status
   ansible.builtin.set_fact:
-    kpatch_verification_passed: >-
-      {{
-        verification_results.kpatch_command == 'PASS' and
-        verification_results.conflicts_detected == 'NO' and
-        'network:OK' in system_function_test.stdout and
-        'filesystem:OK' in system_function_test.stdout and
-        'processes:OK' in system_function_test.stdout
-      }}
+  kpatch_verification_passed: >-
+  {{
+  verification_results.kpatch_command == 'PASS' and
+  verification_results.conflicts_detected == 'NO' and
+  'network:OK' in system_function_test.stdout and
+  'filesystem:OK' in system_function_test.stdout and
+  'processes:OK' in system_function_test.stdout
+  }}
 
 - name: Display verification results
   ansible.builtin.debug:
-    msg:
-      - "=== Kpatch Verification Results ==="
-      - "Overall Status: {% if kpatch_verification_passed %} PASSED{% else %} FAILED{% endif %}"
-      - ""
-      - "Patch Statistics:"
-      - "  • Total patches: {{ kpatch_verification_total }}"
-      - "  • Enabled patches: {{ kpatch_verification_enabled }}"
-      - "  • Disabled patches: {{ kpatch_verification_disabled }}"
-      - ""
-      - "System Health:"
-      - "  • System Load: {{ system_load }}"
-      - "  • Memory Usage: {{ memory_usage }}%"
-      - "  • Recent Errors: {{ dmesg_errors }}"
-      - ""
-      - "Verification Tests:"
-      - "  • Kpatch Command: {{ verification_results.kpatch_command }}"
-      - "  • Patch Loading: {{ verification_results.patch_loading }}"
-      - "  • Kernel Symbols: {{ verification_results.kernel_symbols }}"
-      - "  • Conflicts: {{ verification_results.conflicts_detected }}"
-      - ""
-      - "System Functions:"
-      - "  • Network: {% if 'network:OK' in system_function_test.stdout %}OK{% else %}FAIL{% endif %}"
-      - "  • Filesystem: {% if 'filesystem:OK' in system_function_test.stdout %}OK{% else %}FAIL{% endif %}"
-      - "  • Processes: {% if 'processes:OK' in system_function_test.stdout %}OK{% else %}FAIL{% endif %}"
+  msg:
+  - "=== Kpatch Verification Results ==="
+  - "Overall Status: {% if kpatch_verification_passed %} PASSED{% else %} FAILED{% endif %}"
+  - ""
+  - "Patch Statistics:"
+  - " • Total patches: {{ kpatch_verification_total }}"
+  - " • Enabled patches: {{ kpatch_verification_enabled }}"
+  - " • Disabled patches: {{ kpatch_verification_disabled }}"
+  - ""
+  - "System Health:"
+  - " • System Load: {{ system_load }}"
+  - " • Memory Usage: {{ memory_usage }}%"
+  - " • Recent Errors: {{ dmesg_errors }}"
+  - ""
+  - "Verification Tests:"
+  - " • Kpatch Command: {{ verification_results.kpatch_command }}"
+  - " • Patch Loading: {{ verification_results.patch_loading }}"
+  - " • Kernel Symbols: {{ verification_results.kernel_symbols }}"
+  - " • Conflicts: {{ verification_results.conflicts_detected }}"
+  - ""
+  - "System Functions:"
+  - " • Network: {% if 'network:OK' in system_function_test.stdout %}OK{% else %}FAIL{% endif %}"
+  - " • Filesystem: {% if 'filesystem:OK' in system_function_test.stdout %}OK{% else %}FAIL{% endif %}"
+  - " • Processes: {% if 'processes:OK' in system_function_test.stdout %}OK{% else %}FAIL{% endif %}"
 
 - name: Fail if verification did not pass
   ansible.builtin.fail:
-    msg: |
-      Kpatch verification failed. System may be unstable.
-      Please review the verification results above and consider:
-      1. Disabling problematic patches
-      2. Checking system logs for errors
-      3. Verifying kernel compatibility
-      4. Contacting Red Hat support if issues persist
+  msg: |
+  Kpatch verification failed. System may be unstable.
+  Please review the verification results above and consider:
+  1. Disabling problematic patches
+  2. Checking system logs for errors
+  3. Verifying kernel compatibility
+  4. Contacting Red Hat support if issues persist
   when:
-    - not kpatch_verification_passed
-    - not kpatch_force_install | bool
+  - not kpatch_verification_passed
+  - not kpatch_force_install | bool
 
 - name: Set final verification facts
   ansible.builtin.set_fact:
-    kpatch_verification_completed: true
-    kpatch_verification_timestamp: "{{ ansible_date_time.iso8601 }}"
-    kpatch_system_stable: "{{ kpatch_verification_passed }}"
+  kpatch_verification_completed: true
+  kpatch_verification_timestamp: "{{ ansible_date_time.iso8601 }}"
+  kpatch_system_stable: "{{ kpatch_verification_passed }}"
   when: kpatch_set_facts | bool

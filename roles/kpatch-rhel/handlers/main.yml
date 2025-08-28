@@ -1,31 +1,26 @@
 ---
-# Handlers for kpatch-rhel role
-
 - name: restart kpatch service
   ansible.builtin.systemd:
-    name: kpatch
-    state: restarted
-    daemon_reload: true
+- name: kpatch
+  state: restarted
+  daemon_reload: true
   listen: restart kpatch service
-
 - name: reload kpatch service
   ansible.builtin.systemd:
-    name: kpatch
-    state: reloaded
-    daemon_reload: true
+- name: kpatch
+  state: reloaded
+  daemon_reload: true
   listen: reload kpatch service
-
 - name: enable kpatch service
   ansible.builtin.systemd:
-    name: kpatch
-    enabled: true
-    state: started
-    daemon_reload: true
+- name: kpatch
+  enabled: true
+  state: started
+  daemon_reload: true
   listen: enable kpatch service
-
 - name: disable kpatch service
   ansible.builtin.systemd:
-    name: kpatch
-    enabled: false
-    state: stopped
+- name: kpatch
+  enabled: false
+  state: stopped
   listen: disable kpatch service

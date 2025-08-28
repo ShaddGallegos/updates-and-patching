@@ -7,33 +7,33 @@
 
 - name: Enable default repositories for RHEL version
   rhsm_repository:
-    name: "{{ item }}"
-    state: enabled
+- name: "{{ item }}"
+  state: enabled
   loop: "{{ default_repos | default([]) }}"
-  when: 
-    - register_rhel_use_default_repos | default(true)
-    - default_repos is defined
+  when:
+  - register_rhel_use_default_repos | default(true)
+  - default_repos is defined
   ignore_errors: true
 
 - name: Enable custom repositories if specified
   rhsm_repository:
-    name: "{{ item }}"
-    state: enabled
+- name: "{{ item }}"
+  state: enabled
   loop: "{{ register_rhel_additional_repos | default([]) }}"
   when: register_rhel_additional_repos is defined
   ignore_errors: true
 
 - name: Disable unwanted repositories if specified
   rhsm_repository:
-    name: "{{ item }}"
-    state: disabled
+- name: "{{ item }}"
+  state: disabled
   loop: "{{ register_rhel_disable_repos | default([]) }}"
   when: register_rhel_disable_repos is defined
   ignore_errors: true
 
 - name: Update package cache after repository configuration
   package:
-    update_cache: true
+  update_cache: true
   when: register_rhel_update_cache | default(true)
 
 - name: Display enabled repositories
@@ -44,9 +44,9 @@
 
 - name: Show enabled repositories
   debug:
-    msg: |
-      Currently enabled repositories:
-      {{ enabled_repos.stdout }}
-  when: 
-    - register_rhel_verbose | default(true)
-    - enabled_repos is defined
+  msg: |
+  Currently enabled repositories:
+  {{ enabled_repos.stdout }}
+  when:
+  - register_rhel_verbose | default(true)
+  - enabled_repos is defined

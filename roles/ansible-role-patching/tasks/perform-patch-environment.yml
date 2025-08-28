@@ -1,4 +1,4 @@
-# tasks/perform-patch-environment.yml  
+# tasks/perform-patch-environment.yml
 # Comprehensive Linux OS patching with environment variables
 ---
 
@@ -8,41 +8,49 @@
 
 - name: RedHat family patching with environment
   block:
-    - name: Install security updates only (YUM/DNF) with environment
-      ansible.builtin.shell: |
-        {% if ansible_facts['pkg_mgr'] == 'yum' %}
+    - name: Install security updates only (YUM) with environment
+      ansible.builtin.shell: >
         yum update -y --security {% if patch_exclude | length > 0 %}--exclude={{ patch_exclude | join(',') }}{% endif %}
-        {% else %}
-        dnf update -y --security {% if patch_exclude | length > 0 %}--exclude={{ patch_exclude | join(',') }}{% endif %}
-        {% endif %}
       environment: "{{ patch_environment }}"
-      when: patch_security_only
+      when:
+        - patch_security_only
+        - ansible_facts['pkg_mgr'] == 'yum'
       register: patch_security_result
       timeout: "{{ patch_install_timeout }}"
 
-    - name: Full system update (YUM/DNF) with environment
-      ansible.builtin.package:
-        name: '*'
-        state: latest
-        exclude: "{{ patch_exclude | default(omit) }}"
+    - name: Install security updates only (DNF) with environment
+      ansible.builtin.shell: >
+        dnf update -y --security {% if patch_exclude | length > 0 %}--exclude={{ patch_exclude | join(',') }}{% endif %}
       environment: "{{ patch_environment }}"
-      when: not patch_security_only
-      register: patch_yum_result
+      when:
+        - patch_security_only
+        - ansible_facts['pkg_mgr'] == 'dnf'
+      register: patch_security_result
       timeout: "{{ patch_install_timeout }}"
-      retries: "{{ patch_retries }}"
-      delay: "{{ patch_retry_delay }}"
 
-  when: ansible_facts['os_family'] == 'RedHat'
+- name: Full system update (YUM/DNF) with environment
+  ansible.builtin.package:
+    name: '*'
+    state: latest
+    exclude: "{{ patch_exclude | default(omit) }}"
+    environment: "{{ patch_environment }}"
+  when:
+    - not patch_security_only
+    - ansible_facts['os_family'] == 'RedHat'
+  register: patch_yum_result
+  timeout: "{{ patch_install_timeout }}"
+  retries: "{{ patch_retries }}"
+  delay: "{{ patch_retry_delay }}"
   become: true
   tags: [patch, redhat, environment]
 
-- name: Debian family patching with environment  
+- name: Debian family patching with environment
   block:
     - name: Update APT cache with environment
       ansible.builtin.apt:
         update_cache: true
         cache_valid_time: "{{ patch_cache_valid_time }}"
-      environment: "{{ patch_environment }}"
+        environment: "{{ patch_environment }}"
 
     - name: Install security updates only (APT) with environment
       ansible.builtin.shell: |
@@ -52,21 +60,21 @@
       register: patch_apt_security_result
       timeout: "{{ patch_install_timeout }}"
 
-    - name: Full system upgrade (APT) with environment
-      ansible.builtin.apt:
-        upgrade: "{{ 'dist' if patch_apt_dist_upgrade else 'yes' }}"
-        update_cache: false
-        cache_valid_time: "{{ patch_cache_valid_time }}"
-        autoremove: true
-        autoclean: true
-      environment: "{{ patch_environment }}"
-      when: not patch_security_only
-      register: patch_apt_result
-      timeout: "{{ patch_install_timeout }}"
-      retries: "{{ patch_retries }}"
-      delay: "{{ patch_retry_delay }}"
-
-  when: ansible_facts['os_family'] == 'Debian'
+- name: Full system upgrade (APT) with environment
+  ansible.builtin.apt:
+    upgrade: "{{ 'dist' if patch_apt_dist_upgrade else 'yes' }}"
+    update_cache: false
+    cache_valid_time: "{{ patch_cache_valid_time }}"
+    autoremove: true
+    autoclean: true
+    environment: "{{ patch_environment }}"
+  when:
+    - not patch_security_only
+    - ansible_facts['os_family'] == 'Debian'
+  register: patch_apt_result
+  timeout: "{{ patch_install_timeout }}"
+  retries: "{{ patch_retries }}"
+  delay: "{{ patch_retry_delay }}"
   become: true
   tags: [patch, debian, environment]
 
@@ -75,7 +83,7 @@
     - name: Update Zypper repositories with environment
       ansible.builtin.zypper:
         update_cache: true
-      environment: "{{ patch_environment }}"
+        environment: "{{ patch_environment }}"
 
     - name: Install security patches only (Zypper) with environment
       ansible.builtin.zypper:
@@ -83,7 +91,7 @@
         state: latest
         type: patch
         category: security
-      environment: "{{ patch_environment }}"
+        environment: "{{ patch_environment }}"
       when: patch_security_only
       register: patch_zypper_security_result
       timeout: "{{ patch_install_timeout }}"
@@ -94,39 +102,38 @@
         state: latest
         type: "{{ 'patch' if patch_zypper_no_recommends else 'package' }}"
         disable_recommends: "{{ patch_zypper_no_recommends }}"
-      environment: "{{ patch_environment }}"
-      when: not patch_security_only
+        environment: "{{ patch_environment }}"
+      when:
+        - not patch_security_only
+        - ansible_facts['os_family'] == 'Suse'
       register: patch_zypper_result
       timeout: "{{ patch_install_timeout }}"
       retries: "{{ patch_retries }}"
       delay: "{{ patch_retry_delay }}"
-
-  when: ansible_facts['os_family'] == 'Suse'
-  become: true
-  tags: [patch, suse, environment]
+      become: true
+      tags: [patch, suse, environment]
 
 - name: Arch Linux patching with environment
   block:
     - name: Clean Pacman cache with environment
-      ansible.builtin.command: "yes | pacman -Scc"
-      environment: "{{ patch_environment }}"
-      when: patch_clean_cache
+  ansible.builtin.command: "yes | pacman -Scc"
+  environment: "{{ patch_environment }}"
+  when: patch_clean_cache
 
-    - name: Update Pacman database with environment
-      ansible.builtin.pacman:
-        update_cache: true
-      environment: "{{ patch_environment }}"
+- name: Update Pacman database with environment
+  ansible.builtin.pacman:
+  update_cache: true
+  environment: "{{ patch_environment }}"
 
-    - name: Full system upgrade (Pacman) with environment
-      ansible.builtin.pacman:
-        upgrade: true
-        update_cache: false
-      environment: "{{ patch_environment }}"
-      register: patch_pacman_result
-      timeout: "{{ patch_install_timeout }}"
-      retries: "{{ patch_retries }}"
-      delay: "{{ patch_retry_delay }}"
-
+- name: Full system upgrade (Pacman) with environment
+  ansible.builtin.pacman:
+    upgrade: true
+    update_cache: false
+    environment: "{{ patch_environment }}"
+  register: patch_pacman_result
+  timeout: "{{ patch_install_timeout }}"
+  retries: "{{ patch_retries }}"
+  delay: "{{ patch_retry_delay }}"
   when: ansible_facts['pkg_mgr'] == 'pacman'
   become: true
   tags: [patch, arch, environment]
@@ -136,35 +143,32 @@
     - name: Update APK cache with environment
       ansible.builtin.apk:
         update_cache: true
-      environment: "{{ patch_environment }}"
+        environment: "{{ patch_environment }}"
 
     - name: Upgrade all packages (APK) with environment
       ansible.builtin.apk:
         upgrade: true
         available: true
-      environment: "{{ patch_environment }}"
+        environment: "{{ patch_environment }}"
       register: patch_apk_result
       timeout: "{{ patch_install_timeout }}"
-
-  when: ansible_facts['pkg_mgr'] == 'apk'
-  become: true
-  tags: [patch, alpine, environment]
-
+      when: ansible_facts['pkg_mgr'] == 'apk'
+      become: true
+      tags: [patch, alpine, environment]
 - name: Gentoo Linux patching with environment
   block:
     - name: Sync Portage tree with environment
       ansible.builtin.shell: "emerge --sync"
       environment: "{{ patch_environment }}"
-      
+
     - name: Update world (Portage) with environment
       ansible.builtin.shell: "emerge -uDN @world"
       environment: "{{ patch_environment }}"
       register: patch_portage_result
       timeout: "{{ patch_install_timeout }}"
-
-  when: ansible_facts['pkg_mgr'] == 'portage'
-  become: true
-  tags: [patch, gentoo, environment]
+      when: ansible_facts['pkg_mgr'] == 'portage'
+      become: true
+      tags: [patch, gentoo, environment]
 
 - name: Check if kernel was updated
   ansible.builtin.shell: |
@@ -173,7 +177,7 @@
         {% if ansible_facts['pkg_mgr'] == 'yum' %}
         yum history list kernel | head -5 | grep -q "$(date +%Y-%m-%d)" && echo "kernel_updated" || echo "no_kernel_update"
         {% else %}
-        dnf history list kernel | head -5 | grep -q "$(date +%Y-%m-%d)" && echo "kernel_updated" || echo "no_kernel_update"  
+        dnf history list kernel | head -5 | grep -q "$(date +%Y-%m-%d)" && echo "kernel_updated" || echo "no_kernel_update"
         {% endif %}
         ;;
       "Debian")
@@ -194,19 +198,13 @@
   changed_when: false
   when: patch_kernel_update
   tags: [patch, kernel]
-
-- name: Set patch completion facts
-  ansible.builtin.set_fact:
-    patch_kernel_was_updated: "{{ patch_kernel_check.stdout == 'kernel_updated' if patch_kernel_check is defined else false }}"
-    patch_reboot_required: "{{ (patch_kernel_check.stdout == 'kernel_updated' and patch_reboot_if_kernel) if patch_kernel_check is defined else patch_reboot }}"
-    patch_updates_applied: true
-    patch_completion_timestamp: "{{ ansible_date_time.iso8601 }}"
+  patch_completion_timestamp: "{{ ansible_date_time.iso8601 }}"
 
 - name: Reboot system if required
   ansible.builtin.reboot:
-    reboot_timeout: "{{ patch_reboot_timeout }}"
-    pre_reboot_delay: "{{ patch_reboot_delay }}"
-    msg: "Rebooting after system patching with environment variables"
+  reboot_timeout: "{{ patch_reboot_timeout }}"
+  pre_reboot_delay: "{{ patch_reboot_delay }}"
+  msg: "Rebooting after system patching with environment variables"
   when: patch_reboot_required
   tags: [patch, reboot]
-...
+

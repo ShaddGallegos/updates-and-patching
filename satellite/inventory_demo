@@ -1,0 +1,56 @@
+# Red Hat Satellite Demo Inventory
+# Demo environment configuration for Satellite 6.17 automation
+
+[satellite_servers]
+satellite.example.com ansible_host=192.168.1.100
+
+[rhel_servers]
+rhel9-demo-01.example.com ansible_host=192.168.1.101
+rhel9-demo-02.example.com ansible_host=192.168.1.102
+rhel9-demo-03.example.com ansible_host=192.168.1.103
+
+[windows_servers]
+win2022-demo-01.example.com ansible_host=192.168.1.201
+win2022-demo-02.example.com ansible_host=192.168.1.202
+
+[demo_environment:children]
+satellite_servers
+rhel_servers
+windows_servers
+
+[satellite_servers:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_python_interpreter=/usr/bin/python3
+satellite_username=admin
+satellite_password=NTY4NjIw
+satellite_organization="Default Organization"
+satellite_location="Default Location"
+
+[rhel_servers:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_python_interpreter=/usr/bin/python3
+satellite_server_url=https://satellite.example.com
+satellite_activation_key=RHEL_9_PROD_x86_64_Key
+satellite_org_id=Default_Organization
+
+[windows_servers:vars]
+ansible_user=Administrator
+ansible_password=NTY4NjIw
+ansible_connection=winrm
+ansible_winrm_server_cert_validation=ignore
+ansible_winrm_transport=basic
+ansible_winrm_port=5985
+
+[demo_environment:vars]
+demo_mode=true
+debug_mode=true
+generate_reports=true
+reports_directory=./demo_reports
+demo_admin_username=admin
+demo_admin_password=NTY4NjIw
+demo_satellite_url=https://satellite.example.com
+demo_satellite_org="Default Organization"
+demo_satellite_location="Default Location"
+demo_security_notice="WARNING: This inventory contains demo credentials. DO NOT use in production environments!"

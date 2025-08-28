@@ -31,18 +31,18 @@
     rhel_major_version: "{{ ansible_facts['distribution_major_version'] | int }}"
     detected_package_manager: >-
       {%- if ansible_facts['distribution_major_version'] | int >= 8 -%}
-        dnf
+      dnf
       {%- else -%}
-        yum
+      yum
       {%- endif -%}
 
 - name: Set package manager based on detection or override
   ansible.builtin.set_fact:
     active_package_manager: >-
       {%- if report_package_manager == 'auto' -%}
-        {{ detected_package_manager }}
+      {{ detected_package_manager }}
       {%- else -%}
-        {{ report_package_manager }}
+      {{ report_package_manager }}
       {%- endif -%}
 
 - name: Install required packages for report generation
@@ -59,7 +59,7 @@
     name: wkhtmltopdf
     state: present
   become: true
-  when: 
+  when:
     - report_include_pdf | bool
     - rhel_major_version >= 8
     - inventory_hostname == groups['all'][0]
@@ -96,6 +96,6 @@
   loop: "{{ old_reports.files | default([]) }}"
   delegate_to: localhost
   run_once: true
-  when: 
+  when:
     - report_cleanup_old_reports | bool
     - old_reports.files is defined

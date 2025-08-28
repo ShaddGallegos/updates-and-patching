@@ -1,95 +1,21 @@
 ---
-# Version-specific variables for ansible-role-yum
-# These variables are set based on RHEL version detection
-
-# Package manager mapping
-_yum_package_managers:
-  "7": yum
-  "8": dnf
-  "9": dnf
-  "10": dnf
-
-# Configuration file paths
-_yum_config_files:
-  "7": /etc/yum.conf
-  "8": /etc/dnf/dnf.conf
-  "9": /etc/dnf/dnf.conf
-  "10": /etc/dnf/dnf.conf
-
-# Cache directories
-_yum_cache_dirs:
-  "7": /var/cache/yum
-  "8": /var/cache/dnf
-  "9": /var/cache/dnf
-  "10": /var/cache/dnf
-
-# Log files
-_yum_log_files:
-  "7": /var/log/yum.log
-  "8": /var/log/dnf.log
-  "9": /var/log/dnf.log
-  "10": /var/log/dnf.log
-
-# Service names for automatic updates
-_yum_service_names:
-  "7": yum-cron
-  "8": dnf-automatic.timer
-  "9": dnf-automatic.timer
-  "10": dnf-automatic.timer
-
-# Default timeout values
-_yum_default_timeouts:
-  "7": 300
-  "8": 300
-  "9": 600
-  "10": 600
-
-# Default installonly limits
-_yum_default_installonly_limits:
-  "7": 3
-  "8": 3
-  "9": 3
-  "10": 5
-
-# Feature availability matrix
-_yum_features:
-  best:
-    "7": false
-    "8": true
-    "9": true
-    "10": true
-  clean_requirements_on_remove:
-    "7": false
-    "8": true
-    "9": true
-    "10": true
-  zchunk:
-    "7": false
-    "8": false
-    "9": true
-    "10": true
-  countme:
-    "7": false
-    "8": false
-    "9": true
-    "10": true
-  fastestmirror:
-    "7": true   # Available via plugin
-    "8": false
-    "9": true
-    "10": true
-  module_hotfixes:
-    "7": false
-    "8": false
-    "9": false
-    "10": true
-  protect_running_kernel:
-    "7": false
-    "8": false
-    "9": false
-    "10": true
-  localpkg_gpgcheck:
-    "7": false
-    "8": true
-    "9": true
-    "10": true
+'10': true
+'7': false
+'8': true
+'9': true
+_yum_cache_dirs: null
+_yum_config_files: null
+_yum_default_installonly_limits: null
+_yum_default_timeouts: null
+_yum_features: null
+_yum_log_files: null
+_yum_package_managers: null
+_yum_service_names: null
+best: null
+clean_requirements_on_remove: null
+countme: null
+fastestmirror: null
+localpkg_gpgcheck: null
+module_hotfixes: null
+protect_running_kernel: null
+zchunk: null

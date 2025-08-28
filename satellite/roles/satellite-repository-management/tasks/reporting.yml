@@ -1,0 +1,66 @@
+---
+# Repository Management Reporting Tasks
+
+- name: "Generate repository sync report"
+  template:
+    src: sync_report.html.j2
+    dest: "/tmp/satellite_repo_sync_report_{{ ansible_date_time.epoch }}.html"
+    mode: '0644'
+  register: sync_report_file
+  tags:
+    - reporting
+
+- name: "Generate JSON sync report"
+  template:
+    src: sync_report.json.j2
+    dest: "/tmp/satellite_repo_sync_report_{{ ansible_date_time.epoch }}.json"
+    mode: '0644'
+  register: sync_json_report
+  tags:
+    - reporting
+
+- name: "Display report locations"
+  debug:
+    msg:
+      - "HTML Report: {{ sync_report_file.dest }}"
+      - "JSON Report: {{ sync_json_report.dest }}"
+  tags:
+    - reporting
+
+- name: "Email sync reports"
+  mail:
+    to: "{{ email_recipients }}"
+    subject: "Satellite Repository Sync Report - {{ ansible_date_time.date }}"
+    body: |
+      Repository synchronization completed for {{ satellite_server_url }}
+
+      Summary:
+      - Organization: {{ satellite_organization }}
+      - Products Managed: {{ satellite_products | length }}
+      - Repositories Synced: {{ repository_ids | length if repository_ids is defined else 0 }}
+      - Sync Plans: {{ sync_plans | length }}
+
+      Detailed reports are attached.
+    attach:
+      - "{{ sync_report_file.dest }}"
+      - "{{ sync_json_report.dest }}"
+  when:
+    - email_sync_reports | bool
+    - email_recipients | length > 0
+  tags:
+    - reporting
+
+- name: "Create sync summary"
+  set_fact:
+    sync_summary:
+      organization: "{{ satellite_organization }}"
+      satellite_server: "{{ satellite_server_url }}"
+      products_managed: "{{ satellite_products | length }}"
+      repositories_configured: "{{ repository_ids | length if repository_ids is defined else 0 }}"
+      sync_plans_created: "{{ sync_plans | length }}"
+      sync_date: "{{ ansible_date_time.iso8601 }}"
+      reports_generated:
+        - "{{ sync_report_file.dest }}"
+        - "{{ sync_json_report.dest }}"
+  tags:
+    - reporting

@@ -4,176 +4,176 @@
 
 - name: "Check Windows Server 2022 edition and features"
   win_shell: |
-    $serverInfo = Get-CimInstance -ClassName Win32_OperatingSystem
-    $features = Get-WindowsFeature | Where-Object {$_.InstallState -eq 'Installed'}
-    $roles = Get-WindowsFeature | Where-Object {$_.FeatureType -eq 'Role' -and $_.InstallState -eq 'Installed'}
-    
+  $serverInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+  $features = Get-WindowsFeature | Where-Object {$_.InstallState -eq 'Installed'}
+  $roles = Get-WindowsFeature | Where-Object {$_.FeatureType -eq 'Role' -and $_.InstallState -eq 'Installed'}
+
     @{
-        'Edition' = $serverInfo.Caption
-        'InstallationType' = $serverInfo.InstallationType
-        'TotalPhysicalMemory' = [math]::Round($serverInfo.TotalPhysicalMemory / 1GB, 2)
-        'InstalledFeatures' = $features.Count
-        'InstalledRoles' = $roles.Count
-        'ServerCore' = ($serverInfo.InstallationType -eq 'Server Core')
-        'ProductType' = $serverInfo.ProductType
+    'Edition' = $serverInfo.Caption
+    'InstallationType' = $serverInfo.InstallationType
+  'TotalPhysicalMemory' = [math]::Round($serverInfo.TotalPhysicalMemory / 1GB, 2)
+    'InstalledFeatures' = $features.Count
+    'InstalledRoles' = $roles.Count
+    'ServerCore' = ($serverInfo.InstallationType -eq 'Server Core')
+    'ProductType' = $serverInfo.ProductType
     } | ConvertTo-Json
   register: server2022_info
   changed_when: false
 
 - name: "Parse Windows Server 2022 information"
   set_fact:
-    server_info: "{{ server2022_info.stdout | from_json }}"
+  server_info: "{{ server2022_info.stdout | from_json }}"
 
 - name: "Configure Windows Server Update Services (WSUS) client settings"
   win_regedit:
-    path: "{{ item.path }}"
-    name: "{{ item.name }}"
-    data: "{{ item.value }}"
-    type: "{{ item.type }}"
+  path: "{{ item.path }}"
+- name: "{{ item.name }}"
+  data: "{{ item.value }}"
+  type: "{{ item.type }}"
   loop:
-    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-      name: 'WUServer'
-      value: "{{ win_updates_wsus_server }}"
-      type: string
-    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-      name: 'WUStatusServer'
-      value: "{{ win_updates_wsus_server }}"
-      type: string
-    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-      name: 'UseWUServer'
-      value: 1
-      type: dword
-  when: 
-    - win_updates_wsus_server != ''
-    - win_server_2022_settings.configure_wsus_for_server | bool
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+- name: 'WUServer'
+  value: "{{ win_updates_wsus_server }}"
+  type: string
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+- name: 'WUStatusServer'
+  value: "{{ win_updates_wsus_server }}"
+  type: string
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+- name: 'UseWUServer'
+  value: 1
+  type: dword
+  when:
+  - win_updates_wsus_server != ''
+  - win_server_2022_settings.configure_wsus_for_server | bool
 
 - name: "Configure Server Core specific update settings"
   win_regedit:
-    path: "{{ item.path }}"
-    name: "{{ item.name }}"
-    data: "{{ item.value }}"
-    type: dword
+  path: "{{ item.path }}"
+- name: "{{ item.name }}"
+  data: "{{ item.value }}"
+  type: dword
   loop:
-    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-      name: 'AUOptions'
-      value: 4  # Auto download and install
-    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-      name: 'ScheduledInstallDay'
-      value: 0  # Every day
-    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-      name: 'ScheduledInstallTime'
-      value: 3  # 3 AM
-  when: 
-    - server_info.ServerCore | bool
-    - win_server_2022_settings.enable_server_core_updates | bool
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+- name: 'AUOptions'
+  value: 4 # Auto download and install
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+- name: 'ScheduledInstallDay'
+  value: 0 # Every day
+  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+- name: 'ScheduledInstallTime'
+  value: 3 # 3 AM
+  when:
+  - server_info.ServerCore | bool
+  - win_server_2022_settings.enable_server_core_updates | bool
 
 - name: "Install server-specific critical updates"
   win_updates:
-    category_names: 
-      - 'CriticalUpdates'
-      - 'SecurityUpdates'
-      - 'UpdateRollups'
-      - 'DefinitionUpdates'
-    state: 'installed'
-    log_path: "{{ win_updates_log_path }}"
-    timeout: "{{ win_updates_timeout }}"
-    accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
-    reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+  category_names:
+  - 'CriticalUpdates'
+  - 'SecurityUpdates'
+  - 'UpdateRollups'
+  - 'DefinitionUpdates'
+  state: 'installed'
+  log_path: "{{ win_updates_log_path }}"
+  timeout: "{{ win_updates_timeout }}"
+  accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+  reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
   register: server2022_updates_result
 
 - name: "Install Windows Server roles and features updates"
   win_shell: |
-    try {
-        # Check for available Windows Features updates
-        Import-Module ServerManager -ErrorAction SilentlyContinue
-        
-        if (Get-Command Get-WindowsFeature -ErrorAction SilentlyContinue) {
-            $availableFeatures = Get-WindowsFeature | Where-Object {
-                $_.InstallState -eq 'Available' -and 
-                $_.FeatureType -eq 'Role Service'
-            }
-            
-            @{
-                'Status' = 'Success'
-                'AvailableFeatures' = $availableFeatures.Count
-                'ServerManagerAvailable' = $true
-            } | ConvertTo-Json
-        } else {
-            @{
-                'Status' = 'Limited'
-                'ServerManagerAvailable' = $false
-                'Message' = 'Server Manager not available'
-            } | ConvertTo-Json
-        }
+  try {
+  # Check for available Windows Features updates
+  Import-Module ServerManager -ErrorAction SilentlyContinue
+
+    if (Get-Command Get-WindowsFeature -ErrorAction SilentlyContinue) {
+    $availableFeatures = Get-WindowsFeature | Where-Object {
+    $_.InstallState -eq 'Available' -and
+    $_.FeatureType -eq 'Role Service'
+    }
+
+    @{
+    'Status' = 'Success'
+    'AvailableFeatures' = $availableFeatures.Count
+    'ServerManagerAvailable' = $true
+    } | ConvertTo-Json
+    } else {
+    @{
+    'Status' = 'Limited'
+    'ServerManagerAvailable' = $false
+    'Message' = 'Server Manager not available'
+    } | ConvertTo-Json
+    }
     }
     catch {
-        @{
-            'Status' = 'Error'
-            'Error' = $_.Exception.Message
-        } | ConvertTo-Json
+    @{
+    'Status' = 'Error'
+    'Error' = $_.Exception.Message
+    } | ConvertTo-Json
     }
   register: server_features_check
   changed_when: false
 
 - name: "Configure Server 2022 security baseline"
   win_regedit:
-    path: "{{ item.path }}"
-    name: "{{ item.name }}"
-    data: "{{ item.value }}"
-    type: dword
+  path: "{{ item.path }}"
+- name: "{{ item.name }}"
+  data: "{{ item.value }}"
+  type: dword
   loop:
-    # Enhanced security settings for Server 2022
-    - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
-      name: 'LmCompatibilityLevel'
-      value: 5  # Send NTLMv2 response only
-    - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
-      name: 'NoLMHash'
-      value: 1  # Do not store LAN Manager hash
-    - path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
-      name: 'EnableLUA'
-      value: 1  # Enable User Account Control
-    - path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
-      name: 'FilterAdministratorToken'
-      value: 1  # Filter administrator token
+  # Enhanced security settings for Server 2022
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+- name: 'LmCompatibilityLevel'
+  value: 5 # Send NTLMv2 response only
+  - path: 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+- name: 'NoLMHash'
+  value: 1 # Do not store LAN Manager hash
+  - path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+- name: 'EnableLUA'
+  value: 1 # Enable User Account Control
+  - path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+- name: 'FilterAdministratorToken'
+  value: 1 # Filter administrator token
   when: win_server_2022_settings.enable_security_baseline | default(true) | bool
 
 - name: "Install .NET Framework updates for Server 2022"
   win_updates:
-    category_names: 
-      - 'Updates'
-    state: 'installed'
-    log_path: "{{ win_updates_log_path }}"
-    search_criteria: 'Title LIKE "*.NET*"'
-    timeout: "{{ win_updates_timeout }}"
+  category_names:
+  - 'Updates'
+  state: 'installed'
+  log_path: "{{ win_updates_log_path }}"
+  search_criteria: 'Title LIKE "*.NET*"'
+  timeout: "{{ win_updates_timeout }}"
   register: dotnet_updates_result
   failed_when: false
 
 - name: "Update PowerShell to latest version"
   win_shell: |
-    try {
-        # Check current PowerShell version
-        $psVersion = $PSVersionTable.PSVersion.ToString()
-        
-        # Try to update PowerShell via winget (if available)
-        if (Get-Command winget -ErrorAction SilentlyContinue) {
-            $wingetResult = winget upgrade Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
-            $status = 'Updated via winget'
-        } else {
-            $status = 'winget not available'
-        }
-        
-        @{
-            'CurrentVersion' = $psVersion
-            'UpdateStatus' = $status
-            'WingetAvailable' = (Get-Command winget -ErrorAction SilentlyContinue) -ne $null
-        } | ConvertTo-Json
+  try {
+  # Check current PowerShell version
+  $psVersion = $PSVersionTable.PSVersion.ToString()
+
+    # Try to update PowerShell via winget (if available)
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+    $wingetResult = winget upgrade Microsoft.PowerShell --accept-source-agreements --accept-package-agreements
+    $status = 'Updated via winget'
+    } else {
+    $status = 'winget not available'
+    }
+
+    @{
+    'CurrentVersion' = $psVersion
+    'UpdateStatus' = $status
+    'WingetAvailable' = (Get-Command winget -ErrorAction SilentlyContinue) -ne $null
+    } | ConvertTo-Json
     }
     catch {
-        @{
-            'CurrentVersion' = $PSVersionTable.PSVersion.ToString()
-            'Error' = $_.Exception.Message
-            'UpdateStatus' = 'Failed'
-        } | ConvertTo-Json
+    @{
+    'CurrentVersion' = $PSVersionTable.PSVersion.ToString()
+    'Error' = $_.Exception.Message
+    'UpdateStatus' = 'Failed'
+    } | ConvertTo-Json
     }
   register: powershell_update_result
   changed_when: false
@@ -181,61 +181,61 @@
 
 - name: "Configure Windows Server backup integration"
   win_shell: |
-    try {
-        # Check if Windows Server Backup feature is installed
-        $backupFeature = Get-WindowsFeature -Name Windows-Server-Backup -ErrorAction SilentlyContinue
-        
-        if ($backupFeature -and $backupFeature.InstallState -eq 'Installed') {
-            # Configure backup before major updates
-            $backupStatus = @{
-                'BackupFeatureInstalled' = $true
-                'BackupRecommended' = $true
-                'Message' = 'Windows Server Backup is available for pre-update backup'
-            }
-        } else {
-            $backupStatus = @{
-                'BackupFeatureInstalled' = $false
-                'BackupRecommended' = $true
-                'Message' = 'Consider installing Windows Server Backup feature'
-            }
-        }
-        
-        $backupStatus | ConvertTo-Json
+  try {
+  # Check if Windows Server Backup feature is installed
+  $backupFeature = Get-WindowsFeature -Name Windows-Server-Backup -ErrorAction SilentlyContinue
+
+    if ($backupFeature -and $backupFeature.InstallState -eq 'Installed') {
+    # Configure backup before major updates
+    $backupStatus = @{
+    'BackupFeatureInstalled' = $true
+    'BackupRecommended' = $true
+    'Message' = 'Windows Server Backup is available for pre-update backup'
+    }
+    } else {
+    $backupStatus = @{
+    'BackupFeatureInstalled' = $false
+    'BackupRecommended' = $true
+    'Message' = 'Consider installing Windows Server Backup feature'
+    }
+    }
+
+    $backupStatus | ConvertTo-Json
     }
     catch {
-        @{
-            'BackupFeatureInstalled' = $false
-            'Error' = $_.Exception.Message
-        } | ConvertTo-Json
+    @{
+    'BackupFeatureInstalled' = $false
+    'Error' = $_.Exception.Message
+    } | ConvertTo-Json
     }
   register: server_backup_check
   changed_when: false
 
 - name: "Apply Server 2022 security-only updates if configured"
   win_updates:
-    category_names: ['SecurityUpdates']
-    state: 'installed'
-    log_path: "{{ win_updates_log_path }}"
-    timeout: "{{ win_updates_timeout }}"
+  category_names: ['SecurityUpdates']
+  state: 'installed'
+  log_path: "{{ win_updates_log_path }}"
+  timeout: "{{ win_updates_timeout }}"
   register: server2022_security_only
   when: win_server_2022_settings.enable_security_only_updates | bool
 
 - name: "Display Windows Server 2022 update summary"
   debug:
-    msg:
-      - "=============================================="
-      - "Windows Server 2022 Update Summary"
-      - "=============================================="
-      - "Server Edition: {{ server_info.EditionName }}"
-      - "Installation Type: {{ server_info.InstallationType }}"
-      - "Memory: {{ server_info.TotalPhysicalMemory }} GB"
-      - "Installed Roles: {{ server_info.InstalledRoles }}"
-      - "Installed Features: {{ server_info.InstalledFeatures }}"
-      - "Server Core: {{ server_info.ServerCore }}"
-      - "Critical Updates: {{ server2022_updates_result.installed_update_count | default(0) }}"
-      - ".NET Updates: {{ dotnet_updates_result.installed_update_count | default(0) }}"
-      - "Security Only Updates: {{ server2022_security_only.installed_update_count | default(0) }}"
-      - "PowerShell Status: {{ (powershell_update_result.stdout | from_json).UpdateStatus | default('Not Checked') }}"
-      - "Backup Feature: {{ (server_backup_check.stdout | from_json).BackupFeatureInstalled | default(false) }}"
-      - "=============================================="
+  msg:
+  - "=============================================="
+  - "Windows Server 2022 Update Summary"
+  - "=============================================="
+  - "Server Edition: {{ server_info.EditionName }}"
+  - "Installation Type: {{ server_info.InstallationType }}"
+  - "Memory: {{ server_info.TotalPhysicalMemory }} GB"
+  - "Installed Roles: {{ server_info.InstalledRoles }}"
+  - "Installed Features: {{ server_info.InstalledFeatures }}"
+  - "Server Core: {{ server_info.ServerCore }}"
+  - "Critical Updates: {{ server2022_updates_result.installed_update_count | default(0) }}"
+  - ".NET Updates: {{ dotnet_updates_result.installed_update_count | default(0) }}"
+  - "Security Only Updates: {{ server2022_security_only.installed_update_count | default(0) }}"
+  - "PowerShell Status: {{ (powershell_update_result.stdout | from_json).UpdateStatus | default('Not Checked') }}"
+  - "Backup Feature: {{ (server_backup_check.stdout | from_json).BackupFeatureInstalled | default(false) }}"
+  - "=============================================="
   when: win_updates_generate_report | bool

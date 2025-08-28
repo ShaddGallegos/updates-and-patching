@@ -1,0 +1,142 @@
+---
+# Repository Synchronization Tasks
+
+- name: "Check if sync is already in progress"
+  uri:
+    url: "https://{{ satellite_server_url }}/foreman_tasks/api/tasks"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      search: "label=Actions::Katello::Repository::Sync AND state=running"
+  register: running_sync_tasks
+  tags:
+    - repository-sync
+
+- name: "Wait for existing sync tasks to complete"
+  uri:
+    url: "https://{{ satellite_server_url }}/foreman_tasks/api/tasks/{{ item.id }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: sync_task_status
+  until: sync_task_status.json.state != 'running'
+  retries: "{{ (sync_timeout / 60) | int }}"
+  delay: 60
+  loop: "{{ running_sync_tasks.json.results }}"
+  when: running_sync_tasks.json.total > 0
+  tags:
+    - repository-sync
+
+- name: "Start repository synchronization"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/repositories/{{ item }}/sync"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      source_url: ""
+    status_code: [200, 201, 422]
+  loop: "{{ repository_ids }}"
+  when:
+    - not dry_run | bool
+    - repository_ids is defined
+  register: sync_tasks
+  async: "{{ sync_timeout }}"
+  poll: 0
+  tags:
+    - repository-sync
+
+- name: "Monitor sync progress"
+  uri:
+    url: "https://{{ satellite_server_url }}/foreman_tasks/api/tasks/{{ item.json.id }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: sync_progress
+  until: sync_progress.json.state in ['stopped', 'paused']
+  retries: "{{ (sync_timeout / 60) | int }}"
+  delay: 60
+  loop: "{{ sync_tasks.results }}"
+  when:
+    - sync_tasks is defined
+    - sync_tasks.results is defined
+    - item.json is defined
+    - validate_repo_sync | bool
+  tags:
+    - repository-sync
+
+- name: "Get repository sync status"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/repositories/{{ item }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  loop: "{{ repository_ids }}"
+  register: repo_sync_status
+  when: repository_ids is defined
+  tags:
+    - repository-sync
+
+- name: "Display sync results"
+  debug:
+    msg:
+      - "Repository: {{ item.json.name }}"
+      - "Last Sync: {{ item.json.last_sync_words | default('Never') }}"
+      - "Sync Result: {{ item.json.last_sync_result | default('Unknown') }}"
+      - "Package Count: {{ item.json.content_counts.rpm | default(0) }}"
+  loop: "{{ repo_sync_status.results }}"
+  when:
+    - repo_sync_status is defined
+    - debug_mode | bool
+  tags:
+    - repository-sync
+
+- name: "Check for sync failures"
+  fail:
+    msg: "Repository sync failed for {{ item.json.name }}: {{ item.json.last_sync_result }}"
+  loop: "{{ repo_sync_status.results }}"
+  when:
+    - repo_sync_status is defined
+    - item.json.last_sync_result is defined
+    - item.json.last_sync_result == 'error'
+    - not skip_repo_validation | bool
+  tags:
+    - repository-sync
+
+- name: "Run sync plan immediately (if configured)"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/sync_plans/{{ sync_plan_id }}/sync"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    status_code: [200, 201, 422]
+  vars:
+    sync_plan_id: >-
+      {{
+        all_sync_plans.json.results |
+        selectattr('name', 'equalto', item.name) |
+        map(attribute='id') |
+        first
+      }}
+  loop: "{{ sync_plans }}"
+  when:
+    - item.run_immediately | default(false)
+    - not dry_run | bool
+  register: immediate_sync
+  tags:
+    - repository-sync

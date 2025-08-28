@@ -1,72 +1,44 @@
-# defaults/main.yml for ansible-role-patching
-# Comprehensive Linux OS patching role
-# vim:ft=ansible:
 ---
-
-# Core patching configuration
-patch_reboot: false                    # Reboot after patching
-patch_reboot_timeout: 600             # Reboot timeout in seconds
-patch_reboot_delay: 60                 # Delay before reboot
-patch_backup_before: true             # Create system backup before patching
-patch_exclude: []                      # Packages to exclude from updates
-
-# Patch validation
-patch_validate_before: true           # Validate system before patching
-patch_validate_after: true            # Validate system after patching
-patch_check_disk_space: true          # Check available disk space
-patch_min_disk_space_mb: 1024         # Minimum required disk space in MB
-
-# Package manager specific settings
-patch_update_cache: true              # Update package cache before patching
-patch_cache_valid_time: 3600          # Cache validity time in seconds
-patch_install_timeout: 3600           # Package installation timeout
-patch_retries: 3                      # Number of retry attempts
-patch_retry_delay: 30                 # Delay between retries
-
-# Security updates
-patch_security_only: false            # Install only security updates
-patch_critical_only: false            # Install only critical updates
-patch_auto_security: true             # Always install security updates
-
-# Environment and proxy settings
-patch_env: {}                         # Environment variables for package manager
-patch_use_proxy: false               # Enable proxy configuration
-patch_proxy_url: ""                  # Proxy URL if needed
-
-# Logging and reporting
-patch_log_updates: true               # Log all updates performed
+patch_allow_downgrade: false
+patch_apt_dist_upgrade: false
+patch_auto_security: true
+patch_backup_before: true
+patch_cache_valid_time: 3600
+patch_check_disk_space: true
+patch_clean_cache: false
+patch_create_snapshot: false
+patch_critical_only: false
+patch_download_only: false
+patch_dry_run: false
+patch_env: {}
+patch_exclude: []
+patch_generate_report: true
+patch_install_timeout: 3600
+patch_keep_kernel_versions: 3
+patch_kernel_update: true
 patch_log_directory: /var/log/ansible-patching
-patch_generate_report: true          # Generate patching report
-patch_report_format: json            # Report format: json, yaml, text
-
-# Service management
-patch_stop_services: []               # Services to stop before patching
-patch_start_services: []              # Services to start after patching
-patch_restart_services: []            # Services to restart after patching
-
-# Kernel management
-patch_kernel_update: true             # Allow kernel updates
-patch_reboot_if_kernel: true          # Auto-reboot if kernel updated
-patch_keep_kernel_versions: 3        # Number of kernel versions to keep
-
-# Distribution-specific settings
-patch_apt_dist_upgrade: false         # Use dist-upgrade instead of upgrade for APT
-patch_yum_security_plugin: true      # Use yum security plugin if available
-patch_zypper_no_recommends: false    # Skip recommended packages for zypper
-
-# Pre/post patching hooks
-patch_pre_commands: []                # Commands to run before patching
-patch_post_commands: []               # Commands to run after patching
-patch_pre_tasks: []                   # Additional tasks to run before patching
-patch_post_tasks: []                  # Additional tasks to run after patching
-
-# Advanced options
-patch_dry_run: false                  # Perform dry run only (check what would be updated)
-patch_download_only: false           # Download packages but don't install
-patch_allow_downgrade: false         # Allow package downgrades
-patch_clean_cache: false             # Clean package cache after patching
-
-# Rollback configuration
-patch_create_snapshot: false         # Create system snapshot (if supported)
-patch_snapshot_name: "pre-patch-{{ ansible_date_time.epoch }}"
-...
+patch_log_updates: true
+patch_min_disk_space_mb: 1024
+patch_post_commands: []
+patch_post_tasks: []
+patch_pre_commands: []
+patch_pre_tasks: []
+patch_proxy_url: ''
+patch_reboot: false
+patch_reboot_delay: 60
+patch_reboot_if_kernel: true
+patch_reboot_timeout: 600
+patch_report_format: json
+patch_restart_services: []
+patch_retries: 3
+patch_retry_delay: 30
+patch_security_only: false
+patch_snapshot_name: pre-patch-{{ ansible_date_time.epoch }}
+patch_start_services: []
+patch_stop_services: []
+patch_update_cache: true
+patch_use_proxy: false
+patch_validate_after: true
+patch_validate_before: true
+patch_yum_security_plugin: true
+patch_zypper_no_recommends: false

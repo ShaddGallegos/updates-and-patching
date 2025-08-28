@@ -45,8 +45,8 @@
     mode: '0644'
     owner: root
     group: root
-    backup: false  # We handle backup manually above
-  notify: 
+    backup: false # We handle backup manually above
+  notify:
     - validate yum configuration
     - restart package manager services
   tags: [yum, config]
@@ -61,13 +61,11 @@
   tags: [yum, cache]
 
 - name: Clean package manager cache
-  ansible.builtin.shell: |
-    {{ yum_package_manager }} clean all
+  ansible.builtin.shell: "{{ yum_package_manager }} clean all"
   changed_when: true
   tags: [yum, clean]
 
 - name: Update package manager cache
-  ansible.builtin.shell: |
-    {{ yum_package_manager }} makecache
+  ansible.builtin.shell: "{{ yum_package_manager }} makecache"
   changed_when: true
   tags: [yum, cache]
