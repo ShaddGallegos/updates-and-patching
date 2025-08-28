@@ -12210,3 +12210,26 @@ Or equivalently:
 
    when: "'ok' in result.stdout"
 
+2025-08-28 08:13:31,340 p=2557416 u=sgallego n=ansible | ERROR! 'assert' is not a valid attribute for a Play
+
+The error appears to be in '/home/sgallego/Downloads/GIT/updates-and-patching/roles/generate-update-report-rhel/tasks/main.yml': line 6, column 3, but may
+be elsewhere in the file depending on the exact syntax problem.
+
+The offending line appears to be:
+
+
+- name: Validate RHEL version compatibility
+  ^ here
+
+2025-08-28 08:13:34,782 p=2558625 u=sgallego n=ansible | ERROR! 'assert' is not a valid attribute for a Play
+
+The error appears to be in '/home/sgallego/Downloads/GIT/updates-and-patching/roles/generate-update-report-rhel/tasks/main.yml': line 6, column 3, but may
+be elsewhere in the file depending on the exact syntax problem.
+
+The offending line appears to be:
+
+
+- name: Validate RHEL version compatibility
+  ^ here
+
+2025-08-28 08:13:51,133 p=2564360 u=sgallego n=ansible | playbook: check_rhel_updates_with_report.yml

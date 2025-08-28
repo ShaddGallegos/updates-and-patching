@@ -4,19 +4,19 @@
 
 - name: "Gather Windows system information"
   win_shell: |
-  $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
-  $version = [System.Environment]::OSVersion.Version
-  $buildNumber = $osInfo.BuildNumber
-  $productType = $osInfo.ProductType
-  $caption = $osInfo.Caption
+    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+    $version = [System.Environment]::OSVersion.Version
+    $buildNumber = $osInfo.BuildNumber
+    $productType = $osInfo.ProductType
+    $caption = $osInfo.Caption
 
     $result = @{
-    'version' = $version.ToString()
-    'build' = $buildNumber
-    'product_type' = $productType
-    'caption' = $caption
-    'is_server' = ($productType -eq 3)
-    'is_workstation' = ($productType -eq 1)
+      'version' = $version.ToString()
+      'build' = $buildNumber
+      'product_type' = $productType
+      'caption' = $caption
+      'is_server' = ($productType -eq 3)
+      'is_workstation' = ($productType -eq 1)
     }
 
     $result | ConvertTo-Json -Compress
@@ -25,206 +25,197 @@
 
 - name: "Parse Windows system information"
   set_fact:
-  windows_info: "{{ win_system_info.stdout | from_json }}"
-  windows_version_supported: false
+    windows_info: "{{ win_system_info.stdout | from_json }}"
+    windows_version_supported: false
 
 - name: "Determine Windows version support"
   set_fact:
-  windows_version_supported: true
-  windows_distribution: >-
-  {% if windows_info.build | int >= 22000 %}
-  windows_11
-  {% elif windows_info.build | int >= 20348 and windows_info.is_server %}
-  windows_server_2022
-  {% elif windows_info.build | int >= 19041 %}
-  windows_10_22h2
-  {% else %}
-  unsupported
-  {% endif %}
+    windows_version_supported: true
+    windows_distribution: >-
+      {% if windows_info.build | int >= 22000 %}
+        windows_11
+      {% elif windows_info.build | int >= 20348 and windows_info.is_server %}
+        windows_server_2022
+      {% elif windows_info.build | int >= 19041 %}
+        windows_10_22h2
+      {% else %}
+        unsupported
+      {% endif %}
 
 - name: "Display Windows version information"
   debug:
-  msg:
-  - "Windows Version: {{ windows_info.caption }}"
-  - "Build Number: {{ windows_info.build }}"
-  - "Distribution: {{ windows_distribution }}"
-  - "Supported: {{ windows_version_supported }}"
-  - "Server Edition: {{ windows_info.is_server }}"
+    msg:
+      - "Windows Version: {{ windows_info.caption }}"
+      - "Build Number: {{ windows_info.build }}"
+      - "Distribution: {{ windows_distribution }}"
+      - "Supported: {{ windows_version_supported }}"
+      - "Server Edition: {{ windows_info.is_server }}"
   when: win_updates_generate_report | bool
 
 - name: "Fail if Windows version is not supported"
   fail:
-  msg: "Windows version {{ windows_info.caption }} (Build {{ windows_info.build }}) is not supported. This role supports Windows 11, Windows Server 2022, and Windows 10 22H2 or later."
+    msg: "Windows version {{ windows_info.caption }} (Build {{ windows_info.build }}) is not supported. This role supports Windows 11, Windows Server 2022, and Windows 10 22H2 or later."
   when: not windows_version_supported or windows_distribution == 'unsupported'
 
 - name: "Create update log directory"
   win_file:
-  path: "{{ win_updates_log_path | win_dirname }}"
-  state: directory
+    path: "{{ win_updates_log_path | win_dirname }}"
+    state: directory
 
 - name: "Check current Windows Update service status"
   win_service_info:
-- name: wuauserv
+    name: wuauserv
   register: win_update_service
 
 - name: "Start Windows Update service if stopped"
   win_service:
-- name: wuauserv
-  state: started
-  start_mode: auto
+    name: wuauserv
+    state: started
+    start_mode: auto
   when: win_update_service.services[0].state != 'running'
 
 - name: "Configure Windows Update settings for enterprise"
   win_regedit:
-  path: "{{ item.path }}"
-- name: "{{ item.name }}"
-  data: "{{ item.value }}"
-  type: "{{ item.type }}"
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    type: "{{ item.type }}"
   loop:
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'AcceptTrustedPublisherCerts'
-  value: 1
-  type: dword
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'DisableWindowsUpdateAccess'
-  value: 0
-  type: dword
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
-- name: 'NoAutoUpdate'
-  value: 0
-  type: dword
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'AcceptTrustedPublisherCerts', value: 1, type: 'dword' }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'DisableWindowsUpdateAccess', value: 0, type: 'dword' }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU', name: 'NoAutoUpdate', value: 0, type: 'dword' }
   when: not win_updates_disable_automatic_updates | bool
 
-    # Distribution-Specific Tasks
+# Distribution-Specific Tasks
 - name: "Include Windows 11 specific tasks"
   include_tasks: windows11.yml
   when: windows_distribution == 'windows_11'
   tags:
-  - windows11
+    - windows11
 
 - name: "Include Windows Server 2022 specific tasks"
   include_tasks: windows_server_2022.yml
   when: windows_distribution == 'windows_server_2022'
   tags:
-  - server2022
+    - server2022
 
 - name: "Include Windows 10 22H2 specific tasks"
   include_tasks: windows10_22h2.yml
   when: windows_distribution == 'windows_10_22h2'
   tags:
-  - windows10
+    - windows10
 
-    # Common Update Operations
+# Common Update Operations
 - name: "Search for available Windows updates"
   win_updates:
-  category_names: "{{ win_updates_category_names }}"
-  state: 'searched'
-  log_path: "{{ win_updates_log_path }}"
-  accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
-  reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+    category_names: "{{ win_updates_category_names }}"
+    state: 'searched'
+    log_path: "{{ win_updates_log_path }}"
+    accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+    reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
   register: win_updates_search_result
 
 - name: "Display available updates summary"
   debug:
-  msg:
-  - "Updates Found: {{ win_updates_search_result.found_update_count | default(0) }}"
-  - "Updates to Install: {{ win_updates_search_result.updates | default([]) | length }}"
-  - "Reboot Required: {{ win_updates_search_result.reboot_required | default(false) }}"
+    msg:
+      - "Updates Found: {{ win_updates_search_result.found_update_count | default(0) }}"
+      - "Updates to Install: {{ win_updates_search_result.updates | default([]) | length }}"
+      - "Reboot Required: {{ win_updates_search_result.reboot_required | default(false) }}"
   when: win_updates_generate_report | bool
 
 - name: "Install Windows Defender definition updates first"
   win_updates:
-  category_names: ['DefinitionUpdates']
-  state: 'installed'
-  log_path: "{{ win_updates_log_path }}"
+    category_names: ['DefinitionUpdates']
+    state: 'installed'
+    log_path: "{{ win_updates_log_path }}"
   register: defender_updates_result
   when: win_defender_updates.definition_updates | bool
 
 - name: "Install critical and security updates"
   win_updates:
-  category_names: "{{ win_updates_category_names }}"
-  state: "{{ win_updates_state }}"
-  log_path: "{{ win_updates_log_path }}"
-  accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
-  reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
-  timeout: "{{ win_updates_timeout }}"
+    category_names: "{{ win_updates_category_names }}"
+    state: "{{ win_updates_state }}"
+    log_path: "{{ win_updates_log_path }}"
+    accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+    reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+    timeout: "{{ win_updates_timeout }}"
   register: win_updates_result
   failed_when:
-  - win_updates_result.failed is defined
-  - win_updates_result.failed
-  - not win_updates_auto_reboot | bool
-  - '"reboot" not in (win_updates_result.msg | default("") | lower)'
+    - win_updates_result.failed is defined
+    - win_updates_result.failed
+    - not win_updates_auto_reboot | bool
+    - '"reboot" not in (win_updates_result.msg | default("") | lower)'
 
 - name: "Handle reboot requirement with retry logic"
   block:
-- name: "Reboot Windows system after updates"
-  win_reboot:
-  shutdown_timeout: "{{ win_updates_shutdown_timeout }}"
-  reboot_timeout: "{{ win_updates_reboot_timeout }}"
-  post_reboot_delay: 60
-  test_command: 'whoami'
-  when:
-  - win_updates_result.reboot_required is defined
-  - win_updates_result.reboot_required | bool
-  - win_updates_auto_reboot | bool
+    - name: "Reboot Windows system after updates"
+      win_reboot:
+        shutdown_timeout: "{{ win_updates_shutdown_timeout }}"
+        reboot_timeout: "{{ win_updates_reboot_timeout }}"
+        post_reboot_delay: 60
+        test_command: 'whoami'
+      when:
+        - win_updates_result.reboot_required is defined
+        - win_updates_result.reboot_required | bool
+        - win_updates_auto_reboot | bool
 
-- name: "Install remaining updates after reboot"
-  win_updates:
-  category_names: "{{ win_updates_category_names }}"
-  state: "{{ win_updates_state }}"
-  log_path: "{{ win_updates_log_path }}"
-  accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
-  reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
-  timeout: "{{ win_updates_timeout }}"
-  register: win_updates_post_reboot_result
-  when:
-  - win_updates_result.reboot_required is defined
-  - win_updates_result.reboot_required | bool
-  - win_updates_auto_reboot | bool
+    - name: "Install remaining updates after reboot"
+      win_updates:
+        category_names: "{{ win_updates_category_names }}"
+        state: "{{ win_updates_state }}"
+        log_path: "{{ win_updates_log_path }}"
+        accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+        reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+        timeout: "{{ win_updates_timeout }}"
+      register: win_updates_post_reboot_result
+      when:
+        - win_updates_result.reboot_required is defined
+        - win_updates_result.reboot_required | bool
+        - win_updates_auto_reboot | bool
 
   rescue:
-- name: "Handle reboot failure - Extended timeout retry"
-  win_reboot:
-  shutdown_timeout: "{{ win_updates_shutdown_timeout * 2 }}"
-  reboot_timeout: "{{ win_updates_reboot_timeout * 2 }}"
-  post_reboot_delay: 120
-  register: reboot_retry_result
-  failed_when: false
-  when: win_updates_auto_reboot | bool
+    - name: "Handle reboot failure - Extended timeout retry"
+      win_reboot:
+        shutdown_timeout: "{{ win_updates_shutdown_timeout * 2 }}"
+        reboot_timeout: "{{ win_updates_reboot_timeout * 2 }}"
+        post_reboot_delay: 120
+      register: reboot_retry_result
+      failed_when: false
+      when: win_updates_auto_reboot | bool
 
-- name: "Final update attempt after extended reboot"
-  win_updates:
-  category_names: "{{ win_updates_category_names }}"
-  state: "{{ win_updates_state }}"
-  log_path: "{{ win_updates_log_path }}"
-  timeout: "{{ win_updates_timeout * 2 }}"
-  register: win_updates_final_result
-  failed_when: false
-  when:
-  - reboot_retry_result is succeeded
-  - win_updates_auto_reboot | bool
+    - name: "Final update attempt after extended reboot"
+      win_updates:
+        category_names: "{{ win_updates_category_names }}"
+        state: "{{ win_updates_state }}"
+        log_path: "{{ win_updates_log_path }}"
+        timeout: "{{ win_updates_timeout * 2 }}"
+      register: win_updates_final_result
+      failed_when: false
+      when:
+        - reboot_retry_result is succeeded
+        - win_updates_auto_reboot | bool
 
   when:
-  - win_updates_result.failed is defined
-- win_updates_result.failed
-- win_updates_auto_reboot | bool
-- '"reboot" in (win_updates_result.msg | default("") | lower)'
+    - win_updates_result.failed is defined
+    - win_updates_result.failed
+    - win_updates_auto_reboot | bool
+    - '"reboot" in (win_updates_result.msg | default("") | lower)'
 
 - name: "Generate comprehensive Windows update report"
   win_shell: |
-  $updateInfo = @{
-  'Timestamp' = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
-  'WindowsVersion' = '{{ windows_info.caption }}'
-  'BuildNumber' = '{{ windows_info.build }}'
-  'Distribution' = '{{ windows_distribution }}'
-  'IsServer' = {{ windows_info.is_server | lower }}
-  'UpdatesInstalled' = {{ (win_updates_result.installed_update_count | default(0)) + (win_updates_post_reboot_result.installed_update_count | default(0)) }}
-  'RebootRequired' = {{ (win_updates_result.reboot_required | default(false)) or (win_updates_post_reboot_result.reboot_required | default(false)) | lower }}
-  'DefenderUpdatesInstalled' = {{ defender_updates_result.installed_update_count | default(0) }}
-  'UpdateCategories' = {{ win_updates_category_names | to_json }}
-  'LastUpdateStatus' = '{{ (win_updates_post_reboot_result.msg | default(win_updates_result.msg)) | default("Completed") }}'
-  'SupportStatus' = '{{ "Extended" if (windows_distribution == "windows_10_22h2") else "Current" }}'
-  }
+    $updateInfo = @{
+      'Timestamp' = Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'
+      'WindowsVersion' = '{{ windows_info.caption }}'
+      'BuildNumber' = '{{ windows_info.build }}'
+      'Distribution' = '{{ windows_distribution }}'
+      'IsServer' = {{ windows_info.is_server | lower }}
+      'UpdatesInstalled' = {{ (win_updates_result.installed_update_count | default(0)) + (win_updates_post_reboot_result.installed_update_count | default(0)) }}
+      'RebootRequired' = {{ (win_updates_result.reboot_required | default(false)) or (win_updates_post_reboot_result.reboot_required | default(false)) | lower }}
+      'DefenderUpdatesInstalled' = {{ defender_updates_result.installed_update_count | default(0) }}
+      'UpdateCategories' = {{ win_updates_category_names | to_json }}
+      'LastUpdateStatus' = '{{ (win_updates_post_reboot_result.msg | default(win_updates_result.msg)) | default("Completed") }}'
+      'SupportStatus' = '{{ "Extended" if (windows_distribution == "windows_10_22h2") else "Current" }}'
+    }
 
     $updateInfo | ConvertTo-Json -Depth 3 | Out-File -FilePath '{{ win_updates_report_path }}' -Encoding UTF8
     $updateInfo | ConvertTo-Json -Depth 3
@@ -233,108 +224,117 @@
 
 - name: "Display Windows update summary"
   debug:
-  msg:
-  - "=============================================="
-  - "Windows Update Summary"
-  - "=============================================="
-  - "System: {{ windows_info.caption }} (Build {{ windows_info.build }})"
-  - "Distribution: {{ windows_distribution | upper }}"
-  - "Updates Installed: {{ (win_updates_result.installed_update_count | default(0)) + (win_updates_post_reboot_result.installed_update_count | default(0)) }}"
-  - "Defender Updates: {{ defender_updates_result.installed_update_count | default(0) }}"
-  - "Reboot Required: {{ (win_updates_result.reboot_required | default(false)) or (win_updates_post_reboot_result.reboot_required | default(false)) }}"
-  - "Update Log: {{ win_updates_log_path }}"
-  - "Report Generated: {{ win_updates_report_path }}"
-  - "=============================================="
+    msg:
+      - "=============================================="
+      - "Windows Update Summary"
+      - "=============================================="
+      - "System: {{ windows_info.caption }} (Build {{ windows_info.build }})"
+      - "Distribution: {{ windows_distribution | upper }}"
+      - "Updates Installed: {{ (win_updates_result.installed_update_count | default(0)) + (win_updates_post_reboot_result.installed_update_count | default(0)) }}"
+      - "Defender Updates: {{ defender_updates_result.installed_update_count | default(0) }}"
+      - "Reboot Required: {{ (win_updates_result.reboot_required | default(false)) or (win_updates_post_reboot_result.reboot_required | default(false)) }}"
+      - "Update Log: {{ win_updates_log_path }}"
+      - "Report Generated: {{ win_updates_report_path }}"
+      - "=============================================="
 
 - name: "Final reboot if required and not yet performed"
   win_reboot:
-  shutdown_timeout: "{{ win_updates_shutdown_timeout }}"
-  reboot_timeout: "{{ win_updates_reboot_timeout }}"
-  post_reboot_delay: 60
+    shutdown_timeout: "{{ win_updates_shutdown_timeout }}"
+    reboot_timeout: "{{ win_updates_reboot_timeout }}"
+    post_reboot_delay: 60
   when:
-  - win_updates_auto_reboot | bool
-  - (win_updates_result.reboot_required | default(false)) or
-  (win_updates_post_reboot_result.reboot_required | default(false))
-  - not (win_updates_result.failed | default(false) and 'reboot' in (win_updates_result.msg | default('') | lower))
+    - win_updates_auto_reboot | bool
+    - (win_updates_result.reboot_required | default(false)) or (win_updates_post_reboot_result.reboot_required | default(false))
+    - not (win_updates_result.failed | default(false) and 'reboot' in (win_updates_result.msg | default('') | lower))
 
-    # Windows 11 Specific Optimizations
+# Windows 11 Specific Optimizations
 - name: "Configure Windows 11 enhanced security settings"
   win_regedit:
-  path: "{{ item.path }}"
-- name: "{{ item.name }}"
-  data: "{{ item.value }}"
-  type: "{{ item.type }}"
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    type: "{{ item.type }}"
   loop:
-  - path: 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Features'
-- name: 'TamperProtection'
-  value: 1
-  type: dword
-  - path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
-- name: 'EnableControlledFolderAccess'
-  value: 1
-  type: dword
+    - { path: 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Features', name: 'TamperProtection', value: 1, type: 'dword' }
+    - { path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced', name: 'EnableControlledFolderAccess', value: 1, type: 'dword' }
   when:
-  - windows_distribution == 'windows_11'
-  - win11_settings.enable_enhanced_phishing_protection | bool
+    - windows_distribution == 'windows_11'
+    - win11_settings.enable_enhanced_phishing_protection | bool
   tags:
-  - windows11-security
+    - windows11-security
 
-    # Windows Server 2022 Specific Configurations
+# Windows Server 2022 Specific Configurations
 - name: "Configure Windows Server 2022 update policies"
   win_regedit:
-  path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: "{{ item.name }}"
-  data: "{{ item.value }}"
-  type: dword
+    path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    type: dword
   loop:
-- name: 'TargetReleaseVersion'
-  value: 1
-- name: 'TargetReleaseVersionInfo'
-  value: '21H2'
+    - { name: 'TargetReleaseVersion', value: 1 }
+    - { name: 'TargetReleaseVersionInfo', value: '21H2' }
   when:
-  - windows_distribution == 'windows_server_2022'
-  - win_server_2022_settings.patch_management_mode == 'controlled'
+    - windows_distribution == 'windows_server_2022'
+    - win_server_2022_settings.patch_management_mode == 'controlled'
   tags:
-  - server2022-config
+    - server2022-config
 
+# Repeat update search and install for redundancy (if needed)
 - name: "Search for available Windows updates"
   win_updates:
-  category_names: "{{ win_updates_category_names }}"
-  state: 'searched'
-  log_path: "{{ win_updates_log_path }}"
-  accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
-  reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+    category_names: "{{ win_updates_category_names }}"
+    state: 'searched'
+    log_path: "{{ win_updates_log_path }}"
+    accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+    reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
   register: win_updates_search_result
 
 - name: "Display available updates summary"
   debug:
-  msg:
-  - "Updates Found: {{ win_updates_search_result.found_update_count | default(0) }}"
-  - "Updates to Install: {{ win_updates_search_result.updates | default([]) | length }}"
-  - "Reboot Required: {{ win_updates_search_result.reboot_required | default(false) }}"
+    msg:
+      - "Updates Found: {{ win_updates_search_result.found_update_count | default(0) }}"
+      - "Updates to Install: {{ win_updates_search_result.updates | default([]) | length }}"
+      - "Reboot Required: {{ win_updates_search_result.reboot_required | default(false) }}"
   when: win_updates_generate_report | bool
 
 - name: "Install Windows Defender definition updates first"
   win_updates:
-  category_names: ['DefinitionUpdates']
-  state: 'installed'
-  log_path: "{{ win_updates_log_path }}"
+    category_names: ['DefinitionUpdates']
+    state: 'installed'
+    log_path: "{{ win_updates_log_path }}"
   register: defender_updates_result
   when: win_defender_updates.definition_updates | bool
 
 - name: "Install critical and security updates"
   win_updates:
-  category_names: "{{ win_updates_category_names }}"
-  state: "{{ win_updates_state }}"
-  log_path: "{{ win_updates_log_path }}"
-  accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
-  reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
-  timeout: "{{ win_updates_timeout }}"
+    category_names: "{{ win_updates_category_names }}"
+    state: "{{ win_updates_state }}"
+    log_path: "{{ win_updates_log_path }}"
+    accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+    reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+    timeout: "{{ win_updates_timeout }}"
   register: win_updates_result
   failed_when:
-  - win_updates_result.failed is defined
-  - win_updates_result.failed
-  - not win_updates_auto_reboot | bool
+    - win_updates_result.failed is defined
+    - win_updates_result.failed
+    - not win_updates_auto_reboot | bool
+    - '"reboot" not in (win_updates_result.msg | default("") | lower)'
+
+- name: "Handle reboot requirement - First attempt"
+  block:
+    - name: "Reboot Windows system after updates"
+      win_reboot:
+        shutdown_timeout: "{{ win_updates_shutdown_timeout }}"
+        reboot_timeout: "{{ win_updates_reboot_timeout }}"
+        post_reboot_delay: 60
+        test_command: 'whoami'
+      when:
+        - win_updates_result.reboot_required is defined
+        - win_updates_result.reboot_required | bool
+        - win_updates_auto_reboot | bool
+
+    - name: "Install remaining updates after reboot"
+      win_updates:
   - '"reboot" not in (win_updates_result.msg | default("") | lower)'
 
 - name: "Handle reboot requirement - First attempt"

@@ -1,5 +1,5 @@
 ---
-win_updates_category_names:
+win_updates_category_names: []
 win_updates_reboot: true
 win_updates_auto_reboot: true
 win_updates_reboot_timeout: 900
@@ -9,29 +9,34 @@ win_updates_state: installed
 win_updates_accept_list: []
 win_updates_reject_list: []
 win_updates_skip_optional: false
+
 supported_windows_versions:
-windows_11: null
-min_version: 10.0.19041
-max_version: 10.0.19999
-codename: Windows 10 22H2
-feature_update_channel: Semi-Annual Channel
-support_status: extended
-windows_server_2022: null
-windows_10_22h2: null
+  windows_11: null
+  min_version: 10.0.19041
+  max_version: 10.0.19999
+  codename: Windows 10 22H2
+  feature_update_channel: Semi-Annual Channel
+  support_status: extended
+  windows_server_2022: null
+  windows_10_22h2: null
+
 win_updates_log_path: C:\Windows\Temp\ansible_updates.log
 win_updates_search_criteria: IsInstalled=0 and BrowseOnly=0 and IsHidden=0
 win_updates_timeout: 7200
 win_updates_use_scheduled_task: false
+
 win_feature_updates:
-enabled: false
-target_version: latest
-defer_days: 0
-quality_update_deadline_days: 14
+  enabled: false
+  target_version: latest
+  defer_days: 0
+  quality_update_deadline_days: 14
+
 win_defender_updates:
-enabled: true
-definition_updates: true
-engine_updates: true
-platform_updates: true
+  enabled: true
+  definition_updates: true
+  engine_updates: true
+  platform_updates: true
+
 win_updates_wsus_server: ''
 win_updates_wsus_use_ssl: true
 win_updates_notification_level: disabled
@@ -46,13 +51,15 @@ win_updates_install_optional_drivers: true
 win_updates_disable_automatic_updates: false
 win_updates_require_admin_approval: false
 win_updates_block_non_critical: false
+
 win11_settings:
-enable_enhanced_phishing_protection: true
-configure_smart_app_control: true
-enable_controlled_folder_access: true
-update_windows_security: true
+  enable_enhanced_phishing_protection: true
+  configure_smart_app_control: true
+  enable_controlled_folder_access: true
+  update_windows_security: true
+
 win_server_2022_settings:
-enable_server_core_updates: true
-configure_wsus_for_server: false
-enable_security_only_updates: false
-patch_management_mode: automatic
+  enable_server_core_updates: true
+  configure_wsus_for_server: false
+  enable_security_only_updates: false
+  patch_management_mode: automatic

@@ -3,60 +3,60 @@
 
 - name: "Get post-update system information"
   win_shell: |
-  try {
-  $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
-  $lastBoot = $osInfo.LastBootUpTime
-  $uptime = (Get-Date) - $lastBoot
+    try {
+      $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
+      $lastBoot = $osInfo.LastBootUpTime
+      $uptime = (Get-Date) - $lastBoot
 
-    @{
-    'OSVersion' = $osInfo.Version
-    'OSBuild' = $osInfo.BuildNumber
-  'LastBootTime' = $lastBoot.ToString('yyyy-MM-dd HH:mm:ss')
-  'UptimeDays' = [math]::Round($uptime.TotalDays, 2)
-  'FreeSpaceGB' = [math]::Round((Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq $env:SystemDrive}).FreeSpace / 1GB, 2)
-    } | ConvertTo-Json
+      @{
+        'OSVersion' = $osInfo.Version
+        'OSBuild' = $osInfo.BuildNumber
+        'LastBootTime' = $lastBoot.ToString('yyyy-MM-dd HH:mm:ss')
+        'UptimeDays' = [math]::Round($uptime.TotalDays, 2)
+        'FreeSpaceGB' = [math]::Round((Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq $env:SystemDrive}).FreeSpace / 1GB, 2)
+      } | ConvertTo-Json
     }
     catch {
-    @{
-    'Error' = $_.Exception.Message
-    } | ConvertTo-Json
+      @{
+        'Error' = $_.Exception.Message
+      } | ConvertTo-Json
     }
   register: post_update_info
   changed_when: false
 
 - name: "Clean up temporary files"
   win_shell: |
-  try {
-  $totalCleaned = 0
-  $filesRemoved = 0
+    try {
+      $totalCleaned = 0
+      $filesRemoved = 0
 
-    $cleanupPaths = @(
-  "$env:SystemRoot\Temp\*",
-  "$env:TEMP\*",
-  "$env:SystemRoot\SoftwareDistribution\Download\*"
-    )
+      $cleanupPaths = @(
+        "$env:SystemRoot\Temp\*",
+        "$env:TEMP\*",
+        "$env:SystemRoot\SoftwareDistribution\Download\*"
+      )
 
-    foreach ($path in $cleanupPaths) {
-    $items = Get-ChildItem -Path $path -Force -ErrorAction SilentlyContinue
-    if ($items) {
-    $sizeBefore = ($items | Measure-Object -Property Length -Sum).Sum
-    $filesRemoved += $items.Count
-    Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
-    $totalCleaned += $sizeBefore
-    }
-    }
+      foreach ($path in $cleanupPaths) {
+        $items = Get-ChildItem -Path $path -Force -ErrorAction SilentlyContinue
+        if ($items) {
+          $sizeBefore = ($items | Measure-Object -Property Length -Sum).Sum
+          $filesRemoved += $items.Count
+          Remove-Item -Path $path -Recurse -Force -ErrorAction SilentlyContinue
+          $totalCleaned += $sizeBefore
+        }
+      }
 
-    @{
-  'TotalCleanedMB' = [math]::Round($totalCleaned / 1MB, 2)
-    'FilesRemoved' = $filesRemoved
-    'Status' = 'Success'
-    } | ConvertTo-Json
+      @{
+        'TotalCleanedMB' = [math]::Round($totalCleaned / 1MB, 2)
+        'FilesRemoved' = $filesRemoved
+        'Status' = 'Success'
+      } | ConvertTo-Json
     }
     catch {
-    @{
-    'Error' = $_.Exception.Message
-    'Status' = 'Failed'
-    } | ConvertTo-Json
+      @{
+        'Error' = $_.Exception.Message
+        'Status' = 'Failed'
+      } | ConvertTo-Json
     }
   register: cleanup_result
   when: win_updates_cleanup_enabled | default(true) | bool
@@ -64,23 +64,23 @@
 
 - name: "Generate reports"
   win_shell: |
-  $reportData = @{
-  'Timestamp' = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-  'Hostname' = $env:COMPUTERNAME
-  'UpdatesFound' = {{ win_updates_result.found_update_count | default(0) }}
-  'UpdatesInstalled' = {{ win_updates_result.installed_update_count | default(0) }}
-  'UpdatesFailed' = {{ win_updates_result.failed_update_count | default(0) }}
-  'RebootRequired' = ${{ win_updates_result.reboot_required | default(false) | string | lower }}
-  }
+    $reportData = @{
+      'Timestamp' = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+      'Hostname' = $env:COMPUTERNAME
+      'UpdatesFound' = {{ win_updates_result.found_update_count | default(0) }}
+      'UpdatesInstalled' = {{ win_updates_result.installed_update_count | default(0) }}
+      'UpdatesFailed' = {{ win_updates_result.failed_update_count | default(0) }}
+      'RebootRequired' = ${{ win_updates_result.reboot_required | default(false) | string | lower }}
+    }
 
     $jsonReport = $reportData | ConvertTo-Json
     $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-  $jsonPath = "$env:TEMP\windows_updates_$timestamp.json"
+    $jsonPath = "$env:TEMP\windows_updates_$timestamp.json"
     $jsonReport | Out-File -FilePath $jsonPath -Encoding UTF8
 
     @{
-    'ReportPath' = $jsonPath
-    'Status' = 'Success'
+      'ReportPath' = $jsonPath
+      'Status' = 'Success'
     } | ConvertTo-Json
   register: completion_report
   when: win_updates_generate_report | bool
@@ -88,26 +88,26 @@
 
 - name: "Display completion summary"
   debug:
-  msg:
-  - "=================================================="
-  - "Windows Update Session Complete"
-  - "=================================================="
-  - "Hostname: {{ ansible_hostname }}"
-  - "Updates Found: {{ win_updates_result.found_update_count | default(0) }}"
-  - "Updates Installed: {{ win_updates_result.installed_update_count | default(0) }}"
-  - "Updates Failed: {{ win_updates_result.failed_update_count | default(0) }}"
-  - "Reboot Required: {{ 'YES' if win_updates_result.reboot_required | default(false) else 'NO' }}"
-  - "Free Space: {{ (post_update_info.stdout | from_json).FreeSpaceGB | default('Unknown') }}GB"
-  - "=================================================="
+    msg:
+      - "=================================================="
+      - "Windows Update Session Complete"
+      - "=================================================="
+      - "Hostname: {{ ansible_hostname }}"
+      - "Updates Found: {{ win_updates_result.found_update_count | default(0) }}"
+      - "Updates Installed: {{ win_updates_result.installed_update_count | default(0) }}"
+      - "Updates Failed: {{ win_updates_result.failed_update_count | default(0) }}"
+      - "Reboot Required: {{ 'YES' if win_updates_result.reboot_required | default(false) else 'NO' }}"
+      - "Free Space: {{ (post_update_info.stdout | from_json).FreeSpaceGB | default('Unknown') }}GB"
+      - "=================================================="
   when: win_updates_generate_report | bool
 
 - name: "Set completion facts"
   set_fact:
-  win_updates_completion_status:
-  hostname: "{{ ansible_hostname }}"
-  completion_time: "{{ ansible_date_time.iso8601 }}"
-  updates_found: "{{ win_updates_result.found_update_count | default(0) }}"
-  updates_installed: "{{ win_updates_result.installed_update_count | default(0) }}"
-  updates_failed: "{{ win_updates_result.failed_update_count | default(0) }}"
-  reboot_required: "{{ win_updates_result.reboot_required | default(false) }}"
-  role_version: "2.0.0"
+    win_updates_completion_status:
+      hostname: "{{ ansible_hostname }}"
+      completion_time: "{{ ansible_date_time.iso8601 }}"
+      updates_found: "{{ win_updates_result.found_update_count | default(0) }}"
+      updates_installed: "{{ win_updates_result.installed_update_count | default(0) }}"
+      updates_failed: "{{ win_updates_result.failed_update_count | default(0) }}"
+      reboot_required: "{{ win_updates_result.reboot_required | default(false) }}"
+      role_version: "2.0.0"

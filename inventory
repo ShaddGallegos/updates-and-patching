@@ -1,0 +1,39 @@
+# Ansible Inventory for Updates and Patching Project
+# Configure your target systems here
+
+[rhel_systems]
+# Add your RHEL systems here
+# Example: node1.example.com ansible_host=192.168.1.10
+node1.example.com ansible_host=192.168.1.10
+
+[windows_systems]
+# Add your Windows systems here
+# Example: winserver.example.com ansible_host=192.168.1.20
+
+[satellite_servers]
+# Add your Satellite servers here
+# Example: satellite.example.com ansible_host=192.168.1.100
+
+# Group variables for all systems
+[all:vars]
+# SSH Configuration
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_python_interpreter=auto_silent
+
+# Connection settings to avoid SSH issues
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=publickey'
+
+[rhel_systems:vars]
+# RHEL-specific variables
+ansible_python_interpreter=/usr/bin/python3
+become=true
+become_method=sudo
+become_user=root
+
+[windows_systems:vars]
+# Windows-specific variables
+ansible_connection=winrm
+ansible_winrm_transport=basic
+ansible_winrm_server_cert_validation=ignore
+ansible_port=5985
