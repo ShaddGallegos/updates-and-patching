@@ -1,0 +1,96 @@
+# vars/main.yml for generate-update-report-rhel
+# RHEL version-specific configurations and mappings
+# vim:ft=ansible:
+---
+
+# RHEL version detection and configuration
+rhel_version_config:
+  "7":
+    package_manager: yum
+    security_plugin: yum-plugin-security
+    repo_command: yum repolist
+    update_check_cmd: "yum check-update"
+    security_check_cmd: "yum --security check-update"
+    subscription_check: "subscription-manager status"
+    support_status: "Extended Life-cycle Support"
+  "8":
+    package_manager: dnf
+    security_plugin: dnf
+    repo_command: dnf repolist
+    update_check_cmd: "dnf check-update"
+    security_check_cmd: "dnf updateinfo list sec"
+    subscription_check: "subscription-manager status"
+    support_status: "Full Support"
+  "9":
+    package_manager: dnf
+    security_plugin: dnf
+    repo_command: dnf repolist
+    update_check_cmd: "dnf check-update"
+    security_check_cmd: "dnf updateinfo list sec"
+    subscription_check: "subscription-manager status"
+    support_status: "Full Support"
+  "10":
+    package_manager: dnf
+    security_plugin: dnf
+    repo_command: dnf repolist
+    update_check_cmd: "dnf check-update"
+    security_check_cmd: "dnf updateinfo list sec"
+    subscription_check: "subscription-manager status"
+    support_status: "Full Support"
+
+# Email template configurations
+email_templates:
+  executive_summary:
+    subject: "[{{ report_company_name }}] RHEL Fleet Update Summary - {{ ansible_date_time.date }}"
+    priority: high
+  detailed_report:
+    subject: "[{{ report_company_name }}] Detailed RHEL Update Report - {{ ansible_date_time.date }}"
+    priority: normal
+  security_alert:
+    subject: "[URGENT] Security Updates Required - RHEL Fleet"
+    priority: high
+
+# SendGrid template mappings
+sendgrid_template_mappings:
+  executive: "d-1234567890abcdef1234567890abcdef"
+  detailed: "d-abcdef1234567890abcdef1234567890"  
+  security: "d-fedcba0987654321fedcba0987654321"
+
+# Report categorization
+report_severity_levels:
+  critical:
+    color: "#dc2626"
+    icon: ""
+    description: "Critical security updates requiring immediate attention"
+  high:
+    color: "#ea580c" 
+    icon: ""
+    description: "Important updates recommended within 7 days"
+  medium:
+    color: "#ca8a04"
+    icon: ""
+    description: "Standard updates for next maintenance window"
+  low:
+    color: "#059669"
+    icon: ""
+    description: "Optional updates or compliant systems"
+
+# Repository mappings for RHEL versions
+rhel_repos:
+  "7":
+    base: rhel-7-server-rpms
+    optional: rhel-7-server-optional-rpms
+    extras: rhel-7-server-extras-rpms
+    security: rhel-7-server-rpms
+  "8":
+    baseos: rhel-8-for-x86_64-baseos-rpms
+    appstream: rhel-8-for-x86_64-appstream-rpms
+    security: rhel-8-for-x86_64-baseos-rpms
+  "9":
+    baseos: rhel-9-for-x86_64-baseos-rpms
+    appstream: rhel-9-for-x86_64-appstream-rpms
+    security: rhel-9-for-x86_64-baseos-rpms
+  "10":
+    baseos: rhel-10-for-x86_64-baseos-rpms
+    appstream: rhel-10-for-x86_64-appstream-rpms
+    security: rhel-10-for-x86_64-baseos-rpms

@@ -1,0 +1,121 @@
+---
+# Sync Plan Management Tasks
+- name: "Get existing sync plans"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/sync_plans"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_sync_plans
+  tags:
+    - sync-plans
+
+- name: "Create sync plans"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/sync_plans"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      description: "{{ item.description }}"
+      interval: "{{ item.interval }}"
+      sync_date: "{{ item.sync_date }}"
+      enabled: "{{ item.enabled }}"
+      cron_expression: "{{ item.cron_expression | default(omit) }}"
+    status_code: [200, 201, 422]
+  loop: "{{ sync_plans }}"
+  when: item.name not in (existing_sync_plans.json.results | map(attribute='name') | list)
+  register: sync_plan_creation
+  tags:
+    - sync-plans
+
+- name: "Get updated sync plan list"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/sync_plans"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: all_sync_plans
+  tags:
+    - sync-plans
+
+- name: "Add products to sync plans"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/sync_plans/{{ sync_plan_id }}/add_products"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      product_ids: "{{ product_ids_for_plan }}"
+    status_code: [200, 422]
+  vars:
+    sync_plan_id: >-
+      {{
+        all_sync_plans.json.results |
+        selectattr('name', 'equalto', item.name) |
+        map(attribute='id') |
+        first
+      }}
+    product_ids_for_plan: >-
+      {{
+        all_products.json.results |
+        selectattr('name', 'in', item.products) |
+        map(attribute='id') |
+        list
+      }}
+  loop: "{{ sync_plans }}"
+  when: 
+    - item.products is defined
+    - product_ids_for_plan | length > 0
+  register: sync_plan_products
+  tags:
+    - sync-plans
+
+- name: "Enable/disable sync plans"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/sync_plans/{{ sync_plan_id }}"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      enabled: "{{ item.enabled }}"
+    status_code: [200, 422]
+  vars:
+    sync_plan_id: >-
+      {{
+        all_sync_plans.json.results |
+        selectattr('name', 'equalto', item.name) |
+        map(attribute='id') |
+        first
+      }}
+  loop: "{{ sync_plans }}"
+  register: sync_plan_status
+  tags:
+    - sync-plans
+
+- name: "Display sync plan status"
+  debug:
+    msg:
+      - "Sync Plan: {{ item.name }}"
+      - "Interval: {{ item.interval }}"
+      - "Next Run: {{ item.sync_date }}"
+      - "Enabled: {{ item.enabled }}"
+      - "Products: {{ item.products | length if item.products is defined else 0 }}"
+  loop: "{{ sync_plans }}"
+  when: debug_mode | bool
+  tags:
+    - sync-plans

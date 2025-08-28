@@ -1,0 +1,225 @@
+---
+# Windows 10 22H2 Specific Update Tasks
+# Extended support and legacy compatibility management
+
+- name: "Check Windows 10 22H2 build and support status"
+  win_shell: |
+    $version = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+    $updateHistory = Get-HotFix | Sort-Object InstalledOn -Descending | Select-Object -First 10
+    
+    # Check Windows 10 end-of-support date
+    $currentDate = Get-Date
+    $endOfSupport = Get-Date "2025-10-14"  # Windows 10 end of support
+    $daysRemaining = ($endOfSupport - $currentDate).Days
+    
+    @{
+        'DisplayVersion' = $version.DisplayVersion
+        'CurrentBuild' = $version.CurrentBuild
+        'UBR' = $version.UBR
+        'ReleaseId' = $version.ReleaseId
+        'EndOfSupportDate' = $endOfSupport.ToString('yyyy-MM-dd')
+        'DaysUntilEndOfSupport' = [math]::Max(0, $daysRemaining)
+        'ExtendedSupport' = ($daysRemaining -le 365)
+        'RecentUpdates' = $updateHistory.Count
+        'LastUpdateDate' = if ($updateHistory.Count -gt 0) { $updateHistory[0].InstalledOn.ToString('yyyy-MM-dd') } else { 'Unknown' }
+    } | ConvertTo-Json
+  register: win10_22h2_info
+  changed_when: false
+
+- name: "Parse Windows 10 22H2 information"
+  set_fact:
+    win10_info: "{{ win10_22h2_info.stdout | from_json }}"
+
+- name: "Display Windows 10 extended support warning"
+  debug:
+    msg:
+      - "  WARNING: Windows 10 Extended Support Status "
+      - "End of Support Date: {{ win10_info.EndOfSupportDate }}"
+      - "Days Remaining: {{ win10_info.DaysUntilEndOfSupport }}"
+      - "Consider upgrading to Windows 11 or migrating workloads"
+      - "Extended Security Updates may be required after October 2025"
+  when: 
+    - win10_info.ExtendedSupport | bool
+    - win_updates_generate_report | bool
+
+- name: "Configure Windows 10 22H2 update deferral settings"
+  win_regedit:
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    type: dword
+  loop:
+    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+      name: 'DeferFeatureUpdates'
+      value: 1
+    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+      name: 'DeferFeatureUpdatesPeriodInDays'
+      value: 365  # Defer feature updates for Windows 10
+    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+      name: 'DeferQualityUpdates'
+      value: 0    # Don't defer security updates
+    - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
+      name: 'DeferQualityUpdatesPeriodInDays'
+      value: 0
+  when: win_feature_updates.defer_days > 0
+
+- name: "Install Windows 10 22H2 cumulative updates"
+  win_updates:
+    category_names:
+      - 'CriticalUpdates'
+      - 'SecurityUpdates'
+      - 'UpdateRollups'
+    state: 'installed'
+    log_path: "{{ win_updates_log_path }}"
+    search_criteria: 'IsInstalled=0 and BrowseOnly=0 and Type="Software"'
+    timeout: "{{ win_updates_timeout }}"
+    accept_list: "{{ win_updates_accept_list if win_updates_accept_list | length > 0 else omit }}"
+    reject_list: "{{ win_updates_reject_list if win_updates_reject_list | length > 0 else omit }}"
+  register: win10_22h2_updates_result
+
+- name: "Check for Windows 10 to Windows 11 upgrade eligibility"
+  win_shell: |
+    try {
+        # Check hardware compatibility for Windows 11
+        $tpmVersion = (Get-CimInstance -Class Win32_Tpm -Namespace root\cimv2\security\microsofttpm -ErrorAction SilentlyContinue).TpmVersion
+        $secureBootEnabled = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+        $processor = Get-CimInstance -ClassName Win32_Processor
+        
+        # Get system info for compatibility check
+        $systemInfo = Get-ComputerInfo
+        $totalMemoryGB = [math]::Round($systemInfo.TotalPhysicalMemory / 1GB, 2)
+        
+        # Basic compatibility checks
+        $tpmCompatible = $tpmVersion -ge 2.0
+        $memoryCompatible = $totalMemoryGB -ge 4
+        $secureBootCompatible = $secureBootEnabled -eq $true
+        
+        @{
+            'TPMVersion' = if ($tpmVersion) { $tpmVersion.ToString() } else { 'Not Available' }
+            'SecureBootEnabled' = $secureBootEnabled
+            'TotalMemoryGB' = $totalMemoryGB
+            'ProcessorName' = $processor.Name
+            'Windows11Eligible' = ($tpmCompatible -and $memoryCompatible -and $secureBootCompatible)
+            'TPMCompatible' = $tpmCompatible
+            'MemoryCompatible' = $memoryCompatible
+            'SecureBootCompatible' = $secureBootCompatible
+            'RecommendUpgrade' = ($tpmCompatible -and $memoryCompatible -and $secureBootCompatible)
+        } | ConvertTo-Json
+    }
+    catch {
+        @{
+            'Error' = $_.Exception.Message
+            'Windows11Eligible' = $false
+            'RecommendUpgrade' = $false
+        } | ConvertTo-Json
+    }
+  register: win11_eligibility_check
+  changed_when: false
+
+- name: "Configure Windows 10 22H2 legacy features"
+  win_shell: |
+    try {
+        # Enable .NET Framework 3.5 if needed (common enterprise requirement)
+        $dotNet35 = Get-WindowsOptionalFeature -Online -FeatureName NetFx3 -ErrorAction SilentlyContinue
+        
+        if ($dotNet35 -and $dotNet35.State -eq 'Disabled') {
+            Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -NoRestart
+            $dotNetStatus = 'Enabled'
+        } else {
+            $dotNetStatus = 'Already Enabled'
+        }
+        
+        @{
+            'DotNet35Status' = $dotNetStatus
+            'FeatureEnabled' = $true
+        } | ConvertTo-Json
+    }
+    catch {
+        @{
+            'DotNet35Status' = 'Error'
+            'Error' = $_.Exception.Message
+        } | ConvertTo-Json
+    }
+  register: win10_legacy_features
+  when: not win_updates_skip_optional | bool
+  changed_when: "'Enabled' in win10_legacy_features.stdout"
+
+- name: "Update Windows 10 Microsoft Store apps"
+  win_shell: |
+    try {
+        # Reset Windows Store cache
+        wsreset.exe /norestart
+        Start-Sleep -Seconds 10
+        
+        # Check for Store app updates
+        $apps = Get-AppxPackage -AllUsers | Where-Object {$_.PackageFullName -like "*Store*"}
+        
+        @{
+            'Status' = 'Success'
+            'StoreAppsFound' = $apps.Count
+            'CacheReset' = $true
+            'Method' = 'wsreset'
+        } | ConvertTo-Json
+    }
+    catch {
+        @{
+            'Status' = 'Error'
+            'Error' = $_.Exception.Message
+            'CacheReset' = $false
+        } | ConvertTo-Json
+    }
+  register: win10_store_reset
+  failed_when: false
+
+- name: "Configure Windows 10 22H2 maintenance schedule"
+  win_regedit:
+    path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Services\7971f918-a847-4430-9279-4a52d1efe18d'
+    name: 'RegisteredWithAU'
+    data: 1
+    type: dword
+  failed_when: false
+
+- name: "Check for Microsoft Edge updates (Windows 10 22H2)"
+  win_shell: |
+    try {
+        $edgePath = "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe"
+        if (Test-Path $edgePath) {
+            $edgeVersion = (Get-ItemProperty $edgePath).VersionInfo.FileVersion
+            
+            # Try to update Edge via scheduled task
+            $taskExists = Get-ScheduledTask -TaskName "MicrosoftEdgeUpdateTaskMachine*" -ErrorAction SilentlyContinue
+            
+            @{
+                'EdgeInstalled' = $true
+                'EdgeVersion' = $edgeVersion
+                'UpdateTaskExists' = ($taskExists -ne $null)
+                'Status' = 'Checked'
+            } | ConvertTo-Json
+        } else {
+            @{
+                'EdgeInstalled' = $false
+                'Status' = 'Not Installed'
+            } | ConvertTo-Json
+        }
+    }
+    catch {
+        @{
+            'Error' = $_.Exception.Message
+            'Status' = 'Error'
+        } | ConvertTo-Json
+    }
+  register: edge_update_check
+  changed_when: false
+
+- name: "Display Windows 10 22H2 specific results"
+  debug:
+    msg:
+      - "Windows 10 22H2 Build: {{ win10_info.CurrentBuild }}.{{ win10_info.UBR }}"
+      - "Support Status: {{ 'Extended Support Period' if win10_info.ExtendedSupport else 'Mainstream Support' }}"
+      - "Days Until End of Support: {{ win10_info.DaysUntilEndOfSupport }}"
+      - "Windows 11 Eligible: {{ (win11_eligibility_check.stdout | from_json).Windows11Eligible | default(false) }}"
+      - "Updates Installed: {{ win10_22h2_updates_result.installed_update_count | default(0) }}"
+      - ".NET Framework 3.5: {{ (win10_legacy_features.stdout | from_json).DotNet35Status | default('Not Configured') }}"
+      - "Microsoft Edge: {{ (edge_update_check.stdout | from_json).Status | default('Not Checked') }}"
+      - "Upgrade Recommendation: {{ 'Consider Windows 11 upgrade' if (win11_eligibility_check.stdout | from_json).RecommendUpgrade | default(false) else 'Continue with Windows 10 extended support' }}"
+  when: win_updates_generate_report | bool

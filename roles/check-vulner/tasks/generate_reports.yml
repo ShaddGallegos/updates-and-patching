@@ -127,7 +127,7 @@
 - name: Send email notification for critical vulnerabilities
   community.general.mail:
     to: "{{ vulner_notification_email }}"
-    subject: "🚨 CRITICAL: {{ vulner_critical_count }} vulnerabilities found on {{ ansible_facts['hostname'] }}"
+    subject: " CRITICAL: {{ vulner_critical_count }} vulnerabilities found on {{ ansible_facts['hostname'] }}"
     body: |
       Critical vulnerability alert for system: {{ ansible_facts['hostname'] }}
       
@@ -170,11 +170,11 @@
       
       ## Compliance Status
       {% if vulner_critical_count | int == 0 and vulner_high_count | int == 0 %}
-      ✅ **COMPLIANT** - No critical or high-priority vulnerabilities detected
+       **COMPLIANT** - No critical or high-priority vulnerabilities detected
       {% elif vulner_critical_count | int > 0 %}
-      ❌ **NON-COMPLIANT** - {{ vulner_critical_count }} critical vulnerabilities require immediate attention
+       **NON-COMPLIANT** - {{ vulner_critical_count }} critical vulnerabilities require immediate attention
       {% else %}
-      ⚠️ **PARTIALLY COMPLIANT** - {{ vulner_high_count }} high-priority vulnerabilities need resolution
+       **PARTIALLY COMPLIANT** - {{ vulner_high_count }} high-priority vulnerabilities need resolution
       {% endif %}
       
       ## Vulnerability Summary

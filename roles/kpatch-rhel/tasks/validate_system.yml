@@ -111,10 +111,10 @@
   ansible.builtin.debug:
     msg:
       - "=== Kpatch Validation Summary ==="
-      - "RHEL Version: RHEL {{ ansible_facts['distribution_major_version'] }} - ✅ Compatible"
-      - "Architecture: {{ ansible_facts['architecture'] }} - {% if ansible_facts['architecture'] == 'x86_64' %}✅ Compatible{% else %}❌ Not Compatible{% endif %}"
+      - "RHEL Version: RHEL {{ ansible_facts['distribution_major_version'] }} -  Compatible"
+      - "Architecture: {{ ansible_facts['architecture'] }} - {% if ansible_facts['architecture'] == 'x86_64' %} Compatible{% else %} Not Compatible{% endif %}"
       - "Package Manager: {{ active_package_manager }}"
-      - "Kpatch Already Installed: {% if kpatch_already_installed %}✅ Yes{% else %}❌ No{% endif %}"
-      - "Live Patching Support: {% if kpatch_live_patching_supported %}✅ Available{% else %}⚠️ Limited{% endif %}"
+      - "Kpatch Already Installed: {% if kpatch_already_installed %} Yes{% else %} No{% endif %}"
+      - "Live Patching Support: {% if kpatch_live_patching_supported %} Available{% else %} Limited{% endif %}"
       - "Subscription Status: {{ subscription_status.status | default('Not Checked') }}"
   when: kpatch_verbose_output | bool

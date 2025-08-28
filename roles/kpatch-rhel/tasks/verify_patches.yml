@@ -146,7 +146,7 @@
   ansible.builtin.debug:
     msg:
       - "=== Kpatch Verification Results ==="
-      - "Overall Status: {% if kpatch_verification_passed %}✅ PASSED{% else %}❌ FAILED{% endif %}"
+      - "Overall Status: {% if kpatch_verification_passed %} PASSED{% else %} FAILED{% endif %}"
       - ""
       - "Patch Statistics:"
       - "  • Total patches: {{ kpatch_verification_total }}"

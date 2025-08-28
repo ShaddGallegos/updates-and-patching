@@ -172,7 +172,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 RHEL System Reports</h1>
+            <h1> RHEL System Reports</h1>
             <div class="subtitle">Generated on {{ ansible_date_time.iso8601[:19] | replace('T', ' at ') }} UTC</div>
             <div class="subtitle">Analysis of {{ groups['all'] | length }} RHEL Systems</div>
         </div>
@@ -201,14 +201,14 @@
 
         <div class="reports-grid">
             <div class="report-card">
-                <h3>📊 Executive Summary</h3>
+                <h3> Executive Summary</h3>
                 <p>High-level overview and key recommendations for management stakeholders.</p>
                 <a href="executive_summary_{{ report_date }}.html" class="btn btn-success">View Summary</a>
             </div>
 
             {% if 'html' in report_output_formats %}
             <div class="report-card">
-                <h3>📋 Detailed System Report</h3>
+                <h3> Detailed System Report</h3>
                 <p>Comprehensive analysis of all systems including security status, updates, and performance metrics.</p>
                 <a href="{{ report_filename_prefix }}_{{ report_date }}.html" class="btn">View Details</a>
             </div>
@@ -216,7 +216,7 @@
 
             {% if 'csv' in report_output_formats %}
             <div class="report-card">
-                <h3>📈 Data Export (CSV)</h3>
+                <h3> Data Export (CSV)</h3>
                 <p>Raw data export for further analysis in spreadsheets or business intelligence tools.</p>
                 <a href="{{ report_filename_prefix }}_{{ report_date }}.csv" class="btn btn-secondary">Download CSV</a>
             </div>
@@ -224,7 +224,7 @@
 
             {% if 'json' in report_output_formats %}
             <div class="report-card">
-                <h3>🔧 Machine Data (JSON)</h3>
+                <h3> Machine Data (JSON)</h3>
                 <p>Structured data format for integration with monitoring tools and automation systems.</p>
                 <a href="{{ report_filename_prefix }}_{{ report_date }}.json" class="btn btn-info">Download JSON</a>
             </div>
@@ -232,14 +232,14 @@
 
             {% if report_include_pdf and pdf_generation_available %}
             <div class="report-card">
-                <h3>🖨️ Printable Report (PDF)</h3>
+                <h3> Printable Report (PDF)</h3>
                 <p>Professional PDF report suitable for printing and offline distribution.</p>
                 <a href="{{ report_filename_prefix }}_{{ report_date }}.pdf" class="btn btn-secondary">Download PDF</a>
             </div>
             {% endif %}
 
             <div class="report-card">
-                <h3>📄 Report Manifest</h3>
+                <h3> Report Manifest</h3>
                 <p>Complete list of generated files and metadata about this reporting session.</p>
                 <a href="REPORT_MANIFEST.txt" class="btn btn-secondary">View Manifest</a>
             </div>
@@ -247,7 +247,7 @@
 
         {% if report_enable_web_server %}
         <div style="background: #e8f5e8; border: 1px solid #28a745; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-            <h3 style="color: #28a745; margin-bottom: 10px;">🌐 Web Server Active</h3>
+            <h3 style="color: #28a745; margin-bottom: 10px;"> Web Server Active</h3>
             <p>A web server is running to serve these reports. Access them at:</p>
             <p><strong>URL:</strong> <a href="http://{{ report_web_server_host }}:{{ report_web_server_port }}">http://{{ report_web_server_host }}:{{ report_web_server_port }}</a></p>
         </div>

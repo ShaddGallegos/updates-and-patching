@@ -8,35 +8,35 @@ This role automates the complete lifecycle of kpatch live kernel patching on Red
 
 ## Features
 
-### 🔧 **Comprehensive Patch Management**
+###  **Comprehensive Patch Management**
 - **Multi-Action Support**: Install, enable, disable, list, remove, and info operations
 - **Automatic Patch Discovery**: Auto-detection of available patches for current kernel
 - **Selective Patching**: Support for specific patch lists or automatic installation
 - **Emergency Controls**: Emergency disable functionality for critical situations
 - **Backup Management**: Automatic kernel module backups before patching
 
-### 🛡️ **Advanced System Validation**
+###  **Advanced System Validation**
 - **RHEL Version Compatibility**: Full support for RHEL 7, 8, 9, and 10
 - **Architecture Validation**: x86_64 architecture verification
 - **Subscription Verification**: Red Hat subscription status validation
 - **Kernel Compatibility**: Kernel development package availability checks
 - **Live Patching Support**: System capability assessment
 
-### 🔍 **Comprehensive Verification**
+###  **Comprehensive Verification**
 - **Multi-Level Testing**: Command functionality, patch loading, kernel symbols
 - **Conflict Detection**: Automatic detection of patch conflicts and errors
 - **System Stability Checks**: Load average, memory usage, and error monitoring
 - **Functional Testing**: Network, filesystem, and process management validation
 - **Health Monitoring**: Real-time system health assessment
 
-### 📊 **Enterprise Monitoring & Reporting**
+###  **Enterprise Monitoring & Reporting**
 - **Detailed Status Reports**: Comprehensive patch status and system health
 - **Performance Metrics**: System load, memory usage, and stability indicators
 - **Verification Results**: Pass/fail status for all validation tests
 - **Operation Logging**: Complete audit trail of all patch operations
 - **Facts Integration**: Ansible facts for automation and monitoring integration
 
-### 🧹 **Intelligent Cleanup Management**
+###  **Intelligent Cleanup Management**
 - **Automatic Cleanup**: Removal of old patches and temporary files
 - **Retention Policies**: Configurable patch retention based on count or age
 - **Backup Cleanup**: Automatic cleanup of old kernel module backups

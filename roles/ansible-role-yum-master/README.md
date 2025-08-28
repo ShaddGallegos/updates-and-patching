@@ -219,4 +219,4 @@ MIT License - See LICENSE file for details
 
 ---
 
-**⚠️ Important**: This role modifies critical package manager configuration. Always test in a development environment before deploying to production systems.
+** Important**: This role modifies critical package manager configuration. Always test in a development environment before deploying to production systems.

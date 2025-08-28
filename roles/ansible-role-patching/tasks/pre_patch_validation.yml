@@ -1,0 +1,114 @@
+---
+# Pre-patching validation tasks
+
+- name: Gather system facts
+  ansible.builtin.setup:
+    gather_subset:
+      - 'hardware'
+      - 'system'
+      - 'virtual'
+  tags: [validation, facts]
+
+- name: Display system information
+  ansible.builtin.debug:
+    msg:
+      - "Operating System: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      - "Package Manager: {{ ansible_facts['pkg_mgr'] }}"
+      - "Kernel Version: {{ ansible_facts['kernel'] }}"
+      - "Architecture: {{ ansible_facts['architecture'] }}"
+      - "Virtualization: {{ ansible_facts['virtualization_type'] | default('physical') }}"
+  tags: [validation, info]
+
+- name: Check available disk space
+  ansible.builtin.setup:
+    filter: ansible_mounts
+  when: patch_check_disk_space
+
+- name: Verify minimum disk space requirements
+  ansible.builtin.assert:
+    that:
+      - item.size_available > (patch_min_disk_space_mb * 1024 * 1024)
+    fail_msg: |
+      Insufficient disk space on {{ item.mount }}. 
+      Available: {{ (item.size_available / 1024 / 1024) | int }}MB
+      Required: {{ patch_min_disk_space_mb }}MB
+    quiet: true
+  loop: "{{ ansible_facts['mounts'] }}"
+  when:
+    - patch_check_disk_space
+    - item.mount in ['/', '/var', '/tmp']
+  tags: [validation, disk]
+
+- name: Check package manager availability
+  ansible.builtin.command: "{{ _patch_pkg_mgr_cmd }} --version"
+  register: patch_mgr_version
+  changed_when: false
+  failed_when: false
+  vars:
+    _patch_pkg_mgr_cmd: "{{ patch_pkg_manager_commands[ansible_facts['pkg_mgr']] | default(ansible_facts['pkg_mgr']) }}"
+
+- name: Validate package manager is functional
+  ansible.builtin.assert:
+    that:
+      - patch_mgr_version.rc == 0
+    fail_msg: "Package manager {{ ansible_facts['pkg_mgr'] }} is not functional on this system"
+  tags: [validation, package-manager]
+
+- name: Check for running critical services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+  register: patch_critical_services_status
+  loop: "{{ patch_critical_services | default([]) }}"
+  when: patch_critical_services is defined
+  failed_when: false
+  tags: [validation, services]
+
+- name: Warn about critical services that will be affected
+  ansible.builtin.debug:
+    msg: 
+      - "WARNING: Critical services detected that may be affected by patching:"
+      - "{{ patch_critical_services | default([]) | join(', ') }}"
+      - "Consider stopping these services before patching if necessary"
+  when: 
+    - patch_critical_services is defined
+    - patch_critical_services | length > 0
+  tags: [validation, services]
+
+- name: Check for held/locked packages
+  ansible.builtin.shell: |
+    case "{{ ansible_facts['pkg_mgr'] }}" in
+      "yum"|"dnf")
+        {{ ansible_facts['pkg_mgr'] }} versionlock list 2>/dev/null || echo "none"
+        ;;
+      "apt")
+        apt-mark showhold 2>/dev/null || echo "none"
+        ;;
+      "zypper")
+        zypper locks 2>/dev/null | grep -v "^Repository" | grep -v "^---" || echo "none"
+        ;;
+      "pacman")
+        grep -v "^#" /etc/pacman.conf | grep -i "IgnorePkg\|IgnoreGroup" || echo "none"
+        ;;
+      *)
+        echo "unknown package manager"
+        ;;
+    esac
+  register: patch_held_packages
+  changed_when: false
+  failed_when: false
+  tags: [validation, packages]
+
+- name: Display held packages information
+  ansible.builtin.debug:
+    msg:
+      - "Held/locked packages found:"
+      - "{{ patch_held_packages.stdout_lines }}"
+  when: 
+    - patch_held_packages.stdout != "none"
+    - patch_held_packages.stdout != "unknown package manager"
+  tags: [validation, packages]
+
+- name: Set validation completion flag
+  ansible.builtin.set_fact:
+    patch_validation_completed: true
+    patch_validation_timestamp: "{{ ansible_date_time.iso8601 }}"

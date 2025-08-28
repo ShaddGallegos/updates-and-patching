@@ -1,5 +1,227 @@
-- name: check vulnerability on RHEL
+---
+- name: Comprehensive Vulnerability Assessment for RHEL Systems
   hosts: all
-  become: yes
-  roles:
-    - check-vulner
+  gather_facts: true
+  become: true
+  vars:
+    # Vulnerability scanning configuration
+    scan_installed_packages: true
+    check_security_advisories: true
+    generate_detailed_report: true
+    output_format: "json"  # json, yaml, or text
+    
+    # Report configuration  
+    report_directory: "/var/log/vulnerability-scans"
+    include_remediation: true
+    severity_threshold: "medium"  # low, medium, high, critical
+    
+  pre_tasks:
+    - name: Verify RHEL system compatibility
+      ansible.builtin.fail:
+        msg: "This vulnerability scanner is designed for RHEL family systems only"
+      when: ansible_facts['os_family'] != "RedHat"
+        
+    - name: Create vulnerability scan directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ report_directory }}"
+        - /tmp/vuln-scan-data
+
+    - name: Install required packages for vulnerability scanning
+      ansible.builtin.dnf:
+        name:
+          - yum-plugin-security
+          - dnf-plugin-security
+          - python3-requests
+        state: present
+
+  tasks:
+    - name: Gather system information for vulnerability context
+      ansible.builtin.setup:
+        filter:
+          - "ansible_distribution*"
+          - "ansible_kernel"
+          - "ansible_architecture"
+          - "ansible_hostname"
+          - "ansible_fqdn"
+
+    - name: Check for available security updates
+      ansible.builtin.dnf:
+        list: updates
+        security: true
+      register: security_updates_available
+      
+    - name: Get detailed package vulnerability information
+      ansible.builtin.shell: |
+        dnf --security check-update 2>/dev/null || true
+        dnf updateinfo list security 2>/dev/null || true
+      register: security_advisory_info
+      changed_when: false
+      
+    - name: Scan for installed package vulnerabilities
+      block:
+        - name: Get list of all installed packages
+          ansible.builtin.package_facts:
+            manager: auto
+          
+        - name: Create installed packages inventory
+          ansible.builtin.set_fact:
+            installed_packages_list: "{{ ansible_facts.packages.keys() | list | sort }}"
+            total_installed_packages: "{{ ansible_facts.packages.keys() | list | length }}"
+            
+        - name: Check for packages with known vulnerabilities
+          ansible.builtin.shell: |
+            dnf updateinfo list security --installed 2>/dev/null | grep -E "(RHSA|RHBA|RHEA)" || echo "No security advisories found"
+          register: installed_vulns
+          changed_when: false
+          
+      when: scan_installed_packages | bool
+
+    - name: Generate comprehensive vulnerability report
+      ansible.builtin.copy:
+        content: |
+          # Vulnerability Assessment Report
+          
+          ## System Information
+          - **Hostname**: {{ ansible_facts['hostname'] }}
+          - **FQDN**: {{ ansible_facts['fqdn'] }}
+          - **Distribution**: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          - **Kernel**: {{ ansible_facts['kernel'] }}
+          - **Architecture**: {{ ansible_facts['architecture'] }}
+          - **Scan Timestamp**: {{ ansible_date_time.iso8601 }}
+          
+          ## Security Updates Available
+          {% if security_updates_available.results | length > 0 %}
+          **Total Security Updates**: {{ security_updates_available.results | length }}
+          
+          ### Available Security Updates:
+          {% for update in security_updates_available.results %}
+          - {{ update.name }}-{{ update.version }}-{{ update.release }} ({{ update.arch }})
+          {% endfor %}
+          {% else %}
+          **No security updates available**
+          {% endif %}
+          
+          ## Package Inventory
+          - **Total Installed Packages**: {{ total_installed_packages | default('Not scanned') }}
+          {% if scan_installed_packages and installed_packages_list is defined %}
+          
+          ### Sample of Installed Packages:
+          {% for package in installed_packages_list[:20] %}
+          - {{ package }}
+          {% endfor %}
+          {% if installed_packages_list | length > 20 %}
+          ... and {{ installed_packages_list | length - 20 }} more packages
+          {% endif %}
+          {% endif %}
+          
+          ## Security Advisory Information
+          {% if security_advisory_info.stdout %}
+          ```
+          {{ security_advisory_info.stdout }}
+          ```
+          {% else %}
+          No detailed security advisory information available.
+          {% endif %}
+          
+          ## Vulnerability Summary for Installed Packages
+          {% if installed_vulns.stdout and installed_vulns.stdout != "No security advisories found" %}
+          ```
+          {{ installed_vulns.stdout }}
+          ```
+          {% else %}
+          No known vulnerabilities detected in installed packages.
+          {% endif %}
+          
+          ## Recommendations
+          {% if security_updates_available.results | length > 0 %}
+          1. **Immediate Action Required**: Apply {{ security_updates_available.results | length }} available security updates
+          2. Run: `dnf update --security` to apply security patches
+          3. Consider scheduling regular security updates
+          4. Review and test updates in a staging environment first
+          {% else %}
+          1. **Good News**: System appears to have current security patches
+          2. Continue monitoring for new security advisories
+          3. Maintain regular update schedule
+          {% endif %}
+          
+          ## Remediation Commands
+          ```bash
+          # Apply all security updates
+          dnf update --security -y
+          
+          # Check for specific security advisories
+          dnf updateinfo list security
+          
+          # Get details about specific advisory
+          dnf updateinfo info <ADVISORY_ID>
+          
+          # Reboot if kernel updates were applied
+          needs-restarting -r && reboot
+          ```
+          
+          ---
+          Report generated by Ansible Vulnerability Scanner
+          Generated: {{ ansible_date_time.iso8601 }}
+        dest: "{{ report_directory }}/vulnerability-report-{{ ansible_facts['hostname'] }}-{{ ansible_date_time.epoch }}.md"
+        mode: '0644'
+      when: generate_detailed_report | bool
+
+    - name: Generate machine-readable vulnerability data
+      ansible.builtin.copy:
+        content: |
+          {
+            "scan_metadata": {
+              "hostname": "{{ ansible_facts['hostname'] }}",
+              "fqdn": "{{ ansible_facts['fqdn'] }}",
+              "distribution": "{{ ansible_facts['distribution'] }}",
+              "distribution_version": "{{ ansible_facts['distribution_version'] }}",
+              "kernel": "{{ ansible_facts['kernel'] }}",
+              "architecture": "{{ ansible_facts['architecture'] }}",
+              "scan_timestamp": "{{ ansible_date_time.iso8601 }}",
+              "scanner_version": "1.0"
+            },
+            "security_updates": {
+              "available_count": {{ security_updates_available.results | length | default(0) }},
+              "updates_list": {{ security_updates_available.results | default([]) | to_nice_json }}
+            },
+            "package_inventory": {
+              "total_packages": {{ total_installed_packages | default(0) }},
+              "scan_performed": {{ scan_installed_packages | string | lower }}
+            },
+            "vulnerability_status": {
+              "critical_issues": {{ (security_updates_available.results | selectattr('repository', 'search', 'rhsa') | list | length) | default(0) }},
+              "security_advisories_found": {{ (installed_vulns.stdout != "No security advisories found") | string | lower }},
+              "overall_risk": "{{ 'HIGH' if (security_updates_available.results | length > 10) else ('MEDIUM' if (security_updates_available.results | length > 0) else 'LOW') }}"
+            }
+          }
+        dest: "{{ report_directory }}/vulnerability-data-{{ ansible_facts['hostname'] }}-{{ ansible_date_time.epoch }}.json"
+        mode: '0644'
+      when: output_format == "json"
+
+    - name: Display vulnerability scan summary
+      ansible.builtin.debug:
+        msg:
+          - "Vulnerability scan completed for {{ ansible_facts['hostname'] }}"
+          - "Security updates available: {{ security_updates_available.results | length | default(0) }}"
+          - "Total packages scanned: {{ total_installed_packages | default('Not scanned') }}"
+          - "Risk Level: {{ 'HIGH' if (security_updates_available.results | length > 10) else ('MEDIUM' if (security_updates_available.results | length > 0) else 'LOW') }}"
+          - "Reports saved to: {{ report_directory }}"
+
+  post_tasks:
+    - name: Set vulnerability facts for reporting
+      ansible.builtin.set_fact:
+        vulnerability_scan_results:
+          hostname: "{{ ansible_facts['hostname'] }}"
+          scan_timestamp: "{{ ansible_date_time.iso8601 }}"
+          security_updates_count: "{{ security_updates_available.results | length | default(0) }}"
+          risk_level: "{{ 'HIGH' if (security_updates_available.results | length > 10) else ('MEDIUM' if (security_updates_available.results | length > 0) else 'LOW') }}"
+          scan_successful: true
+          
+    - name: Clean temporary scan data
+      ansible.builtin.file:
+        path: /tmp/vuln-scan-data
+        state: absent

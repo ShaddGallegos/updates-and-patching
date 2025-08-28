@@ -1,0 +1,39 @@
+# Python packages required for updates-and-patching project
+# For Windows management, Red Hat Satellite API integration, and comprehensive reporting
+
+# Windows WinRM and PowerShell management
+pywinrm>=0.5.0
+requests-kerberos>=0.14.0
+requests-ntlm>=1.2.0
+requests-credssp>=2.0.0
+
+# Red Hat Satellite API and REST operations
+requests>=2.28.0
+urllib3>=1.26.0
+certifi>=2022.0.0
+
+# JSON/YAML processing for configurations and reports
+PyYAML>=6.0
+jsonschema>=4.0.0
+
+# HTML report generation and templating
+Jinja2>=3.1.0
+MarkupSafe>=2.1.0
+
+# XML parsing for system data
+lxml>=4.9.0
+
+# Email and notification support
+sendgrid>=6.10.0
+smtplib2>=0.2.1
+
+# Security and encryption
+cryptography>=40.0.0
+paramiko>=3.0.0
+
+# HTTP client enhancements
+httplib2>=0.22.0
+
+# Data validation and parsing
+python-dateutil>=2.8.0
+packaging>=23.0

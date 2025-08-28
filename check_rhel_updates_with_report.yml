@@ -1,19 +1,275 @@
-- name: check RHEL updates
+---
+- name: Check RHEL System Updates and Generate Comprehensive Report
   hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    # Report configuration
+    report_format: "html"  # html, json, csv, text, all
+    report_directory: "/var/log/update-reports"
+    include_security_only: false
+    include_package_details: true
+    
+    # Email configuration (optional)
+    send_email_report: false
+    email_recipient: "{{ admin_email | default('admin@company.com') }}"
+    
+    # Update checking configuration
+    update_cache_before_check: true
+    check_subscription_status: true
+
+  pre_tasks:
+    - name: Verify RHEL system compatibility
+      ansible.builtin.fail:
+        msg: "This playbook is designed for Red Hat Enterprise Linux systems only"
+      when: ansible_facts['distribution'] != "RedHat"
+
+    - name: Create report directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ report_directory }}"
+        - /tmp/update-check-data
+
+    - name: Check system subscription status
+      ansible.builtin.command: subscription-manager status
+      register: subscription_check
+      failed_when: false
+      changed_when: false
+      when: check_subscription_status | bool
+
+    - name: Display subscription status
+      ansible.builtin.debug:
+        msg: "Subscription status: {{ 'Active' if subscription_check.rc == 0 else 'Inactive/Unregistered' }}"
+      when: check_subscription_status | bool
 
   tasks:
-    - name: check for available updates
-      yum:
+    - name: Update package cache for accurate results
+      ansible.builtin.dnf:
+        update_cache: true
+      when: update_cache_before_check | bool
+
+    - name: Check for all available updates
+      ansible.builtin.dnf:
         list: updates
-      become: yes
-      register: available_updates
+      register: all_available_updates
 
-- name: generate report
+    - name: Check for security updates specifically  
+      ansible.builtin.shell: |
+        dnf updateinfo list security 2>/dev/null | grep -E "(RHSA|RHBA|RHEA)" | wc -l || echo "0"
+      register: security_updates_count
+      changed_when: false
+
+    - name: Get detailed security update information
+      ansible.builtin.shell: |
+        dnf updateinfo list security 2>/dev/null || echo "No security updates available"
+      register: security_updates_detail
+      changed_when: false
+
+    - name: Categorize updates by type
+      ansible.builtin.set_fact:
+        total_updates: "{{ all_available_updates.results | length }}"
+        security_updates_available: "{{ security_updates_count.stdout | int }}"
+        kernel_updates: "{{ all_available_updates.results | selectattr('name', 'match', '^kernel.*') | list }}"
+        critical_packages: "{{ all_available_updates.results | selectattr('name', 'search', 'openssl|glibc|systemd|kernel') | list }}"
+
+    - name: Display update summary
+      ansible.builtin.debug:
+        msg:
+          - "Update Summary for {{ ansible_facts['hostname'] }}:"
+          - "Total updates available: {{ total_updates }}"
+          - "Security updates: {{ security_updates_available }}"
+          - "Kernel updates: {{ kernel_updates | length }}"
+          - "Critical package updates: {{ critical_packages | length }}"
+
+    - name: Check system uptime and last reboot
+      ansible.builtin.shell: |
+        echo "Uptime: $(uptime -p)"
+        echo "Last reboot: $(who -b | awk '{print $3, $4}')"
+      register: system_uptime_info
+      changed_when: false
+
+    - name: Check if reboot is required for existing updates
+      ansible.builtin.shell: |
+        needs-restarting -r 2>/dev/null && echo "No reboot needed" || echo "Reboot required"
+      register: reboot_status
+      failed_when: false
+      changed_when: false
+
+- name: Generate Comprehensive Update Report
   hosts: all
-  gather_facts: no
-
+  gather_facts: true
+  
   tasks:
-    - name: generate html report
-      include_role:
-        name: generate-update-report-rhel
-      run_once: yes
+    - name: Generate detailed HTML report
+      ansible.builtin.template:
+        src: update_report.html.j2
+        dest: "{{ report_directory }}/rhel-update-report-{{ ansible_facts['hostname'] }}-{{ ansible_date_time.epoch }}.html"
+        mode: '0644'
+      vars:
+        report_data:
+          metadata:
+            hostname: "{{ ansible_facts['hostname'] }}"
+            fqdn: "{{ ansible_facts['fqdn'] }}"
+            distribution: "{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+            kernel: "{{ ansible_facts['kernel'] }}"
+            architecture: "{{ ansible_facts['architecture'] }}"
+            report_timestamp: "{{ ansible_date_time.iso8601 }}"
+            uptime: "{{ system_uptime_info.stdout_lines if system_uptime_info is defined else ['Not available'] }}"
+          subscription:
+            status: "{{ 'Active' if subscription_check.rc == 0 else 'Inactive/Unregistered' }}"
+            warning: "{{ 'System may not receive updates' if subscription_check.rc != 0 else '' }}"
+          updates:
+            total_available: "{{ total_updates | default(0) }}"
+            security_count: "{{ security_updates_available | default(0) }}"
+            kernel_updates: "{{ kernel_updates | default([]) }}"
+            critical_packages: "{{ critical_packages | default([]) }}"
+            all_updates: "{{ all_available_updates.results | default([]) }}"
+            security_details: "{{ security_updates_detail.stdout_lines | default(['No security updates']) }}"
+          system_status:
+            reboot_required: "{{ reboot_status.stdout if reboot_status is defined else 'Unknown' }}"
+            last_update_check: "{{ ansible_date_time.iso8601 }}"
+      when: report_format in ['html', 'all']
+
+    - name: Generate JSON format report
+      ansible.builtin.copy:
+        content: |
+          {
+            "rhel_update_report": {
+              "metadata": {
+                "hostname": "{{ ansible_facts['hostname'] }}",
+                "fqdn": "{{ ansible_facts['fqdn'] }}",
+                "distribution": "{{ ansible_facts['distribution'] }}",
+                "distribution_version": "{{ ansible_facts['distribution_version'] }}",
+                "kernel": "{{ ansible_facts['kernel'] }}",
+                "architecture": "{{ ansible_facts['architecture'] }}",
+                "report_timestamp": "{{ ansible_date_time.iso8601 }}",
+                "uptime_seconds": {{ ansible_facts['uptime_seconds'] | default(0) }}
+              },
+              "subscription_status": {
+                "active": {{ (subscription_check.rc == 0) | string | lower if subscription_check is defined else false }},
+                "status_check_result": "{{ subscription_check.stdout if subscription_check is defined else 'Not checked' }}"
+              },
+              "update_summary": {
+                "total_updates_available": {{ total_updates | default(0) }},
+                "security_updates_available": {{ security_updates_available | default(0) }},
+                "kernel_updates_count": {{ kernel_updates | length if kernel_updates is defined else 0 }},
+                "critical_packages_count": {{ critical_packages | length if critical_packages is defined else 0 }}
+              },
+              "available_updates": {{ all_available_updates.results | default([]) | to_nice_json }},
+              "security_updates_detail": {{ security_updates_detail.stdout_lines | default([]) | to_nice_json }},
+              "system_status": {
+                "reboot_required": "{{ reboot_status.stdout if reboot_status is defined else 'Unknown' }}",
+                "last_update_check": "{{ ansible_date_time.iso8601 }}",
+                "recommendations": [
+                  {% if total_updates | default(0) > 0 %}
+                  "Apply {{ total_updates }} available updates",
+                  {% endif %}
+                  {% if security_updates_available | default(0) > 0 %}
+                  "Priority: Apply {{ security_updates_available }} security updates immediately",
+                  {% endif %}
+                  {% if kernel_updates is defined and kernel_updates | length > 0 %}
+                  "Kernel updates available - reboot will be required after installation",
+                  {% endif %}
+                  "Regular update schedule recommended"
+                ]
+              }
+            }
+          }
+        dest: "{{ report_directory }}/rhel-update-report-{{ ansible_facts['hostname'] }}-{{ ansible_date_time.epoch }}.json"
+        mode: '0644'
+      when: report_format in ['json', 'all']
+
+    - name: Generate CSV format report for spreadsheet analysis
+      ansible.builtin.copy:
+        content: |
+          Hostname,FQDN,Distribution,Kernel,Architecture,Total_Updates,Security_Updates,Kernel_Updates,Critical_Updates,Reboot_Required,Subscription_Status,Report_Timestamp
+          {{ ansible_facts['hostname'] }},{{ ansible_facts['fqdn'] }},{{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }},{{ ansible_facts['kernel'] }},{{ ansible_facts['architecture'] }},{{ total_updates | default(0) }},{{ security_updates_available | default(0) }},{{ kernel_updates | length if kernel_updates is defined else 0 }},{{ critical_packages | length if critical_packages is defined else 0 }},{{ reboot_status.stdout if reboot_status is defined else 'Unknown' }},{{ 'Active' if subscription_check.rc == 0 else 'Inactive' }},{{ ansible_date_time.iso8601 }}
+        dest: "{{ report_directory }}/rhel-update-summary-{{ ansible_facts['hostname'] }}-{{ ansible_date_time.epoch }}.csv"
+        mode: '0644'
+      when: report_format in ['csv', 'all']
+
+    - name: Generate text-based executive summary
+      ansible.builtin.copy:
+        content: |
+          RHEL UPDATE REPORT - EXECUTIVE SUMMARY
+          ====================================
+          
+          System Information:
+          - Hostname: {{ ansible_facts['hostname'] }}
+          - FQDN: {{ ansible_facts['fqdn'] }}
+          - Distribution: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          - Kernel: {{ ansible_facts['kernel'] }}
+          - Architecture: {{ ansible_facts['architecture'] }}
+          - Report Generated: {{ ansible_date_time.iso8601 }}
+          - System Uptime: {{ (ansible_facts['uptime_seconds'] / 3600) | round(2) }} hours
+          
+          Subscription Status:
+          - Status: {{ 'ACTIVE' if subscription_check.rc == 0 else 'INACTIVE/UNREGISTERED' }}
+          {% if subscription_check.rc != 0 %}
+          - WARNING: System may not have access to updates
+          {% endif %}
+          
+          Update Summary:
+          - Total Updates Available: {{ total_updates | default(0) }}
+          - Security Updates: {{ security_updates_available | default(0) }}
+          - Kernel Updates: {{ kernel_updates | length if kernel_updates is defined else 0 }}
+          - Critical Package Updates: {{ critical_packages | length if critical_packages is defined else 0 }}
+          
+          System Status:
+          - Reboot Required: {{ reboot_status.stdout if reboot_status is defined else 'Unknown' }}
+          - Last Update Check: {{ ansible_date_time.iso8601 }}
+          
+          Priority Recommendations:
+          {% if security_updates_available | default(0) > 0 %}
+          - URGENT: Apply {{ security_updates_available }} security updates immediately
+          {% endif %}
+          {% if kernel_updates is defined and kernel_updates | length > 0 %}
+          - IMPORTANT: Kernel updates require system reboot after installation
+          {% endif %}
+          {% if total_updates | default(0) > 0 %}
+          - Apply {{ total_updates }} total system updates during next maintenance window
+          {% endif %}
+          {% if total_updates | default(0) == 0 %}
+          - System is up to date - no immediate action required
+          {% endif %}
+          
+          Update Commands:
+          - Security updates only: dnf update --security
+          - All updates: dnf update
+          - Check reboot requirement: needs-restarting -r
+          
+          ---
+          Generated by Ansible RHEL Update Check Playbook v2.0.0
+        dest: "{{ report_directory }}/rhel-update-executive-summary-{{ ansible_facts['hostname'] }}-{{ ansible_date_time.epoch }}.txt"
+        mode: '0644'
+      when: report_format in ['text', 'all']
+
+    - name: Display report generation summary
+      ansible.builtin.debug:
+        msg:
+          - "RHEL update check completed for {{ ansible_facts['hostname'] }}"
+          - "Total updates available: {{ total_updates | default(0) }}"
+          - "Security updates: {{ security_updates_available | default(0) }}"
+          - "Reports generated in: {{ report_directory }}"
+          - "Report format(s): {{ report_format }}"
+          - "Next recommended action: {{ 'Apply security updates immediately' if security_updates_available | default(0) > 0 else 'No urgent updates required' }}"
+
+  post_tasks:
+    - name: Clean temporary data
+      ansible.builtin.file:
+        path: /tmp/update-check-data
+        state: absent
+
+    - name: Set facts for external automation
+      ansible.builtin.set_fact:
+        rhel_update_check_results:
+          hostname: "{{ ansible_facts['hostname'] }}"
+          total_updates: "{{ total_updates | default(0) }}"
+          security_updates: "{{ security_updates_available | default(0) }}"
+          kernel_updates: "{{ kernel_updates | length if kernel_updates is defined else 0 }}"
+          reboot_required: "{{ 'Yes' if 'required' in (reboot_status.stdout | lower) else 'No' }}"
+          subscription_active: "{{ subscription_check.rc == 0 if subscription_check is defined else false }}"
+          check_timestamp: "{{ ansible_date_time.iso8601 }}"

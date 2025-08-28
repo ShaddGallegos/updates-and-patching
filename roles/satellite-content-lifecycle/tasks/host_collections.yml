@@ -1,0 +1,71 @@
+---
+# Host Collection Management Tasks
+- name: "Get existing host collections"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/host_collections"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_host_collections
+  tags:
+    - host-collections
+
+- name: "Create host collections"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/host_collections"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      description: "{{ item.description }}"
+      max_hosts: "{{ item.max_hosts | default(omit) }}"
+      unlimited_hosts: "{{ item.unlimited_hosts | default(false) }}"
+    status_code: [200, 201, 422]
+  loop: "{{ host_collections }}"
+  when: 
+    - item.name not in (existing_host_collections.json.results | map(attribute='name') | list)
+    - not dry_run | bool
+  register: host_collection_creation
+  tags:
+    - host-collections
+
+- name: "Get updated host collection list"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/host_collections"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: all_host_collections
+  tags:
+    - host-collections
+
+- name: "Display host collection summary"
+  debug:
+    msg:
+      - "Host Collection: {{ item.name }}"
+      - "Description: {{ item.description }}"
+      - "Max Hosts: {{ item.max_hosts if not item.unlimited_hosts else 'Unlimited' }}"
+      - "Current Hosts: {{ item.total_hosts | default(0) }}"
+  loop: "{{ all_host_collections.json.results }}"
+  when: debug_mode | bool
+  tags:
+    - host-collections
+
+- name: "Set host collection facts"
+  set_fact:
+    host_collection_mapping: >-
+      {{
+        dict(all_host_collections.json.results |
+        map(attribute=['name', 'id']) |
+        list)
+      }}
+  tags:
+    - host-collections

@@ -1,0 +1,71 @@
+# vars/os/Alpine.yml
+# Alpine Linux specific variables
+# vim:ft=ansible:
+---
+
+# Package manager
+patch_pkg_manager: apk
+
+# Service names (Alpine uses OpenRC by default)
+patch_network_service: networking
+patch_ssh_service: sshd
+patch_firewall_service: iptables
+patch_logging_service: syslog
+
+# Critical services for Alpine
+patch_critical_services:
+  - sshd
+  - networking
+
+# Common package exclusions
+patch_exclude_packages: []
+
+# Reboot indicators (Alpine kernel packages)
+patch_kernel_packages:
+  - linux-lts
+  - linux-edge
+
+# Update commands
+patch_security_update_cmd: apk upgrade
+patch_full_update_cmd: apk upgrade
+
+# APK specific options
+patch_apk_options:
+  - "--no-cache"
+  - "--quiet"
+  - "--no-progress"
+
+# Alpine-specific configurations
+patch_alpine_configs:
+  repositories:
+    path: /etc/apk/repositories
+    backup: true
+
+# Alpine version branches
+patch_alpine_branches:
+  - edge
+  - v3.18
+  - v3.17
+  - v3.16
+
+# Maintenance commands
+patch_maintenance_cmds:
+  - apk cache clean
+  - apk fix
+
+# Alpine security repository
+patch_security_repos:
+  - "http://dl-cdn.alpinelinux.org/alpine/{{ ansible_distribution_release }}/main"
+  - "http://dl-cdn.alpinelinux.org/alpine/{{ ansible_distribution_release }}/community"
+
+# Package verification
+patch_verify_cmd: apk info --installed
+
+# Alpine init system (OpenRC vs systemd)
+patch_init_system: openrc
+
+# OpenRC service management
+patch_openrc_services:
+  start_cmd: rc-service
+  enable_cmd: rc-update add
+  disable_cmd: rc-update del

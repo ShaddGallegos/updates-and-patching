@@ -1,0 +1,81 @@
+---
+# Product Management Tasks
+- name: "Get existing products"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_products
+  tags:
+    - products
+
+- name: "Create products if they don't exist"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      label: "{{ item.label }}"
+      description: "{{ item.description | default('Managed by Ansible') }}"
+    status_code: [200, 201, 422]
+  loop: "{{ satellite_products }}"
+  when: item.name not in (existing_products.json.results | map(attribute='name') | list)
+  register: product_creation_results
+  tags:
+    - products
+
+- name: "Get updated product list"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: all_products
+  tags:
+    - products
+
+- name: "Extract product IDs"
+  set_fact:
+    product_ids: >-
+      {{
+        all_products.json.results |
+        selectattr('name', 'in', satellite_products | map(attribute='name') | list) |
+        map(attribute='id') |
+        list
+      }}
+  tags:
+    - products
+
+- name: "Display managed products"
+  debug:
+    msg:
+      - "Product: {{ item.name }}"
+      - "Label: {{ item.label }}"
+      - "Repositories: {{ item.repositories | map(attribute='name') | list }}"
+  loop: "{{ satellite_products }}"
+  when: debug_mode | bool
+  tags:
+    - products
+
+- name: "Sync product information"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products/{{ item }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  loop: "{{ product_ids }}"
+  register: product_details
+  tags:
+    - products

@@ -1,0 +1,148 @@
+---
+# Windows Update Validation and Prerequisites
+# Ensures system readiness for update operations
+
+- name: "Validate Windows Update service dependencies"
+  win_service_info:
+    name: "{{ item }}"
+  register: update_services
+  loop:
+    - "wuauserv"      # Windows Update
+    - "cryptsvc"      # Cryptographic Services
+    - "bits"          # Background Intelligent Transfer Service
+    - "msiserver"     # Windows Installer
+    - "TrustedInstaller"  # Windows Modules Installer
+
+- name: "Start required Windows Update services"
+  win_service:
+    name: "{{ item.item }}"
+    state: started
+    start_mode: auto
+  loop: "{{ update_services.results }}"
+  when: 
+    - item.services is defined
+    - item.services | length > 0
+    - item.services[0].state != 'running'
+
+- name: "Check available disk space for updates"
+  win_shell: |
+    $systemDrive = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq $env:SystemDrive}
+    $freeSpaceGB = [math]::Round($systemDrive.FreeSpace / 1GB, 2)
+    $totalSpaceGB = [math]::Round($systemDrive.Size / 1GB, 2)
+    $freeSpacePercent = [math]::Round(($systemDrive.FreeSpace / $systemDrive.Size) * 100, 1)
+    
+    @{
+        'FreeSpaceGB' = $freeSpaceGB
+        'TotalSpaceGB' = $totalSpaceGB
+        'FreeSpacePercent' = $freeSpacePercent
+        'SufficientSpace' = ($freeSpaceGB -gt 10)  # Minimum 10GB recommended
+        'Drive' = $systemDrive.DeviceID
+    } | ConvertTo-Json
+  register: disk_space_check
+  changed_when: false
+
+- name: "Warn about insufficient disk space"
+  debug:
+    msg:
+      - "  WARNING: Low disk space detected "
+      - "Free Space: {{ (disk_space_check.stdout | from_json).FreeSpaceGB }}GB ({{ (disk_space_check.stdout | from_json).FreeSpacePercent }}%)"
+      - "Recommended: At least 10GB free space for updates"
+      - "Consider cleaning up disk space before proceeding"
+  when: 
+    - not (disk_space_check.stdout | from_json).SufficientSpace
+    - win_updates_generate_report | bool
+
+- name: "Clear Windows Update cache if needed"
+  win_shell: |
+    try {
+        # Stop Windows Update service
+        Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+        
+        # Clear update cache
+        $cachePath = "$env:SystemRoot\SoftwareDistribution\Download"
+        if (Test-Path $cachePath) {
+            Remove-Item "$cachePath\*" -Recurse -Force -ErrorAction SilentlyContinue
+            $cacheCleared = $true
+        } else {
+            $cacheCleared = $false
+        }
+        
+        # Restart Windows Update service
+        Start-Service -Name wuauserv
+        
+        @{
+            'CacheCleared' = $cacheCleared
+            'CachePath' = $cachePath
+            'Status' = 'Success'
+        } | ConvertTo-Json
+    }
+    catch {
+        @{
+            'Error' = $_.Exception.Message
+            'Status' = 'Failed'
+        } | ConvertTo-Json
+    }
+  register: cache_clear_result
+  when: 
+    - not (disk_space_check.stdout | from_json).SufficientSpace
+    - win_updates_clear_cache | default(true) | bool
+  changed_when: "'Success' in cache_clear_result.stdout"
+
+- name: "Validate network connectivity to Windows Update servers"
+  win_shell: |
+    try {
+        $updateServers = @(
+            'windowsupdate.microsoft.com',
+            'update.microsoft.com',
+            'download.windowsupdate.com'
+        )
+        
+        $connectivityResults = @()
+        foreach ($server in $updateServers) {
+            try {
+                $result = Test-NetConnection -ComputerName $server -Port 443 -InformationLevel Quiet
+                $connectivityResults += @{
+                    'Server' = $server
+                    'Connected' = $result
+                }
+            }
+            catch {
+                $connectivityResults += @{
+                    'Server' = $server
+                    'Connected' = $false
+                    'Error' = $_.Exception.Message
+                }
+            }
+        }
+        
+        $successfulConnections = ($connectivityResults | Where-Object {$_.Connected}).Count
+        
+        @{
+            'TotalServers' = $updateServers.Count
+            'SuccessfulConnections' = $successfulConnections
+            'ConnectivityStatus' = if ($successfulConnections -gt 0) { 'Good' } else { 'Failed' }
+            'Results' = $connectivityResults
+        } | ConvertTo-Json -Depth 3
+    }
+    catch {
+        @{
+            'ConnectivityStatus' = 'Error'
+            'Error' = $_.Exception.Message
+        } | ConvertTo-Json
+    }
+  register: connectivity_check
+  changed_when: false
+
+- name: "Display validation results"
+  debug:
+    msg:
+      - "=========================================="
+      - "Windows Update Validation Results"
+      - "=========================================="
+      - "Services Status: All Required Services {{ 'Running' if (update_services.results | selectattr('services', 'defined') | selectattr('services.0.state', 'equalto', 'running') | list | length == update_services.results | length) else 'Need Attention' }}"
+      - "Disk Space: {{ (disk_space_check.stdout | from_json).FreeSpaceGB }}GB available ({{ 'Sufficient' if (disk_space_check.stdout | from_json).SufficientSpace else 'Low' }})"
+      - "Update Cache: {{ 'Cleared' if cache_clear_result.changed | default(false) else 'Clean' }}"
+      - "Network Connectivity: {{ (connectivity_check.stdout | from_json).ConnectivityStatus }}"
+      - "Connected Servers: {{ (connectivity_check.stdout | from_json).SuccessfulConnections | default(0) }}/{{ (connectivity_check.stdout | from_json).TotalServers | default(0) }}"
+      - "=========================================="
+  when: win_updates_generate_report | bool

@@ -1,2 +1,103 @@
-win_updates_category_names: ['CriticalUpdates','SecurityUpdates','UpdateRollups']
-win_updates_reboot: false
+---
+# Windows Updates Configuration for Latest 3 Windows Distributions
+# Supports: Windows 11, Windows Server 2022, Windows 10 22H2
+
+# Update Categories - Enhanced for modern Windows
+win_updates_category_names: 
+  - 'CriticalUpdates'
+  - 'SecurityUpdates'
+  - 'UpdateRollups'
+  - 'DefinitionUpdates'  # For Defender
+  - 'FeaturePacks'       # Windows 11 feature updates
+  - 'Drivers'            # Hardware drivers
+  - 'ServicePacks'       # Legacy support
+
+# Reboot Management
+win_updates_reboot: true
+win_updates_auto_reboot: true
+win_updates_reboot_timeout: 900      # 15 minutes
+win_updates_shutdown_timeout: 600    # 10 minutes
+win_updates_max_reboot_retries: 3
+
+# Update Filtering and Targeting
+win_updates_state: 'installed'
+win_updates_accept_list: []          # Specific KB numbers to install
+win_updates_reject_list: []          # KB numbers to exclude
+win_updates_skip_optional: false
+
+# Windows Version Support
+supported_windows_versions:
+  windows_11:
+    min_version: '10.0.22000'
+    max_version: '10.0.99999'
+    codename: 'Windows 11'
+    feature_update_channel: 'Semi-Annual Channel'
+    support_status: 'current'
+  windows_server_2022:
+    min_version: '10.0.20348'
+    max_version: '10.0.20999'
+    codename: 'Windows Server 2022'
+    feature_update_channel: 'Long-Term Servicing Channel'
+    support_status: 'current'
+  windows_10_22h2:
+    min_version: '10.0.19041'
+    max_version: '10.0.19999'
+    codename: 'Windows 10 22H2'
+    feature_update_channel: 'Semi-Annual Channel'
+    support_status: 'extended'
+
+# Advanced Update Settings
+win_updates_log_path: 'C:\Windows\Temp\ansible_updates.log'
+win_updates_search_criteria: 'IsInstalled=0 and BrowseOnly=0 and IsHidden=0'
+win_updates_timeout: 7200            # 2 hours for large updates
+win_updates_use_scheduled_task: false
+
+# Windows Feature Updates (for Windows 11 and Windows 10)
+win_feature_updates:
+  enabled: false                     # Set to true for major version upgrades
+  target_version: 'latest'           # or specific version like '22H2'
+  defer_days: 0                      # Defer feature updates
+  quality_update_deadline_days: 14   # Force quality updates after 14 days
+
+# Windows Defender Updates
+win_defender_updates:
+  enabled: true
+  definition_updates: true
+  engine_updates: true
+  platform_updates: true
+
+# Enterprise Features
+win_updates_wsus_server: ''          # Leave empty for Windows Update
+win_updates_wsus_use_ssl: true
+win_updates_notification_level: 'disabled'  # disabled, download_only, auto_download, scheduled
+
+# Reporting and Monitoring
+win_updates_generate_report: true
+win_updates_report_path: 'C:\Windows\Temp\ansible_updates_report.json'
+win_updates_email_notifications: false
+win_updates_email_recipients: []
+
+# Performance and Optimization
+win_updates_use_wuauclt: false       # Use modern UUP instead
+win_updates_bandwidth_throttle: false
+win_updates_download_only_first: false
+win_updates_install_optional_drivers: true
+
+# Security Hardening
+win_updates_disable_automatic_updates: false
+win_updates_require_admin_approval: false
+win_updates_block_non_critical: false
+
+# Windows 11 Specific Settings
+win11_settings:
+  enable_enhanced_phishing_protection: true
+  configure_smart_app_control: true
+  enable_controlled_folder_access: true
+  update_windows_security: true
+
+# Windows Server 2022 Specific Settings
+win_server_2022_settings:
+  enable_server_core_updates: true
+  configure_wsus_for_server: false
+  enable_security_only_updates: false
+  patch_management_mode: 'automatic'

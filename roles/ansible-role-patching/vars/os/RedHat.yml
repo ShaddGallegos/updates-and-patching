@@ -1,0 +1,82 @@
+# vars/os/RedHat.yml
+# RedHat family specific variables (RHEL, CentOS, Fedora, Rocky, AlmaLinux)
+# vim:ft=ansible:
+---
+
+# Package manager detection
+patch_pkg_manager: >-
+  {%- if ansible_distribution_major_version | int >= 8 -%}
+  dnf
+  {%- else -%}
+  yum
+  {%- endif -%}
+
+# Service names
+patch_network_service: NetworkManager
+patch_ssh_service: sshd
+patch_firewall_service: >-
+  {%- if ansible_distribution_major_version | int >= 7 -%}
+  firewalld
+  {%- else -%}
+  iptables
+  {%- endif -%}
+patch_logging_service: rsyslog
+
+# Critical services for RedHat family
+patch_critical_services:
+  - sshd
+  - systemd-logind
+  - NetworkManager
+  - firewalld
+
+# Common package exclusions
+patch_exclude_packages:
+  - "kernel*"
+  - "dracut*"
+
+# Reboot indicators
+patch_kernel_packages:
+  - kernel
+  - kernel-core
+  - kernel-modules
+  - kernel-devel
+
+# Update commands
+patch_security_update_cmd: >-
+  {%- if patch_pkg_manager == 'dnf' -%}
+  dnf update -y --security
+  {%- else -%}
+  yum update -y --security
+  {%- endif -%}
+
+patch_full_update_cmd: >-
+  {%- if patch_pkg_manager == 'dnf' -%}
+  dnf update -y
+  {%- else -%}
+  yum update -y
+  {%- endif -%}
+
+# Distribution-specific configurations
+patch_repos_to_enable: []
+patch_repos_to_disable: []
+
+# RedHat subscription management
+patch_rhn_commands:
+  register: subscription-manager register
+  unregister: subscription-manager unregister
+  refresh: subscription-manager refresh
+
+# Version-specific optimizations
+patch_rhel_optimizations:
+  "7":
+    - name: Enable security updates
+      set: yum-config-manager --enable rhel-7-server-security-rpms
+  "8":
+    - name: Enable AppStream security
+      set: dnf config-manager --enable rhel-8-appstream-security
+  "9":
+    - name: Enable security repository
+      set: dnf config-manager --enable rhel-9-baseos-security
+  "10":
+    - name: Enable modern security updates
+      set: dnf config-manager --enable rhel-10-baseos-security

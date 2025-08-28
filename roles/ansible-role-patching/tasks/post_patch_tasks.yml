@@ -1,0 +1,137 @@
+---
+# Post-patching tasks
+
+- name: Start services after patching
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ patch_start_services }}"
+  when: patch_start_services | length > 0
+  register: patch_started_services
+  tags: [post-patch, services]
+
+- name: Restart services after patching
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop: "{{ patch_restart_services }}"
+  when: patch_restart_services | length > 0
+  register: patch_restarted_services  
+  tags: [post-patch, services]
+
+- name: Execute post-patch commands
+  ansible.builtin.shell: "{{ item }}"
+  loop: "{{ patch_post_commands }}"
+  when: patch_post_commands | length > 0
+  register: patch_post_command_results
+  tags: [post-patch, commands]
+
+- name: Include custom post-patch tasks
+  ansible.builtin.include_tasks: "{{ item }}"
+  loop: "{{ patch_post_tasks }}"
+  when: patch_post_tasks | length > 0
+  tags: [post-patch, custom]
+
+- name: Clean package manager cache
+  block:
+    - name: Clean YUM/DNF cache (RedHat)
+      ansible.builtin.shell: "{{ ansible_facts['pkg_mgr'] }} clean all"
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Clean APT cache (Debian)
+      ansible.builtin.apt:
+        autoclean: true
+        autoremove: true
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Clean Zypper cache (SUSE)
+      ansible.builtin.zypper:
+        name: '*'
+        state: absent
+        type: srcpackage
+      when: ansible_facts['os_family'] == 'Suse'
+      failed_when: false
+
+    - name: Clean Pacman cache (Arch)
+      ansible.builtin.command: "pacman -Sc --noconfirm"
+      when: ansible_facts['pkg_mgr'] == 'pacman'
+
+  when: patch_clean_cache
+  become: true
+  tags: [post-patch, cleanup]
+
+- name: Remove old kernel versions
+  block:
+    - name: Remove old kernels (RedHat)
+      ansible.builtin.shell: |
+        # Keep only the specified number of kernel versions
+        current_kernels=$(rpm -q kernel | wc -l)
+        if [ $current_kernels -gt {{ patch_keep_kernel_versions }} ]; then
+          package-cleanup -y --oldkernels --count={{ patch_keep_kernel_versions }}
+        fi
+      when: 
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version']|int < 8  # package-cleanup deprecated in RHEL 8+
+
+    - name: Remove old kernels (DNF on RHEL 8+)
+      ansible.builtin.shell: |
+        dnf remove -y $(dnf repoquery --installonly --latest-limit=-{{ patch_keep_kernel_versions }} kernel)
+      when:
+        - ansible_facts['os_family'] == 'RedHat' 
+        - ansible_facts['distribution_major_version']|int >= 8
+      failed_when: false
+
+    - name: Remove old kernels (Debian/Ubuntu)
+      ansible.builtin.shell: |
+        apt autoremove -y --purge
+      when: ansible_facts['os_family'] == 'Debian'
+
+  when: patch_kernel_update and patch_kernel_was_updated
+  become: true
+  tags: [post-patch, kernel-cleanup]
+
+- name: Update GRUB configuration
+  ansible.builtin.shell: |
+    case "{{ ansible_facts['os_family'] }}" in
+      "RedHat"|"Suse")
+        if command -v grub2-mkconfig >/dev/null 2>&1; then
+          grub2-mkconfig -o /boot/grub2/grub.cfg
+        elif command -v grubby >/dev/null 2>&1; then
+          grubby --set-default-index=0
+        fi
+        ;;
+      "Debian")
+        update-grub
+        ;;
+    esac
+  when: patch_kernel_was_updated
+  become: true
+  register: patch_grub_update
+  failed_when: false
+  tags: [post-patch, bootloader]
+
+- name: Log post-patch system state
+  ansible.builtin.shell: |
+    {
+      echo "=== Post-Patch System State ==="
+      echo "Date: {{ ansible_date_time.iso8601 }}"
+      echo "Hostname: {{ ansible_facts['hostname'] }}"
+      echo "Updates Applied: {{ patch_updates_applied }}"
+      echo "Kernel Updated: {{ patch_kernel_was_updated }}"
+      echo "Reboot Required: {{ patch_reboot_required }}"
+      echo ""
+      echo "Current Kernel: {{ ansible_facts['kernel'] }}"
+      echo "Running Services:"
+      systemctl list-units --state=running --type=service | head -10
+      echo "=========================="
+    } >> {{ patch_log_directory }}/patch_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.log
+  when: patch_log_updates
+  become: true
+  tags: [post-patch, logging]
+
+- name: Set post-patch completion flag
+  ansible.builtin.set_fact:
+    patch_post_tasks_completed: true
+    patch_post_tasks_timestamp: "{{ ansible_date_time.iso8601 }}"
+    patch_total_duration: "{{ ((ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ')) - (patch_pre_tasks_timestamp | default(ansible_date_time.iso8601) | to_datetime('%Y-%m-%dT%H:%M:%SZ'))).total_seconds() | int }}"

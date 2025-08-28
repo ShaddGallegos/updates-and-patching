@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "report_type": "satellite_repository_sync",
+    "satellite_server": "{{ satellite_server_url }}",
+    "organization": "{{ satellite_organization }}",
+    "generated_at": "{{ ansible_date_time.iso8601 }}",
+    "ansible_host": "{{ ansible_hostname }}",
+    "report_version": "2.0.0"
+  },
+  "summary": {
+    "products_managed": {{ satellite_products | length }},
+    "repositories_configured": {{ repository_ids | length if repository_ids is defined else 0 }},
+    "sync_plans_created": {{ sync_plans | length }},
+    "dry_run": {{ dry_run | bool | lower }},
+    "rhel_version": "{{ rhel_version }}",
+    "architecture": "{{ rhel_architecture }}"
+  },
+  "products": [
+    {% for product in satellite_products %}
+    {
+      "name": "{{ product.name }}",
+      "label": "{{ product.label }}",
+      "description": "{{ product.description | default('Managed by Ansible') }}",
+      "repository_count": {{ product.repositories | length }},
+      "repositories": [
+        {% for repo in product.repositories %}
+        {
+          "name": "{{ repo.name }}",
+          "label": "{{ repo.label }}",
+          "basearch": "{{ repo.basearch | default(rhel_architecture) }}",
+          "releasever": "{{ repo.releasever | default(rhel_version) }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  "sync_plans": [
+    {% for plan in sync_plans %}
+    {
+      "name": "{{ plan.name }}",
+      "description": "{{ plan.description }}",
+      "interval": "{{ plan.interval }}",
+      "sync_date": "{{ plan.sync_date }}",
+      "enabled": {{ plan.enabled | bool | lower }},
+      "cron_expression": "{{ plan.cron_expression | default('') }}",
+      "products": {{ plan.products | length if plan.products is defined else 0 }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  "configuration": {
+    "download_policy": "{{ repo_download_policy }}",
+    "mirror_on_sync": {{ repo_mirror_on_sync | bool | lower }},
+    "verify_ssl": {{ repo_verify_ssl | bool | lower }},
+    "checksum_type": "{{ repo_checksum_type }}",
+    "sync_timeout": {{ sync_timeout }},
+    "max_concurrent_syncs": {{ max_concurrent_syncs }}
+  },
+  "sync_results": {
+    "repositories_synced": {{ repo_sync_status.results | length if repo_sync_status is defined else 0 }},
+    "sync_tasks_completed": {{ sync_progress.results | length if sync_progress is defined else 0 }},
+    "validation_enabled": {{ validate_repo_sync | bool | lower }}
+  }
+}

@@ -1,0 +1,86 @@
+# vars/os/Debian.yml
+# Debian family specific variables (Debian, Ubuntu, Mint, Kali)
+# vim:ft=ansible:
+---
+
+# Package manager
+patch_pkg_manager: apt
+
+# Service names
+patch_network_service: NetworkManager
+patch_ssh_service: ssh
+patch_firewall_service: ufw
+patch_logging_service: rsyslog
+
+# Critical services for Debian family
+patch_critical_services:
+  - ssh
+  - systemd-logind
+  - NetworkManager
+  - ufw
+
+# Common package exclusions
+patch_exclude_packages: []
+
+# Reboot indicators
+patch_kernel_packages:
+  - linux-image
+  - linux-headers
+  - linux-modules
+
+# Update commands
+patch_security_update_cmd: unattended-upgrade -v
+patch_full_update_cmd: apt-get update && apt-get upgrade -y
+
+# APT specific configurations
+patch_apt_options:
+  - "-o Dpkg::Options::='--force-confdef'"
+  - "-o Dpkg::Options::='--force-confold'"
+  - "--assume-yes"
+  - "--quiet"
+
+# Ubuntu/Debian specific repositories
+patch_security_repos:
+  Ubuntu:
+    - "{{ ansible_distribution_release }}-security"
+  Debian:
+    - "{{ ansible_distribution_release }}/updates"
+
+# Distribution-specific optimizations
+patch_debian_optimizations:
+  bullseye:
+    - name: Enable security updates
+      repo: "deb http://security.debian.org/debian-security bullseye-security main"
+  bookworm:
+    - name: Enable security updates  
+      repo: "deb http://security.debian.org/debian-security bookworm-security main"
+
+patch_ubuntu_optimizations:
+  bionic:
+    - name: Enable security updates
+      repo: "deb http://security.ubuntu.com/ubuntu bionic-security main"
+  focal:
+    - name: Enable security updates
+      repo: "deb http://security.ubuntu.com/ubuntu focal-security main"  
+  jammy:
+    - name: Enable security updates
+      repo: "deb http://security.ubuntu.com/ubuntu jammy-security main"
+  noble:
+    - name: Enable security updates
+      repo: "deb http://security.ubuntu.com/ubuntu noble-security main"
+
+# APT configuration files
+patch_apt_configs:
+  - path: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+          "${distro_id}:${distro_codename}-security";
+      };
+      Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+      Unattended-Upgrade::MinimalSteps "true";
+      Unattended-Upgrade::Automatic-Reboot "false";
+
+# Cleanup commands
+patch_cleanup_cmds:
+  - apt autoclean
+  - apt autoremove -y

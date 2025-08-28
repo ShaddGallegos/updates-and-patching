@@ -1,49 +1,97 @@
+# meta/main.yml for ansible-role-patching
+# Comprehensive Linux OS patching and upgrade management
+---
 galaxy_info:
   role_name: patching
-  author: Oscar Petersson
-  description: A role for patching Linux systems
-
+  author: sgallego
+  company: Red Hat
   license: MIT
-
-  min_ansible_version: 2.9
-
+  min_ansible_version: '2.12'
+  description: >-
+    Enterprise-grade Linux OS patching and upgrade management role supporting
+    comprehensive patching across all major Linux distributions. Provides
+    automated security updates, system maintenance, validation, and professional
+    reporting with minimal downtime and maximum reliability.
+  
+  # Comprehensive platform support
   platforms:
-  - name: Fedora
-    versions:
-      - 29
-      - 30
-      - 31
-  - name: EL
-    versions:
-      - 7
-      - 8
-  - name: Debian
-    versions:
-      - stretch
-      - buster
-  - name: Ubuntu
-    versions:
-      - bionic
-      - disco dingo
-      - eoan
-  - name: ArchLinux
-    versions:
-      - any
-  - name: opensuse
-    versions:
-      - 12.1
-      - 12.2
-      - 12.3
-      - 13.1
-      - 13.2
+    - name: EL
+      versions:
+        - '7'
+        - '8'
+        - '9'
+        - '10'
+    - name: Fedora
+      versions:
+        - '37'
+        - '38'
+        - '39'
+        - '40'
+    - name: Ubuntu
+      versions:
+        - bionic
+        - focal
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+        - trixie
+    - name: openSUSE
+      versions:
+        - '15.4'
+        - '15.5'
+        - '15.6'
+    - name: SLES
+      versions:
+        - '15'
+    - name: ArchLinux
+      versions:
+        - any
+    - name: Alpine
+      versions:
+        - any
+    - name: Gentoo
+      versions:
+        - any
 
   galaxy_tags:
+    - patching
+    - updates
+    - security
+    - maintenance
+    - system
+    - yum
+    - dnf
+    - apt
+    - zypper
+    - pacman
+    - apk
+    - portage
     - rhel
     - redhat
-    - patching
-    - patch
-    - system
-    - security
+    - centos
+    - fedora
+    - ubuntu
+    - debian
+    - suse
+    - opensuse
+    - arch
+    - alpine
+    - gentoo
+    - linux
+    - enterprise
+    - automation
 
-dependencies: []
+dependencies:
+  - role: oatakan.rhn
+    when: 
+      - ansible_os_family == "RedHat"
+      - patch_rhn_registration | default(false)
+
+collections:
+  - ansible.posix
+  - community.general
+
 allow_duplicates: no

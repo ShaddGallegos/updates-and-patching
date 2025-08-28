@@ -1,30 +1,140 @@
+# tasks/main.yml for generate-update-report-rhel
+# Enhanced RHEL 7-10 update reporting with flexible delivery options
+# vim:ft=ansible:
 ---
 
-- name: send email via sendgrid
-  sendgrid:
-    api_key: "{{ sendgrid_api_key | default(omit) }}"
-    from_address: "{{ sendgrid_from_email_address }}"
-    to_addresses: "{{ sendgrid_to_email_addresses }}"
-    subject: "[Ansible] OS Update report"
-    body: "{{ lookup('template', 'update_report.html.j2') }}"
-    html_body: yes
-  delegate_to: localhost
-  become: no
-  when: sendgrid_api_key is defined
+- name: Validate RHEL version compatibility
+  assert:
+    that:
+      - ansible_distribution == "RedHat" or ansible_distribution == "CentOS" or ansible_distribution == "Rocky" or ansible_distribution == "AlmaLinux"
+      - ansible_distribution_major_version in rhel_supported_versions
+    fail_msg: "This role supports RHEL family versions {{ rhel_supported_versions | join(', ') }}. Current system: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+    success_msg: "RHEL {{ ansible_distribution_major_version }} detected and supported"
 
-- name: send email via smtp
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: "{{ smtp_account }}"
-    password: "{{ smtp_account_password }}"
-    to: "{{ smtp_to_email_addresses }}"
-    subject: "[Ansible] OS Update report"
-    body: "{{ lookup('template', 'update_report.html.j2') }}"
-    subtype: html
+- name: Set RHEL-specific facts
+  set_fact:
+    rhel_major_version: "{{ ansible_distribution_major_version }}"
+    rhel_minor_version: "{{ ansible_distribution_version.split('.')[1] | default('0') }}"
+    rhel_package_manager: >-
+      {%- if ansible_distribution_major_version | int >= 8 -%}
+      dnf
+      {%- else -%}
+      yum
+      {%- endif -%}
+    report_timestamp_formatted: "{{ ansible_date_time.year }}-{{ ansible_date_time.month }}-{{ ansible_date_time.day }}_{{ ansible_date_time.hour }}-{{ ansible_date_time.minute }}-{{ ansible_date_time.second }}"
+
+- name: Create timestamped report directory
+  file:
+    path: "{{ report_base_path }}"
+    state: directory
+    mode: '0755'
   delegate_to: localhost
-  become: no
+  become: false
+  when: 
+    - report_file_enabled | bool
+    - report_create_timestamped_folder | bool
+  run_once: true
+
+- name: Check for available updates (RHEL 7 - YUM)
+  yum:
+    list: updates
+  register: rhel7_available_updates
+  when: 
+    - rhel_major_version == "7"
+    - report_enabled | bool
+
+- name: Check for available updates (RHEL 8+ - DNF)
+  dnf:
+    list: updates
+  register: rhel8plus_available_updates
+  when: 
+    - rhel_major_version | int >= 8
+    - report_enabled | bool
+
+- name: Check for security updates (RHEL 7)
+  shell: |
+    yum --security check-update 2>/dev/null | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+.*security' || true
+  register: rhel7_security_updates
+  changed_when: false
+  when: 
+    - rhel_major_version == "7"
+    - report_include_security_updates | bool
+
+- name: Check for security updates (RHEL 8+)
+  shell: |
+    dnf updateinfo list sec 2>/dev/null || true
+  register: rhel8plus_security_updates  
+  changed_when: false
   when:
-    - send_email_with_smtp | bool
-    - smtp_account is defined
-    - smtp_account_password is defined
+    - rhel_major_version | int >= 8
+    - report_include_security_updates | bool
+
+- name: Check subscription status (RHEL)
+  command: subscription-manager status
+  register: rhel_subscription_status
+  changed_when: false
+  failed_when: false
+  when:
+    - ansible_distribution == "RedHat"
+    - rhel_check_subscription_status | bool
+
+- name: Check repository information
+  shell: |
+    {{ rhel_package_manager }} repolist enabled 2>/dev/null
+  register: rhel_repo_info
+  changed_when: false
+  when: rhel_include_repository_info | bool
+
+- name: Check errata information (RHEL 8+)
+  shell: |
+    dnf updateinfo summary 2>/dev/null || true
+  register: rhel_errata_info
+  changed_when: false
+  when:
+    - rhel_major_version | int >= 8
+    - rhel_include_errata_info | bool
+
+- name: Set available updates fact
+  set_fact:
+    available_updates: >-
+      {%- if rhel_major_version == "7" -%}
+      {{ rhel7_available_updates }}
+      {%- else -%}
+      {{ rhel8plus_available_updates }}
+      {%- endif -%}
+
+- name: Set security updates fact
+  set_fact:
+    security_updates: >-
+      {%- if rhel_major_version == "7" -%}
+      {{ rhel7_security_updates }}
+      {%- else -%}
+      {{ rhel8plus_security_updates }}
+      {%- endif -%}
+
+- name: Generate update statistics
+  set_fact:
+    update_stats:
+      total_updates: "{{ available_updates.results | default([]) | length }}"
+      security_updates_count: >-
+        {%- if security_updates.stdout is defined -%}
+        {{ security_updates.stdout_lines | length }}
+        {%- else -%}
+        0
+        {%- endif -%}
+      compliant_status: "{{ (available_updates.results | default([]) | length == 0) | ternary('Compliant', 'Updates Available') }}"
+      last_check: "{{ ansible_date_time.iso8601 }}"
+
+- name: Include file-based reporting tasks
+  include_tasks: generate_file_reports.yml
+  when: report_file_enabled | bool
+
+- name: Include email reporting tasks  
+  include_tasks: send_email_reports.yml
+  when: 
+    - report_email_enabled | bool or report_sendgrid_enabled | bool
+    - report_storage_type in ['email', 'sendgrid', 'all']
+
+- name: Include notification tasks
+  include_tasks: send_notifications.yml
+  when: notification_enabled | bool

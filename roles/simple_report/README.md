@@ -8,14 +8,14 @@ This role provides enterprise-grade system reporting for Red Hat Enterprise Linu
 
 ## Features
 
-### 🎯 **Multi-Format Reporting**
+###  **Multi-Format Reporting**
 - **Professional HTML Reports**: Interactive, responsive web reports with charts and dashboards
 - **Executive Summaries**: High-level overviews for management stakeholders
 - **CSV Data Export**: Raw data for business intelligence and spreadsheet analysis
 - **JSON Data Export**: Machine-readable format for integration with monitoring tools
 - **PDF Generation**: Print-ready reports using wkhtmltopdf (when available)
 
-### 🔍 **Comprehensive System Analysis**
+###  **Comprehensive System Analysis**
 - **System Information**: Hardware, OS version, virtualization, uptime
 - **Security Assessment**: Available security updates, patch compliance status
 - **Update Analysis**: Comprehensive package update tracking (security, bugfix, enhancement)
@@ -23,14 +23,14 @@ This role provides enterprise-grade system reporting for Red Hat Enterprise Linu
 - **Service Status**: Critical system service health checks
 - **Subscription Status**: Red Hat subscription and entitlement verification
 
-### 🎨 **Professional Presentation**
+###  **Professional Presentation**
 - **Modern UI Design**: Responsive, mobile-friendly interface
 - **Interactive Charts**: Visual representation of system metrics
 - **Status Indicators**: Color-coded health and security status
 - **Executive Dashboard**: High-level KPIs and recommendations
 - **Web Server Integration**: Built-in HTTP server for report viewing
 
-### 🔧 **Advanced Configuration**
+###  **Advanced Configuration**
 - **Flexible Output**: Customizable report formats and locations
 - **Timestamped Reports**: Automatic report organization with timestamps
 - **Cleanup Management**: Automatic cleanup of old reports
@@ -214,14 +214,14 @@ The role generates several types of reports:
 
 ```
 /tmp/reports_<timestamp>/
-├── index.html                           # Main navigation
-├── executive_summary_YYYY-MM-DD.html    # Executive overview
-├── rhel_system_report_YYYY-MM-DD.html   # Detailed report
-├── rhel_system_report_YYYY-MM-DD.csv    # Data export
-├── rhel_system_report_YYYY-MM-DD.json   # Machine data
-├── rhel_system_report_YYYY-MM-DD.pdf    # PDF report
-├── REPORT_MANIFEST.txt                  # File inventory
-└── .report_metadata.json                # Integration metadata
+ index.html                           # Main navigation
+ executive_summary_YYYY-MM-DD.html    # Executive overview
+ rhel_system_report_YYYY-MM-DD.html   # Detailed report
+ rhel_system_report_YYYY-MM-DD.csv    # Data export
+ rhel_system_report_YYYY-MM-DD.json   # Machine data
+ rhel_system_report_YYYY-MM-DD.pdf    # PDF report
+ REPORT_MANIFEST.txt                  # File inventory
+ .report_metadata.json                # Integration metadata
 ```
 
 ## Web Server Access

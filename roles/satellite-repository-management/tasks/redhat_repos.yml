@@ -1,0 +1,102 @@
+---
+# Red Hat Repository Setup Tasks
+- name: "Add Red Hat provider if not exists"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "Red Hat Enterprise Linux Server"
+      label: "rhel-server"
+      description: "Red Hat Enterprise Linux Server repositories"
+    status_code: [200, 201, 422]
+  register: redhat_product_result
+  tags:
+    - redhat-repos
+
+- name: "Check for existing Red Hat subscription"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/subscriptions"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: existing_subscriptions
+  tags:
+    - redhat-repos
+
+- name: "Upload Red Hat manifest (if activation key provided)"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/subscriptions/upload"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: form-multipart
+    body:
+      repository_url: "https://cdn.redhat.com"
+    status_code: [200, 201, 422]
+  register: manifest_upload
+  when: 
+    - redhat_activation_key != ""
+    - existing_subscriptions.json.total == 0
+  tags:
+    - redhat-repos
+
+- name: "Add Red Hat CDN repository"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/products/{{ item.label }}/repositories"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      name: "{{ item.name }}"
+      label: "{{ item.label }}"
+      content_type: "yum"
+      url: "https://cdn.redhat.com/content/dist/rhel{{ rhel_version }}/{{ rhel_version }}/{{ rhel_architecture }}/{{ item.path | default('') }}"
+      download_policy: "{{ repo_download_policy }}"
+      mirror_on_sync: "{{ repo_mirror_on_sync }}"
+      verify_ssl_on_sync: "{{ repo_verify_ssl }}"
+    status_code: [200, 201, 422]
+  loop: "{{ satellite_products | subelements('repositories') }}"
+  register: repo_creation_results
+  tags:
+    - redhat-repos
+
+- name: "Enable Red Hat repository sets"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/organizations/{{ organization_id }}/repository_sets/{{ item.1.label }}/enable"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      basearch: "{{ item.1.basearch | default(rhel_architecture) }}"
+      releasever: "{{ item.1.releasever | default(rhel_version) }}"
+    status_code: [200, 201, 422]
+  loop: "{{ satellite_products | subelements('repositories') }}"
+  when: enable_all_repositories | bool
+  register: repo_enable_results
+  tags:
+    - redhat-repos
+
+- name: "Display repository enablement results"
+  debug:
+    msg: "Enabled repository: {{ item.item.1.name }} - Status: {{ item.status }}"
+  loop: "{{ repo_enable_results.results }}"
+  when: 
+    - repo_enable_results is defined
+    - debug_mode | bool
+  tags:
+    - redhat-repos

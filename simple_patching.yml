@@ -1,19 +1,224 @@
 ---
 - name: System Update & Reporting Survey
-  hosts: localhost
+  hosts: all
   gather_facts: true
+  become: true
   vars:
-    run_inventory_report: "{{ survey_run_inventory_report }}"
-    apply_security_updates: "{{ survey_apply_security_updates }}"
-    apply_bugfix_updates: "{{ survey_apply_bugfix_updates }}"
-    apply_enhancement_updates: "{{ survey_apply_enhancement_updates }}"
-    apply_all_updates: "{{ survey_apply_all_updates }}"
+    # Survey-driven configuration options
+    run_inventory_report: "{{ survey_run_inventory_report | default(true) }}"
+    apply_security_updates: "{{ survey_apply_security_updates | default(true) }}"
+    apply_bugfix_updates: "{{ survey_apply_bugfix_updates | default(false) }}"
+    apply_enhancement_updates: "{{ survey_apply_enhancement_updates | default(false) }}"
+    apply_all_updates: "{{ survey_apply_all_updates | default(false) }}"
+    
+    # System configuration
+    reboot_after_updates: true
+    reboot_timeout: 600
+    backup_packages_list: true
 
-  roles:
-    - role: simple_report
+  pre_tasks:
+    - name: Verify system compatibility
+      ansible.builtin.fail:
+        msg: "This playbook supports RHEL/CentOS family systems only"
+      when: ansible_facts['os_family'] != "RedHat"
+      
+    - name: Create backup and log directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /var/backup/updates
+        - /var/log/ansible-updates
+        
+    - name: Backup current package list
+      ansible.builtin.shell: |
+        rpm -qa --queryformat '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > /var/backup/updates/packages-before-{{ ansible_date_time.epoch }}.txt
+      when: backup_packages_list | bool
+      changed_when: false
+
+  tasks:
+    # Inventory Report Section
+    - name: Generate system inventory report
+      block:
+        - name: Collect system information
+          ansible.builtin.setup:
+          
+        - name: Generate detailed inventory report
+          ansible.builtin.template:
+            src: inventory_report.j2
+            dest: "/var/log/ansible-updates/inventory-report-{{ ansible_date_time.epoch }}.txt"
+            mode: '0644'
+          vars:
+            inventory_data:
+              hostname: "{{ ansible_facts['hostname'] }}"
+              fqdn: "{{ ansible_facts['fqdn'] }}"
+              os_family: "{{ ansible_facts['os_family'] }}"
+              distribution: "{{ ansible_facts['distribution'] }}"
+              distribution_version: "{{ ansible_facts['distribution_version'] }}"
+              architecture: "{{ ansible_facts['architecture'] }}"
+              processor_count: "{{ ansible_facts['processor_count'] }}"
+              memory_mb: "{{ ansible_facts['memtotal_mb'] }}"
+              uptime_seconds: "{{ ansible_facts['uptime_seconds'] }}"
+              kernel: "{{ ansible_facts['kernel'] }}"
+              interfaces: "{{ ansible_facts['interfaces'] }}"
+              mounts: "{{ ansible_facts['mounts'] }}"
+              
+        - name: Display inventory report location
+          ansible.builtin.debug:
+            msg: "Inventory report saved to: /var/log/ansible-updates/inventory-report-{{ ansible_date_time.epoch }}.txt"
+            
+      when: run_inventory_report | bool
+
+    # Updates Section
+    - name: Apply security updates
+      block:
+        - name: Check for available security updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            security: true
+          check_mode: true
+          register: security_updates_check
+          
+        - name: Apply security updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            security: true
+            update_only: true
+          register: security_updates_applied
+          when: security_updates_check.changes.updated | default([]) | length > 0
+          
+      when: apply_security_updates | bool
+
+    - name: Apply bugfix updates
+      block:
+        - name: Check for available bugfix updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            bugfix: true
+          check_mode: true
+          register: bugfix_updates_check
+          
+        - name: Apply bugfix updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            bugfix: true
+            update_only: true
+          register: bugfix_updates_applied
+          when: bugfix_updates_check.changes.updated | default([]) | length > 0
+          
+      when: apply_bugfix_updates | bool
+
+    - name: Apply enhancement updates
+      block:
+        - name: Check for available enhancement updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            enhancement: true
+          check_mode: true
+          register: enhancement_updates_check
+          
+        - name: Apply enhancement updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            enhancement: true
+            update_only: true
+          register: enhancement_updates_applied
+          when: enhancement_updates_check.changes.updated | default([]) | length > 0
+          
+      when: apply_enhancement_updates | bool
+
+    - name: Apply all updates
+      block:
+        - name: Check for all available updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+          check_mode: true
+          register: all_updates_check
+          
+        - name: Apply all updates
+          ansible.builtin.dnf:
+            name: '*'
+            state: latest
+            update_only: true
+          register: all_updates_applied
+          when: all_updates_check.changes.updated | default([]) | length > 0
+          
+      when: apply_all_updates | bool
+
+    - name: Consolidate update results
+      ansible.builtin.set_fact:
+        total_updates_applied: >-
+          {{
+            (security_updates_applied.changes.updated | default([])) +
+            (bugfix_updates_applied.changes.updated | default([])) +
+            (enhancement_updates_applied.changes.updated | default([])) +
+            (all_updates_applied.changes.updated | default([]))
+          }}
+        updates_summary:
+          security: "{{ security_updates_applied.changes.updated | default([]) | length }}"
+          bugfix: "{{ bugfix_updates_applied.changes.updated | default([]) | length }}"
+          enhancement: "{{ enhancement_updates_applied.changes.updated | default([]) | length }}"
+          all_updates: "{{ all_updates_applied.changes.updated | default([]) | length }}"
+
+    - name: Check if reboot is required
+      ansible.builtin.shell: needs-restarting -r
+      register: reboot_check
+      failed_when: false
+      changed_when: reboot_check.rc == 1
+
+    - name: Reboot system if needed
+      ansible.builtin.reboot:
+        reboot_timeout: "{{ reboot_timeout }}"
+        connect_timeout: 300
+        pre_reboot_delay: 10
+        post_reboot_delay: 30
+        test_command: uptime
+        msg: "Rebooting after applying {{ total_updates_applied | length }} updates"
+      when:
+        - reboot_after_updates | bool
+        - reboot_check.rc == 1 or (total_updates_applied | select('match', '^kernel') | list | length > 0)
+
+    - name: Generate final update report
+      ansible.builtin.template:
+        src: update_summary_report.j2
+        dest: "/var/log/ansible-updates/update-summary-{{ ansible_date_time.epoch }}.txt"
+        mode: '0644'
       vars:
-        simple_report_run_inventory_report: "{{ simple_report_run_inventory_report }}"
-        simple_report_apply_security_updates: "{{ simple_report_apply_security_updates }}"
-        simple_report_apply_bugfix_updates: "{{ simple_report_apply_bugfix_updates }}"
-        simple_report_apply_enhancement_updates: "{{ simple_report_apply_enhancement_updates }}"
-        simple_report_apply_all_updates: "{{ simple_report_apply_all_updates }}"
+        update_report:
+          hostname: "{{ ansible_facts['hostname'] }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+          survey_options:
+            inventory_report: "{{ run_inventory_report }}"
+            security_updates: "{{ apply_security_updates }}"
+            bugfix_updates: "{{ apply_bugfix_updates }}"
+            enhancement_updates: "{{ apply_enhancement_updates }}"
+            all_updates: "{{ apply_all_updates }}"
+          updates_applied: "{{ updates_summary }}"
+          total_packages_updated: "{{ total_updates_applied | length }}"
+          reboot_required: "{{ reboot_check.rc == 1 }}"
+          packages_list: "{{ total_updates_applied }}"
+
+  post_tasks:
+    - name: Clean up package cache
+      ansible.builtin.dnf:
+        autoremove: true
+        
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg:
+          - "Update process completed for {{ ansible_facts['hostname'] }}"
+          - "Total packages updated: {{ total_updates_applied | length }}"
+          - "Security updates: {{ updates_summary.security }}"
+          - "Bugfix updates: {{ updates_summary.bugfix }}"
+          - "Enhancement updates: {{ updates_summary.enhancement }}"
+          - "All updates: {{ updates_summary.all_updates }}"
+          - "Reboot performed: {{ 'Yes' if reboot_check.rc == 1 else 'No' }}"
+          - "Reports available in: /var/log/ansible-updates/"

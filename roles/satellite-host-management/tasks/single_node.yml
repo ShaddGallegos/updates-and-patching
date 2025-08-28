@@ -1,0 +1,97 @@
+---
+# Single Node Registration and Management
+- name: "Register single node with activation key"
+  delegate_to: "{{ target_hosts.single_node.hostname }}"
+  block:
+    - name: "Clean existing subscription"
+      command: subscription-manager clean
+      failed_when: false
+      
+    - name: "Register with Satellite using activation key"
+      command: >
+        subscription-manager register
+        --org="{{ satellite_organization }}"
+        --activationkey="{{ target_hosts.single_node.activation_key }}"
+        --serverurl="https://{{ satellite_server_url }}"
+        --baseurl="https://{{ satellite_server_url }}/pulp/repos"
+        {{ '--force' if host_registration.force_registration else '' }}
+      register: registration_result
+      
+    - name: "Update packages after registration"
+      package:
+        name: "*"
+        state: latest
+      when: 
+        - host_registration.update_packages_on_registration | bool
+        - registration_result.rc == 0
+        
+    - name: "Install katello-agent"
+      package:
+        name: katello-agent
+        state: present
+      when: host_registration.install_katello_agent | bool
+      
+  when: 
+    - target_hosts.single_node.hostname != ""
+    - not dry_run | bool
+  tags:
+    - single-node
+
+- name: "Add single node to host collection via Satellite API"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/hosts/{{ host_id }}/host_collections"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      host_collection_ids: ["{{ host_collection_id }}"]
+    status_code: [200, 422]
+  vars:
+    host_id: "{{ registered_host_info.json.id }}"
+    host_collection_id: >-
+      {{
+        available_host_collections.json.results |
+        selectattr('name', 'equalto', target_hosts.single_node.host_collection) |
+        map(attribute='id') |
+        first
+      }}
+  when:
+    - target_hosts.single_node.host_collection != ""
+    - registered_host_info is defined
+    - not dry_run | bool
+  register: single_node_hc_assignment
+  tags:
+    - single-node
+
+- name: "Get single node host information from Satellite"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/hosts"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      search: "name={{ target_hosts.single_node.hostname }}"
+  register: registered_host_info
+  when: target_hosts.single_node.hostname != ""
+  tags:
+    - single-node
+
+- name: "Display single node registration status"
+  debug:
+    msg:
+      - "Hostname: {{ target_hosts.single_node.hostname }}"
+      - "Activation Key: {{ target_hosts.single_node.activation_key }}"
+      - "Host Collection: {{ target_hosts.single_node.host_collection }}"
+      - "Registration: {{ 'Success' if registration_result.rc == 0 else 'Failed' }}"
+      - "Satellite ID: {{ registered_host_info.json.results[0].id if registered_host_info.json.total > 0 else 'Not found' }}"
+  when: 
+    - target_hosts.single_node.hostname != ""
+    - debug_mode | bool
+  tags:
+    - single-node

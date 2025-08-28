@@ -1,0 +1,166 @@
+---
+# Demo playbook for modernized Windows Updates Role
+# Supports Windows 11, Windows Server 2022, and Windows 10 22H2
+
+- name: "Modern Windows Updates Management Demo"
+  hosts: windows
+  gather_facts: yes
+  vars:
+    # Configure update behavior
+    win_updates_category_names:
+      - SecurityUpdates
+      - CriticalUpdates
+      - UpdateRollups
+      - DefinitionUpdates
+    
+    # Enable advanced features
+    win_updates_generate_report: true
+    win_updates_cleanup_enabled: true
+    win_updates_optimize_settings: true
+    
+    # Distribution-specific handling
+    win_updates_auto_detect_distribution: true
+    
+    # Security options
+    win_updates_include_security_only: false
+    win_updates_include_optional: false
+    
+    # Reboot control
+    win_updates_reboot: false
+    win_updates_reboot_timeout: 1200
+    
+    # Filtering options
+    win_updates_state: installed
+    win_updates_accept_list: []
+    win_updates_reject_list: []
+
+  tasks:
+    - name: "Display demo information"
+      debug:
+        msg:
+          - "==============================================="
+          - "Windows Updates Role v2.0 - Modern Demo"
+          - "==============================================="
+          - "Hostname: {{ ansible_hostname }}"
+          - "OS Family: {{ ansible_os_family }}"
+          - "OS Version: {{ ansible_distribution_version }}"
+          - "Architecture: {{ ansible_architecture }}"
+          - "PowerShell Version: {{ ansible_powershell_version | default('Unknown') }}"
+          - "==============================================="
+          - "This demo showcases the modernized Windows updates"
+          - "role with support for:"
+          - "- Windows 11 (22000+)"
+          - "- Windows Server 2022 (20348+)"
+          - "- Windows 10 22H2 (19041+)"
+          - "==============================================="
+
+    - name: "Execute Windows Updates Role"
+      include_role:
+        name: ansible-role-win_updates-master
+      vars:
+        # Pass demo configuration to the role
+        win_updates_category_names: "{{ win_updates_category_names }}"
+        win_updates_generate_report: "{{ win_updates_generate_report }}"
+        win_updates_cleanup_enabled: "{{ win_updates_cleanup_enabled }}"
+        win_updates_optimize_settings: "{{ win_updates_optimize_settings }}"
+        win_updates_reboot: "{{ win_updates_reboot }}"
+        win_updates_reboot_timeout: "{{ win_updates_reboot_timeout }}"
+        win_updates_state: "{{ win_updates_state }}"
+
+    - name: "Display completion summary"
+      debug:
+        msg:
+          - "==============================================="
+          - "Windows Updates Demo Completed Successfully"
+          - "==============================================="
+          - "Session Summary:"
+          - "- Updates Found: {{ win_updates_completion_status.updates_found | default('N/A') }}"
+          - "- Updates Installed: {{ win_updates_completion_status.updates_installed | default('N/A') }}"
+          - "- Updates Failed: {{ win_updates_completion_status.updates_failed | default('N/A') }}"
+          - "- Reboot Required: {{ win_updates_completion_status.reboot_required | default('N/A') }}"
+          - "- Free Space: {{ win_updates_completion_status.free_space_gb | default('N/A') }}GB"
+          - "- Role Version: {{ win_updates_completion_status.role_version | default('2.0.0') }}"
+          - "==============================================="
+          - "Modern Windows Updates Role Features:"
+          - " Distribution-specific handling"
+          - " Enhanced security features"
+          - " Comprehensive reporting"
+          - " Automated cleanup"
+          - " Professional error handling"
+          - " Enterprise integration ready"
+          - "==============================================="
+      when: win_updates_completion_status is defined
+
+    - name: "Save demo results to file"
+      win_shell: |
+        $demoResults = @{
+            'DemoTimestamp' = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+            'Hostname' = $env:COMPUTERNAME
+            'RoleName' = 'ansible-role-win_updates-master'
+            'RoleVersion' = '2.0.0'
+            'WindowsVersion' = (Get-CimInstance Win32_OperatingSystem).Version
+            'WindowsBuild' = (Get-CimInstance Win32_OperatingSystem).BuildNumber
+            'PowerShellVersion' = $PSVersionTable.PSVersion.ToString()
+            'DemoFeatures' = @(
+                'Distribution-specific handling',
+                'Enhanced security features', 
+                'Comprehensive reporting',
+                'Automated cleanup',
+                'Professional error handling',
+                'Enterprise integration ready'
+            )
+            'UpdatesSession' = @{
+                'Found' = '{{ win_updates_completion_status.updates_found | default("N/A") }}'
+                'Installed' = '{{ win_updates_completion_status.updates_installed | default("N/A") }}'
+                'Failed' = '{{ win_updates_completion_status.updates_failed | default("N/A") }}'
+                'RebootRequired' = '{{ win_updates_completion_status.reboot_required | default("N/A") }}'
+            }
+            'SystemInfo' = @{
+                'FreeSpaceGB' = '{{ win_updates_completion_status.free_space_gb | default("N/A") }}'
+                'CompletionTime' = '{{ win_updates_completion_status.completion_time | default("N/A") }}'
+            }
+            'SupportedDistributions' = @(
+                'Windows 11 (Build 22000+)',
+                'Windows Server 2022 (Build 20348+)',
+                'Windows 10 22H2 (Build 19041+)'
+            )
+        }
+        
+        $jsonOutput = $demoResults | ConvertTo-Json -Depth 4
+        $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+        $outputPath = "$env:TEMP\windows_updates_demo_$timestamp.json"
+        $jsonOutput | Out-File -FilePath $outputPath -Encoding UTF8
+        
+        @{
+            'DemoResultsPath' = $outputPath
+            'Status' = 'Success'
+            'Message' = 'Demo results saved successfully'
+        } | ConvertTo-Json
+      register: demo_results
+      changed_when: true
+
+    - name: "Display demo file location"
+      debug:
+        msg:
+          - "==============================================="
+          - "Demo Results Saved"
+          - "==============================================="
+          - "Results file: {{ (demo_results.stdout | from_json).DemoResultsPath }}"
+          - "Status: {{ (demo_results.stdout | from_json).Status }}"
+          - "==============================================="
+          - "Thank you for using the modernized"
+          - "ansible-role-win_updates-master v2.0!"
+          - "==============================================="
+      when: demo_results.stdout is defined
+
+  post_tasks:
+    - name: "Set demo completion facts"
+      set_fact:
+        windows_updates_demo_completed: true
+        demo_completion_time: "{{ ansible_date_time.iso8601 }}"
+        demo_results_file: "{{ (demo_results.stdout | from_json).DemoResultsPath | default('') }}"
+        role_version: "2.0.0"
+        supported_distributions:
+          - "Windows 11 (Build 22000+)"
+          - "Windows Server 2022 (Build 20348+)"
+          - "Windows 10 22H2 (Build 19041+)"

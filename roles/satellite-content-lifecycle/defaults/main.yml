@@ -1,0 +1,198 @@
+---
+# Red Hat Satellite Content Lifecycle Management - Default Variables
+# Compatible with: Red Hat Satellite 6.17 on RHEL 9
+# Author: sgallego
+# Version: 2.0.0
+# Date: 2025-08-27
+
+# Satellite server configuration
+satellite_server_url: "{{ ansible_fqdn }}"
+satellite_username: "admin"
+satellite_password: "{{ satellite_admin_password | default('redhat') }}"
+satellite_organization: "Red_Hat"
+satellite_location: "Denver"
+
+# Lifecycle Environment Configuration
+lifecycle_environments:
+  - name: "Library"
+    label: "Library"
+    description: "Default Library environment"
+    prior_id: null
+    registry_name_pattern: ""
+    registry_unauthenticated_pull: false
+  
+  - name: "RHEL_9_DEV_x86_64"
+    label: "rhel-9-dev-x86_64"
+    description: "RHEL 9 Development Environment for x86_64"
+    prior: "Library"
+    registry_name_pattern: "dev-<%= organization %>/<%= repository %>"
+    registry_unauthenticated_pull: false
+  
+  - name: "RHEL_9_TEST_x86_64"
+    label: "rhel-9-test-x86_64"
+    description: "RHEL 9 Testing Environment for x86_64"
+    prior: "RHEL_9_DEV_x86_64"
+    registry_name_pattern: "test-<%= organization %>/<%= repository %>"
+    registry_unauthenticated_pull: false
+  
+  - name: "RHEL_9_PROD_x86_64"
+    label: "rhel-9-prod-x86_64"
+    description: "RHEL 9 Production Environment for x86_64"
+    prior: "RHEL_9_TEST_x86_64"
+    registry_name_pattern: "prod-<%= organization %>/<%= repository %>"
+    registry_unauthenticated_pull: false
+
+# Content View Configuration
+content_views:
+  - name: "RHEL_9_BaseOS_AppStream"
+    label: "rhel-9-baseos-appstream"
+    description: "RHEL 9 BaseOS and AppStream repositories"
+    composite: false
+    auto_publish: false
+    solve_dependencies: true
+    repositories:
+      - "Red Hat Enterprise Linux 9 for x86_64 - BaseOS (RPMs)"
+      - "Red Hat Enterprise Linux 9 for x86_64 - AppStream (RPMs)"
+    filters: []
+    
+  - name: "RHEL_9_Supplementary"
+    label: "rhel-9-supplementary"
+    description: "RHEL 9 Supplementary packages"
+    composite: false
+    auto_publish: false
+    solve_dependencies: true
+    repositories:
+      - "Red Hat Enterprise Linux 9 for x86_64 - Supplementary (RPMs)"
+    filters: []
+
+# Composite Content View Configuration
+composite_content_views:
+  - name: "RHEL_9-composite"
+    label: "rhel-9-composite"
+    description: "RHEL 9 Composite Content View"
+    composite: true
+    auto_publish: true
+    solve_dependencies: true
+    component_content_views:
+      - "RHEL_9_BaseOS_AppStream"
+      - "RHEL_9_Supplementary"
+    lifecycle_environments:
+      - "RHEL_9_DEV_x86_64"
+      - "RHEL_9_TEST_x86_64" 
+      - "RHEL_9_PROD_x86_64"
+
+# Content View Filters (example configurations)
+content_view_filters:
+  - name: "Exclude Debug Packages"
+    content_view: "RHEL_9_BaseOS_AppStream"
+    type: "rpm"
+    inclusion: false
+    rules:
+      - name: "*debug*"
+        type: "rpm"
+        errata_id: ""
+        
+  - name: "Security Updates Only"
+    content_view: "RHEL_9_BaseOS_AppStream"
+    type: "erratum"
+    inclusion: true
+    rules:
+      - name: "security"
+        type: "erratum"
+        types: ["security"]
+
+# Publication and Promotion Settings
+content_view_publication:
+  auto_publish_on_sync: false
+  publish_description_template: "Published by Ansible on {{ ansible_date_time.iso8601 }}"
+  force_publish: false
+  
+content_view_promotion:
+  auto_promote: true
+  promote_description_template: "Promoted by Ansible on {{ ansible_date_time.iso8601 }}"
+  force_promote: false
+  promote_to_all_environments: true
+
+# Activation Key Configuration
+activation_keys:
+  - name: "RHEL_9_DEV_AK"
+    description: "RHEL 9 Development Activation Key"
+    lifecycle_environment: "RHEL_9_DEV_x86_64"
+    content_view: "RHEL_9-composite"
+    unlimited_hosts: false
+    max_hosts: 50
+    auto_attach: true
+    service_level: "Standard"
+    release_version: "9"
+    subscriptions: []
+    host_collections: []
+    
+  - name: "RHEL_9_TEST_AK"
+    description: "RHEL 9 Testing Activation Key"
+    lifecycle_environment: "RHEL_9_TEST_x86_64"
+    content_view: "RHEL_9-composite"
+    unlimited_hosts: false
+    max_hosts: 100
+    auto_attach: true
+    service_level: "Standard"
+    release_version: "9"
+    subscriptions: []
+    host_collections: []
+    
+  - name: "RHEL_9_PROD_AK"
+    description: "RHEL 9 Production Activation Key"
+    lifecycle_environment: "RHEL_9_PROD_x86_64"
+    content_view: "RHEL_9-composite"
+    unlimited_hosts: false
+    max_hosts: 500
+    auto_attach: true
+    service_level: "Premium"
+    release_version: "9"
+    subscriptions: []
+    host_collections: []
+
+# Host Collections Configuration
+host_collections:
+  - name: "RHEL_9_DEV_Servers"
+    description: "RHEL 9 Development Servers"
+    max_hosts: 50
+    unlimited_hosts: false
+    
+  - name: "RHEL_9_TEST_Servers"
+    description: "RHEL 9 Testing Servers"
+    max_hosts: 100
+    unlimited_hosts: false
+    
+  - name: "RHEL_9_PROD_Servers"
+    description: "RHEL 9 Production Servers"
+    max_hosts: 500
+    unlimited_hosts: false
+
+# Advanced Settings
+content_view_settings:
+  default_content_view_name: "Default Organization View"
+  version_limit: 5  # Keep only last 5 versions
+  auto_cleanup_old_versions: true
+  cleanup_retention_days: 30
+  
+lifecycle_environment_settings:
+  validate_environment_chain: true
+  auto_create_missing_priors: false
+  
+publication_settings:
+  timeout: 3600  # 1 hour
+  async_publish: true
+  publish_batch_size: 10
+  
+promotion_settings:
+  timeout: 1800  # 30 minutes
+  async_promote: true
+  validate_promotion: true
+
+# Debugging and validation
+debug_mode: false
+dry_run: false
+validate_content_views: true
+generate_reports: true
+skip_existing: true
+force_recreation: false

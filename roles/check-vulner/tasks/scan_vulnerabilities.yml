@@ -188,7 +188,7 @@
 - name: Emergency alert for critical vulnerabilities
   ansible.builtin.debug:
     msg:
-      - "🚨 CRITICAL ALERT: {{ vulner_critical_count }} critical vulnerabilities detected!"
+      - " CRITICAL ALERT: {{ vulner_critical_count }} critical vulnerabilities detected!"
       - "Immediate action required for:"
       - "{{ vulner_critical_vulnerabilities }}"
   when: vulner_critical_count | int > 0

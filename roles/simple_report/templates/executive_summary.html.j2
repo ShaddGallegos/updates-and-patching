@@ -160,7 +160,7 @@
 
     {% if total_security > 0 %}
     <div class="recommendation risk-high">
-        <h3>🚨 Critical Security Action Required</h3>
+        <h3> Critical Security Action Required</h3>
         <p><strong>{{ total_security }}</strong> security updates are pending across your infrastructure. These updates address known vulnerabilities and should be applied immediately during the next maintenance window.</p>
         <ul>
             <li>Schedule emergency maintenance window for critical security patches</li>
@@ -172,7 +172,7 @@
 
     {% if hosts_with_updates > total_hosts // 2 %}
     <div class="recommendation risk-medium">
-        <h3>⚠️ Patch Management Attention Needed</h3>
+        <h3> Patch Management Attention Needed</h3>
         <p>{{ hosts_with_updates }} out of {{ total_hosts }} systems ({{ (hosts_with_updates / total_hosts * 100) | round(1) }}%) require updates. This indicates a need for improved patch management processes.</p>
         <ul>
             <li>Implement automated patching schedule for non-critical updates</li>
@@ -184,7 +184,7 @@
 
     {% if avg_memory > 85 %}
     <div class="recommendation risk-medium">
-        <h3>💾 Memory Utilization Monitoring</h3>
+        <h3> Memory Utilization Monitoring</h3>
         <p>Average memory utilization across systems is {{ avg_memory }}%. High memory usage may impact system performance and stability.</p>
         <ul>
             <li>Review applications and services consuming high memory</li>
@@ -206,26 +206,26 @@
                 <td style="padding: 12px;">Security Updates Available</td>
                 <td style="padding: 12px;">{{ total_security }}</td>
                 <td style="padding: 12px; color: {% if total_security == 0 %}#28a745{% else %}#dc3545{% endif %};">
-                    {% if total_security == 0 %}✅ Good{% else %}🚨 Action Required{% endif %}
+                    {% if total_security == 0 %} Good{% else %} Action Required{% endif %}
                 </td>
             </tr>
             <tr style="border-bottom: 1px solid #eee;">
                 <td style="padding: 12px;">Patch Compliance</td>
                 <td style="padding: 12px;">{{ ((total_hosts - hosts_with_updates) / total_hosts * 100) | round(1) }}%</td>
                 <td style="padding: 12px; color: {% if ((total_hosts - hosts_with_updates) / total_hosts * 100) > 80 %}#28a745{% else %}#ffc107{% endif %};">
-                    {% if ((total_hosts - hosts_with_updates) / total_hosts * 100) > 80 %}✅ Good{% else %}⚠️ Needs Improvement{% endif %}
+                    {% if ((total_hosts - hosts_with_updates) / total_hosts * 100) > 80 %} Good{% else %} Needs Improvement{% endif %}
                 </td>
             </tr>
             <tr>
                 <td style="padding: 12px;">Average System Uptime</td>
                 <td style="padding: 12px;">{{ (all_hosts_data | map(attribute='system.uptime_seconds') | sum / all_hosts_data | length / 86400) | round(1) }} days</td>
-                <td style="padding: 12px; color: #28a745;">✅ Stable</td>
+                <td style="padding: 12px; color: #28a745;"> Stable</td>
             </tr>
         </table>
     </div>
 
     <div class="recommendation">
-        <h3>📋 Recommended Actions</h3>
+        <h3> Recommended Actions</h3>
         <ol>
             <li><strong>Immediate (0-7 days):</strong> Apply all available security updates</li>
             <li><strong>Short-term (1-4 weeks):</strong> Implement automated patch management</li>

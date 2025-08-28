@@ -1,0 +1,98 @@
+{
+    "report_metadata": {
+        "report_type": "satellite_host_management",
+        "generated_timestamp": "{{ report_data.report_timestamp | default(ansible_date_time.iso8601) }}",
+        "satellite_version": "6.17",
+        "ansible_platform_version": "2.5",
+        "report_format": "json",
+        "report_version": "1.0"
+    },
+    "satellite_configuration": {
+        "server_url": "{{ report_data.satellite_info.server | default(satellite_server_url) }}",
+        "organization": "{{ report_data.satellite_info.organization | default(satellite_organization) }}",
+        "location": "{{ report_data.satellite_info.location | default(satellite_location) }}",
+        "ansible_controller": "{{ ansible_host | default('localhost') }}"
+    },
+    "target_configuration": {
+        "single_node": {
+            "enabled": {{ report_data.operation_summary.single_node_ops | default(false) | lower }},
+            "hostname": "{{ target_hosts.single_node.hostname | default('') }}",
+            "activation_key": "{{ target_hosts.single_node.activation_key | default('') }}",
+            "host_collection": "{{ target_hosts.single_node.host_collection | default('') }}"
+        },
+        "host_groups": {
+            "enabled": {{ report_data.operation_summary.host_group_ops | default(false) | lower }},
+            "groups_count": {{ target_hosts.host_groups | default([]) | length }},
+            "primary_group": "{{ target_hosts.host_groups[0].name if (target_hosts.host_groups | default([]) | length > 0) else '' }}"
+        },
+        "all_nodes": {
+            "enabled": {{ report_data.operation_summary.all_nodes_ops | default(false) | lower }},
+            "organization_wide": true,
+            "bulk_operations": {{ target_hosts.all_nodes.enabled | default(false) | lower }}
+        }
+    },
+    "package_operations": {
+        "cve_updates": {
+            "enabled": {{ report_data.operation_summary.cve_updates | default(false) | lower }},
+            "status": "{{ 'completed' if report_data.operation_summary.cve_updates else 'disabled' }}",
+            "target_cves": {{ package_operations.cve_updates.target_cves | default([]) | to_json }},
+            "critical_packages": [
+                "openssl*", "openssh*", "kernel*", "glibc*", "gstreamer*", "sudo*", "systemd*"
+            ]
+        },
+        "security_updates": {
+            "enabled": {{ report_data.operation_summary.security_updates | default(false) | lower }},
+            "status": "{{ 'completed' if report_data.operation_summary.security_updates else 'disabled' }}",
+            "update_type": "security",
+            "auto_reboot": {{ package_operations.reboot_if_required | default(false) | lower }}
+        },
+        "bugfix_updates": {
+            "enabled": {{ report_data.operation_summary.bugfix_updates | default(false) | lower }},
+            "status": "{{ 'completed' if report_data.operation_summary.bugfix_updates else 'disabled' }}",
+            "update_type": "bugfix",
+            "stability_focus": true
+        },
+        "all_updates": {
+            "enabled": {{ report_data.operation_summary.all_updates | default(false) | lower }},
+            "status": "{{ 'completed' if report_data.operation_summary.all_updates else 'disabled' }}",
+            "update_type": "comprehensive",
+            "full_system_sync": true
+        }
+    },
+    "compliance_integration": {
+        "insights": {
+            "enabled": {{ report_data.operation_summary.insights_integration | default(false) | lower }},
+            "client_installed": {{ insights_integration.install_client | default(false) | lower }},
+            "registration_active": {{ insights_integration.register_hosts | default(false) | lower }},
+            "data_collection": {{ insights_integration.enable_data_collection | default(false) | lower }},
+            "compliance_reporting": true
+        },
+        "rhc": {
+            "enabled": {{ report_data.operation_summary.rhc_integration | default(false) | lower }},
+            "rhc_installed": {{ rhc_integration.install_rhc | default(false) | lower }},
+            "satellite_connected": {{ rhc_integration.configure_connection | default(false) | lower }},
+            "remote_management": true,
+            "cloud_integration": true
+        }
+    },
+    "execution_summary": {
+        "total_operations": {{ [report_data.operation_summary.single_node_ops, report_data.operation_summary.host_group_ops, report_data.operation_summary.all_nodes_ops, report_data.operation_summary.cve_updates, report_data.operation_summary.security_updates, report_data.operation_summary.bugfix_updates, report_data.operation_summary.all_updates, report_data.operation_summary.insights_integration, report_data.operation_summary.rhc_integration] | select('equalto', true) | list | length }},
+        "host_operations": {{ [report_data.operation_summary.single_node_ops, report_data.operation_summary.host_group_ops, report_data.operation_summary.all_nodes_ops] | select('equalto', true) | list | length }},
+        "update_operations": {{ [report_data.operation_summary.cve_updates, report_data.operation_summary.security_updates, report_data.operation_summary.bugfix_updates, report_data.operation_summary.all_updates] | select('equalto', true) | list | length }},
+        "compliance_operations": {{ [report_data.operation_summary.insights_integration, report_data.operation_summary.rhc_integration] | select('equalto', true) | list | length }},
+        "dry_run_mode": {{ dry_run | default(false) | lower }},
+        "debug_mode": {{ debug_mode | default(false) | lower }}
+    },
+    "job_configuration": {
+        "concurrency_level": {{ update_jobs.concurrency_level | default(5) }},
+        "timeout_minutes": {{ update_jobs.timeout | default(3600) }},
+        "reboot_delay_minutes": {{ update_jobs.reboot_delay_minutes | default(5) }},
+        "auto_reboot": {{ package_operations.reboot_if_required | default(false) | lower }}
+    },
+    "reporting": {
+        "html_report": "satellite_host_management_{{ ansible_date_time.epoch }}.html",
+        "json_report": "satellite_host_management_{{ ansible_date_time.epoch }}.json",
+        "reports_directory": "{{ playbook_dir }}/reports/",
+        "report_retention": "30 days"
+    }
+}

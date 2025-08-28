@@ -1,8 +1,52 @@
 ---
-- hosts: windows
-  name: This is my Windows patching playbook
+- name: Windows Updates Management
+  hosts: windows
+  gather_facts: true
+  vars:
+    # Default update categories (can be overridden)
+    win_updates_categories:
+      - SecurityUpdates
+      - CriticalUpdates
+      - UpdateRollups
+    # Reboot management
+    win_updates_reboot: "{{ reboot_server | default(false) }}"
+    win_updates_reboot_timeout: 1200
+    # Reporting
+    win_updates_generate_report: true
+    
   tasks:
+    - name: Validate Windows system requirements
+      ansible.windows.win_shell: |
+        $osVersion = [System.Environment]::OSVersion.Version
+        $build = $osVersion.Build
+        Write-Output "OS Build: $build"
+      register: os_version_check
+      changed_when: false
+      
+    - name: Display detected Windows version
+      ansible.builtin.debug:
+        msg: "Detected Windows build: {{ os_version_check.stdout | trim }}"
+        
     - name: Install Windows Updates
-      win_updates:
-        category_names: "{{ categories | default(omit) }}"
-        reboot: "{{ reboot_server | default(yes) }}"
+      ansible.windows.win_updates:
+        category_names: "{{ categories | default(win_updates_categories) }}"
+        state: installed
+        reboot: "{{ win_updates_reboot }}"
+        reboot_timeout: "{{ win_updates_reboot_timeout }}"
+        log_path: "C:\\Windows\\Temp\\ansible_win_updates.log"
+      register: win_updates_result
+      
+    - name: Generate update report
+      ansible.builtin.template:
+        src: windows_update_report.j2
+        dest: "{{ ansible_env.TEMP }}\\windows_update_report_{{ ansible_date_time.epoch }}.html"
+      vars:
+        update_results: "{{ win_updates_result }}"
+      when: win_updates_generate_report | bool
+      
+    - name: Display update summary
+      ansible.builtin.debug:
+        msg:
+          - "Updates installed: {{ win_updates_result.installed_update_count | default(0) }}"
+          - "Reboot required: {{ win_updates_result.reboot_required | default(false) }}"
+          - "Failed updates: {{ win_updates_result.failed_update_count | default(0) }}"

@@ -1,14 +1,32 @@
 galaxy_info:
-  author: David Norman
-  description: Install Windows updates.
+  author: David Norman, Enhanced by Enterprise Automation Team
+  description: |
+    Modern Windows Updates management for latest Windows distributions.
+    Supports Windows 11, Windows Server 2022, and Windows 10 22H2 with
+    enhanced security features, enterprise reporting, and comprehensive
+    update management including CVE patches, feature updates, and compliance.
   license: BSD
-  min_ansible_version: 2.0
+  min_ansible_version: "2.12"
   platforms:
-  - name: Windows
-    versions:
-    - all
+    - name: Windows
+      versions:
+        - "11"           # Windows 11 (Build 22000+)
+        - "2022"         # Windows Server 2022 (Build 20348+) 
+        - "10"           # Windows 10 22H2 (Build 19041+)
   galaxy_tags:
     - windows
     - security
+    - updates
+    - compliance
+    - enterprise
+    - windows11
+    - server2022
+    - windows10
+    - cve
+    - patching
+    - defender
+    - wsus
 
-dependencies: []
+dependencies:
+  - name: community.windows
+    version: ">=2.2.0"

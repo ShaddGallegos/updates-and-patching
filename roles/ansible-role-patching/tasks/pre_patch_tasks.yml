@@ -1,0 +1,122 @@
+---
+# Pre-patching preparation tasks
+
+- name: Create log directory
+  ansible.builtin.file:
+    path: "{{ patch_log_directory }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  when: patch_log_updates
+  tags: [preparation, logging]
+
+- name: Stop services before patching
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: stopped
+  loop: "{{ patch_stop_services }}"
+  when: patch_stop_services | length > 0
+  register: patch_stopped_services
+  tags: [preparation, services]
+
+- name: Execute pre-patch commands
+  ansible.builtin.shell: "{{ item }}"
+  loop: "{{ patch_pre_commands }}"
+  when: patch_pre_commands | length > 0
+  register: patch_pre_command_results
+  tags: [preparation, commands]
+
+- name: Include custom pre-patch tasks
+  ansible.builtin.include_tasks: "{{ item }}"
+  loop: "{{ patch_pre_tasks }}"
+  when: patch_pre_tasks | length > 0
+  tags: [preparation, custom]
+
+- name: Create system backup (if supported)
+  ansible.builtin.shell: |
+    case "{{ ansible_facts['os_family'] }}" in
+      "RedHat")
+        if command -v snapper >/dev/null 2>&1; then
+          snapper create --description "Pre-patch snapshot {{ ansible_date_time.iso8601 }}"
+        elif command -v lvcreate >/dev/null 2>&1; then
+          echo "LVM snapshot creation would require manual configuration"
+        fi
+        ;;
+      "Debian")
+        if command -v timeshift >/dev/null 2>&1; then
+          timeshift --create --comments "Pre-patch backup {{ ansible_date_time.iso8601 }}"
+        fi
+        ;;
+      "Suse")
+        if command -v snapper >/dev/null 2>&1; then
+          snapper create --description "Pre-patch snapshot {{ ansible_date_time.iso8601 }}"
+        fi
+        ;;
+    esac
+  register: patch_snapshot_result
+  when: patch_create_snapshot
+  failed_when: false
+  tags: [preparation, backup]
+
+- name: Update package cache
+  block:
+    - name: Update YUM/DNF cache (RedHat)
+      ansible.builtin.shell: "{{ ansible_facts['pkg_mgr'] }} makecache"
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Update APT cache (Debian/Ubuntu)  
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: "{{ patch_cache_valid_time }}"
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Update Zypper cache (SUSE)
+      ansible.builtin.zypper:
+        update_cache: true
+      when: ansible_facts['os_family'] == 'Suse'
+
+    - name: Update Pacman cache (Arch)
+      ansible.builtin.pacman:
+        update_cache: true
+      when: ansible_facts['pkg_mgr'] == 'pacman'
+
+  when: patch_update_cache
+  tags: [preparation, cache]
+
+- name: Log pre-patch system state
+  ansible.builtin.shell: |
+    {
+      echo "=== Pre-Patch System State ==="
+      echo "Date: {{ ansible_date_time.iso8601 }}"
+      echo "Hostname: {{ ansible_facts['hostname'] }}"
+      echo "OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      echo "Kernel: {{ ansible_facts['kernel'] }}"
+      echo "Package Manager: {{ ansible_facts['pkg_mgr'] }}"
+      echo "Architecture: {{ ansible_facts['architecture'] }}"
+      echo "Memory: {{ ansible_facts['memtotal_mb'] }}MB"
+      echo "Available Updates:"
+      
+      case "{{ ansible_facts['pkg_mgr'] }}" in
+        "yum"|"dnf")
+          {{ ansible_facts['pkg_mgr'] }} check-update 2>/dev/null | tail -n +2 | head -20 || echo "No updates available"
+          ;;
+        "apt")
+          apt list --upgradable 2>/dev/null | head -20 || echo "No updates available"
+          ;;
+        "zypper")
+          zypper list-updates 2>/dev/null | head -20 || echo "No updates available"
+          ;;
+        "pacman")
+          pacman -Qu 2>/dev/null | head -20 || echo "No updates available"
+          ;;
+      esac
+      echo "=========================="
+    } >> {{ patch_log_directory }}/patch_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.log
+  when: patch_log_updates
+  tags: [preparation, logging]
+
+- name: Set pre-patch completion flag
+  ansible.builtin.set_fact:
+    patch_pre_tasks_completed: true
+    patch_pre_tasks_timestamp: "{{ ansible_date_time.iso8601 }}"

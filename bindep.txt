@@ -1,0 +1,34 @@
+# System packages required for updates-and-patching project
+# For Execution Environment builds and Ansible collections
+
+# Core system utilities
+curl [platform:rpm platform:deb]
+wget [platform:rpm platform:deb]
+ca-certificates [platform:rpm platform:deb]
+
+# Kerberos authentication for Windows hosts
+krb5-devel [platform:rpm]
+libkrb5-dev [platform:deb]
+krb5-config [platform:deb]
+
+# Windows PowerShell DSC and WinRM dependencies
+libffi-devel [platform:rpm]
+libffi-dev [platform:deb]
+openssl-devel [platform:rpm]
+libssl-dev [platform:deb]
+
+# Red Hat Satellite API requirements
+python3-devel [platform:rpm]
+python3-dev [platform:deb]
+
+# XML/JSON parsing for reports
+libxml2-devel [platform:rpm]
+libxml2-dev [platform:deb]
+libxslt-devel [platform:rpm]
+libxslt1-dev [platform:deb]
+
+# Git for version control
+git [platform:rpm platform:deb]
+
+# Bash utilities for scripts
+bash [platform:rpm platform:deb]

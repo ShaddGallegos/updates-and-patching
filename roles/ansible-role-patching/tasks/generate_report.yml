@@ -1,0 +1,148 @@
+---
+# Generate comprehensive patching report
+
+- name: Create patch report data structure
+  ansible.builtin.set_fact:
+    patch_report_data:
+      metadata:
+        hostname: "{{ ansible_facts['fqdn'] | default(ansible_facts['hostname']) }}"
+        ip_address: "{{ ansible_facts['default_ipv4']['address'] | default('N/A') }}"
+        patch_timestamp: "{{ ansible_date_time.iso8601 }}"
+        patch_duration: "{{ patch_total_duration | default(0) }}s"
+        ansible_user: "{{ ansible_user_id }}"
+        role_version: "2.0.0"
+      
+      system_info:
+        os_family: "{{ ansible_facts['os_family'] }}"
+        distribution: "{{ ansible_facts['distribution'] }}"
+        distribution_version: "{{ ansible_facts['distribution_version'] }}"
+        kernel_version_before: "{{ ansible_facts['kernel'] }}"
+        kernel_version_after: "{{ ansible_facts['kernel'] }}"
+        architecture: "{{ ansible_facts['architecture'] }}"
+        package_manager: "{{ ansible_facts['pkg_mgr'] }}"
+        virtualization_type: "{{ ansible_facts['virtualization_type'] | default('physical') }}"
+        total_memory: "{{ (ansible_facts['memtotal_mb'] / 1024) | round(1) }}GB"
+        cpu_cores: "{{ ansible_facts['processor_vcpus'] }}"
+      
+      patch_summary:
+        updates_applied: "{{ patch_updates_applied | default(false) }}"
+        security_only: "{{ patch_security_only }}"
+        critical_only: "{{ patch_critical_only }}"
+        kernel_updated: "{{ patch_kernel_was_updated | default(false) }}"
+        reboot_required: "{{ patch_reboot_actually_required | default(false) }}"
+        packages_excluded: "{{ patch_exclude | length }}"
+        validation_status: "{{ patch_validation_status | default('N/A') }}"
+        
+      configuration:
+        auto_reboot: "{{ patch_reboot }}"
+        backup_created: "{{ patch_create_snapshot }}"
+        dry_run_mode: "{{ patch_dry_run }}"
+        timeout_setting: "{{ patch_install_timeout }}"
+        retry_attempts: "{{ patch_retries }}"
+        
+      results:
+        pre_validation: "{{ 'PASSED' if patch_validation_completed | default(false) else 'SKIPPED' }}"
+        post_validation: "{{ patch_validation_status | default('PENDING') }}"
+        services_stopped: "{{ patch_stop_services | length }}"
+        services_restarted: "{{ patch_restart_services | length }}"
+        snapshot_created: "{{ 'Yes' if patch_snapshot_result is defined and patch_snapshot_result.rc == 0 else 'No' }}"
+
+- name: Generate JSON report
+  ansible.builtin.copy:
+    content: "{{ patch_report_data | to_nice_json(indent=2) }}"
+    dest: "{{ patch_log_directory }}/patch_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.json"
+    owner: root
+    group: root
+    mode: '0644'
+  when: 
+    - patch_generate_report
+    - "'json' in patch_report_format"
+  tags: [report, json]
+
+- name: Generate YAML report  
+  ansible.builtin.copy:
+    content: "{{ patch_report_data | to_nice_yaml(indent=2) }}"
+    dest: "{{ patch_log_directory }}/patch_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.yaml"
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - patch_generate_report
+    - "'yaml' in patch_report_format"
+  tags: [report, yaml]
+
+- name: Generate text report
+  ansible.builtin.copy:
+    content: |
+      === SYSTEM PATCHING REPORT ===
+      
+      System Information:
+      - Hostname: {{ patch_report_data.metadata.hostname }}
+      - IP Address: {{ patch_report_data.metadata.ip_address }}  
+      - Operating System: {{ patch_report_data.system_info.distribution }} {{ patch_report_data.system_info.distribution_version }}
+      - Architecture: {{ patch_report_data.system_info.architecture }}
+      - Package Manager: {{ patch_report_data.system_info.package_manager }}
+      - Kernel Version: {{ patch_report_data.system_info.kernel_version_after }}
+      
+      Patch Summary:
+      - Patch Timestamp: {{ patch_report_data.metadata.patch_timestamp }}
+      - Patch Duration: {{ patch_report_data.metadata.patch_duration }}
+      - Updates Applied: {{ patch_report_data.patch_summary.updates_applied }}
+      - Security Only: {{ patch_report_data.patch_summary.security_only }}
+      - Kernel Updated: {{ patch_report_data.patch_summary.kernel_updated }}
+      - Reboot Required: {{ patch_report_data.patch_summary.reboot_required }}
+      - Validation Status: {{ patch_report_data.patch_summary.validation_status }}
+      
+      Configuration:
+      - Auto Reboot: {{ patch_report_data.configuration.auto_reboot }}
+      - Backup Created: {{ patch_report_data.configuration.backup_created }}
+      - Packages Excluded: {{ patch_report_data.patch_summary.packages_excluded }}
+      - Timeout Setting: {{ patch_report_data.configuration.timeout_setting }}s
+      
+      Results:
+      - Pre-validation: {{ patch_report_data.results.pre_validation }}
+      - Post-validation: {{ patch_report_data.results.post_validation }}
+      - Services Managed: {{ patch_report_data.results.services_stopped + patch_report_data.results.services_restarted }}
+      - Snapshot Created: {{ patch_report_data.results.snapshot_created }}
+      
+      {% if patch_reboot_actually_required %}
+        REBOOT REQUIRED: System restart needed to complete patching
+      {% else %}
+       NO REBOOT NEEDED: All updates applied successfully
+      {% endif %}
+      
+      Report generated by ansible-role-patching v2.0.0
+      ========================================
+    dest: "{{ patch_log_directory }}/patch_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.txt"
+    owner: root
+    group: root
+    mode: '0644'
+  when:
+    - patch_generate_report
+    - "'text' in patch_report_format"
+  tags: [report, text]
+
+- name: Display final patching summary
+  ansible.builtin.debug:
+    msg:
+      - "=== FINAL PATCHING SUMMARY ==="
+      - "System: {{ ansible_facts['hostname'] }} ({{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }})"
+      - "Package Manager: {{ ansible_facts['pkg_mgr'] }}"
+      - "Updates Applied: {{ patch_updates_applied | default(false) }}"
+      - "Kernel Updated: {{ patch_kernel_was_updated | default(false) }}"
+      - "Reboot Required: {{ patch_reboot_actually_required | default(false) }}"
+      - "Validation Status: {{ patch_validation_status | default('N/A') }}"
+      - "Total Duration: {{ patch_total_duration | default(0) }}s"
+      - "Reports Generated: {{ patch_log_directory }}"
+  tags: [report, summary]
+
+- name: Set final completion facts
+  ansible.builtin.set_fact:
+    patch_role_completed: true
+    patch_role_completion_timestamp: "{{ ansible_date_time.iso8601 }}"
+    patch_role_status: >-
+      {{ 'SUCCESS' if patch_validation_status | default('UNKNOWN') == 'PASSED' and not patch_reboot_actually_required | default(false)
+         else 'SUCCESS_REBOOT_REQUIRED' if patch_validation_status | default('UNKNOWN') == 'PASSED' and patch_reboot_actually_required | default(false)
+         else 'COMPLETED_WITH_ISSUES' if patch_validation_status | default('UNKNOWN') == 'ISSUES_DETECTED'  
+         else 'UNKNOWN' }}
+    cacheable: true

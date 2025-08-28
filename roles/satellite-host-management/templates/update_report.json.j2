@@ -1,0 +1,55 @@
+{
+    "report_metadata": {
+        "report_type": "package_updates",
+        "generated_timestamp": "{{ report_data.timestamp }}",
+        "operation_type": "{{ report_data.operation_type }}",
+        "satellite_version": "6.17",
+        "ansible_platform_version": "2.5"
+    },
+    "satellite_configuration": {
+        "organization": "{{ report_data.organization }}",
+        "location": "{{ report_data.location }}",
+        "server_url": "{{ satellite_server_url | default('') }}"
+    },
+    "update_operations": {{ report_data.update_operations | to_json }},
+    "reboot_operations": {{ report_data.reboot_operations | to_json }},
+    "execution_summary": {{ report_data.summary | to_json }},
+    "job_details": {
+        "cve_updates": {
+            "job_created": {{ 'true' if report_data.update_jobs.cve.json is defined else 'false' }},
+            "job_id": "{{ report_data.update_jobs.cve.json.id if report_data.update_jobs.cve.json is defined else null }}",
+            "status": "{{ report_data.job_status.cve.json.status_label if report_data.job_status.cve.json is defined else 'not_run' }}",
+            "description": "{{ report_data.update_jobs.cve.json.description if report_data.update_jobs.cve.json is defined else 'CVE Updates' }}"
+        },
+        "security_updates": {
+            "job_created": {{ 'true' if report_data.update_jobs.security.json is defined else 'false' }},
+            "job_id": "{{ report_data.update_jobs.security.json.id if report_data.update_jobs.security.json is defined else null }}",
+            "status": "{{ report_data.job_status.security.json.status_label if report_data.job_status.security.json is defined else 'not_run' }}",
+            "description": "{{ report_data.update_jobs.security.json.description if report_data.update_jobs.security.json is defined else 'Security Updates' }}"
+        },
+        "bugfix_updates": {
+            "job_created": {{ 'true' if report_data.update_jobs.bugfix.json is defined else 'false' }},
+            "job_id": "{{ report_data.update_jobs.bugfix.json.id if report_data.update_jobs.bugfix.json is defined else null }}",
+            "status": "{{ report_data.job_status.bugfix.json.status_label if report_data.job_status.bugfix.json is defined else 'not_run' }}",
+            "description": "{{ report_data.update_jobs.bugfix.json.description if report_data.update_jobs.bugfix.json is defined else 'Bugfix Updates' }}"
+        },
+        "all_updates": {
+            "job_created": {{ 'true' if report_data.update_jobs.all.json is defined else 'false' }},
+            "job_id": "{{ report_data.update_jobs.all.json.id if report_data.update_jobs.all.json is defined else null }}",
+            "status": "{{ report_data.job_status.all.json.status_label if report_data.job_status.all.json is defined else 'not_run' }}",
+            "description": "{{ report_data.update_jobs.all.json.description if report_data.update_jobs.all.json is defined else 'Complete System Updates' }}"
+        }
+    },
+    "host_targeting": {
+        "total_hosts": {{ report_data.host_counts.total | default(0) }},
+        "cve_updates_hosts": {{ report_data.host_counts.cve_updates | default(0) }},
+        "security_updates_hosts": {{ report_data.host_counts.security_updates | default(0) }},
+        "bugfix_updates_hosts": {{ report_data.host_counts.bugfix_updates | default(0) }},
+        "all_updates_hosts": {{ report_data.host_counts.all_updates | default(0) }}
+    },
+    "reboot_details": {
+        "reboot_scheduled": {{ 'true' if report_data.reboot_operations.scheduled else 'false' }},
+        "reboot_job_id": "{{ report_data.reboot_operations.job_id }}",
+        "auto_reboot_enabled": {{ package_operations.reboot_if_required | default(false) | lower }}
+    }
+}

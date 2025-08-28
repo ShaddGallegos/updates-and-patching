@@ -1,12 +1,209 @@
-- name: install RHEL updates
+---
+- name: Install RHEL Updates with Comprehensive Reporting
   hosts: all
+  gather_facts: true
+  become: true
+  vars:
+    # Update configuration
+    security_updates_only: false
+    auto_reboot: true
+    reboot_timeout: 600
+    
+    # Insights client configuration
+    run_insights_client: false
+    insights_client_config_file: "/etc/insights-client/insights-client.conf"
+    
+    # Reporting configuration
+    generate_update_report: true
+    report_format: "json"  # json, yaml, text
+    
+  pre_tasks:
+    - name: Verify RHEL system compatibility
+      ansible.builtin.fail:
+        msg: "This playbook is designed for Red Hat Enterprise Linux systems only"
+      when: ansible_facts['distribution'] != "RedHat"
+      
+    - name: Check system registration status
+      ansible.builtin.command: subscription-manager status
+      register: subscription_status
+      failed_when: false
+      changed_when: false
+      
+    - name: Display subscription status
+      ansible.builtin.debug:
+        msg: "System subscription status: {{ 'Registered' if subscription_status.rc == 0 else 'Not registered or expired' }}"
+        
+    - name: Warning for unregistered systems
+      ansible.builtin.debug:
+        msg: "WARNING: System may not have access to updates - verify subscription status"
+      when: subscription_status.rc != 0
 
   roles:
-    - update-rhel
+    - role: update-rhel
+      vars:
+        update_rhel_security_only: "{{ security_updates_only }}"
+        update_rhel_auto_reboot: "{{ auto_reboot }}"
+        update_rhel_reboot_timeout: "{{ reboot_timeout }}"
 
   post_tasks:
-    - name: run the insights-client and upload to c.rh.c
-      shell: insights-client
+    - name: Install Red Hat Insights client if not present
+      ansible.builtin.dnf:
+        name: insights-client
+        state: present
+      when: 
+        - run_insights_client | bool
+        - ansible_facts['distribution'] == 'RedHat'
+
+    - name: Configure Red Hat Insights client
+      ansible.builtin.blockinfile:
+        path: "{{ insights_client_config_file }}"
+        create: true
+        mode: '0644'
+        block: |
+          [insights-client]
+          # Auto-generated configuration for RHEL Updates playbook
+          # Generated on {{ ansible_date_time.iso8601 }}
+          
+          # Basic configuration
+          auto_config=True
+          authmethod=BASIC
+          
+          # Logging configuration
+          loglevel=INFO
+          
+          # Collection settings
+          obfuscate=False
+          obfuscate_hostname=False
+          
+          # Display settings
+          display_name={{ ansible_facts['hostname'] }}_{{ ansible_facts['distribution_version'] }}
+      when: 
+        - run_insights_client | bool
+        - ansible_facts['distribution'] == 'RedHat'
+      notify: restart insights client
+
+    - name: Run Red Hat Insights client and upload to console.redhat.com
+      ansible.builtin.command: insights-client --register
+      register: insights_upload
+      changed_when: "'Successfully uploaded' in insights_upload.stdout"
+      failed_when: false
       when:
-        - ansible_distribution == 'RedHat'
-        - run_insights_client | default(False)
+        - ansible_facts['distribution'] == 'RedHat'
+        - run_insights_client | default(False) | bool
+
+    - name: Display Insights client results
+      ansible.builtin.debug:
+        msg:
+          - "Insights client execution: {{ 'Successful' if insights_upload.rc == 0 else 'Failed' }}"
+          - "Output: {{ insights_upload.stdout if insights_upload.stdout else 'No output' }}"
+          - "Error: {{ insights_upload.stderr if insights_upload.stderr else 'No errors' }}"
+      when: 
+        - insights_upload is defined
+        - run_insights_client | bool
+
+    - name: Generate comprehensive update report
+      ansible.builtin.copy:
+        content: |
+          {
+            "rhel_update_report": {
+              "metadata": {
+                "hostname": "{{ ansible_facts['hostname'] }}",
+                "fqdn": "{{ ansible_facts['fqdn'] }}",
+                "distribution": "{{ ansible_facts['distribution'] }}",
+                "distribution_version": "{{ ansible_facts['distribution_version'] }}",
+                "kernel": "{{ ansible_facts['kernel'] }}",
+                "architecture": "{{ ansible_facts['architecture'] }}",
+                "report_timestamp": "{{ ansible_date_time.iso8601 }}",
+                "playbook_version": "2.0.0"
+              },
+              "subscription_status": {
+                "registered": {{ (subscription_status.rc == 0) | string | lower }},
+                "status_check_output": "{{ subscription_status.stdout | default('') }}",
+                "warnings": {{ [] if subscription_status.rc == 0 else ['System may not have access to updates - verify subscription'] }}
+              },
+              "update_configuration": {
+                "security_updates_only": {{ security_updates_only | string | lower }},
+                "auto_reboot_enabled": {{ auto_reboot | string | lower }},
+                "reboot_timeout_seconds": {{ reboot_timeout }}
+              },
+              "insights_client": {
+                "enabled": {{ run_insights_client | string | lower }},
+                "execution_successful": {{ (insights_upload.rc == 0) | string | lower if insights_upload is defined else false }},
+                "upload_result": "{{ insights_upload.stdout | default('Not executed') }}",
+                "errors": "{{ insights_upload.stderr | default('None') }}"
+              },
+              "system_health": {
+                "uptime_seconds": {{ ansible_facts['uptime_seconds'] | default(0) }},
+                "memory_total_mb": {{ ansible_facts['memtotal_mb'] | default(0) }},
+                "processor_count": {{ ansible_facts['processor_count'] | default(0) }},
+                "last_update_check": "{{ ansible_date_time.iso8601 }}"
+              }
+            }
+          }
+        dest: "/var/log/rhel-update-report-{{ ansible_date_time.epoch }}.json"
+        mode: '0644'
+      when: 
+        - generate_update_report | bool
+        - report_format == "json"
+
+    - name: Generate text-based update summary
+      ansible.builtin.copy:
+        content: |
+          Red Hat Enterprise Linux Update Report
+          ====================================
+          
+          System Information:
+          - Hostname: {{ ansible_facts['hostname'] }}
+          - FQDN: {{ ansible_facts['fqdn'] }}
+          - Distribution: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          - Kernel: {{ ansible_facts['kernel'] }}
+          - Architecture: {{ ansible_facts['architecture'] }}
+          - Report Generated: {{ ansible_date_time.iso8601 }}
+          
+          Subscription Status:
+          - Registered: {{ 'Yes' if subscription_status.rc == 0 else 'No' }}
+          {% if subscription_status.rc != 0 %}
+          - Warning: System may not have access to updates - verify subscription
+          {% endif %}
+          
+          Update Configuration:
+          - Security Updates Only: {{ 'Yes' if security_updates_only else 'No' }}
+          - Auto Reboot: {{ 'Yes' if auto_reboot else 'No' }}
+          - Reboot Timeout: {{ reboot_timeout }} seconds
+          
+          Red Hat Insights:
+          - Insights Client Enabled: {{ 'Yes' if run_insights_client else 'No' }}
+          {% if run_insights_client and insights_upload is defined %}
+          - Upload Status: {{ 'Success' if insights_upload.rc == 0 else 'Failed' }}
+          - Details: {{ insights_upload.stdout | default('No details available') }}
+          {% endif %}
+          
+          System Health:
+          - Uptime: {{ (ansible_facts['uptime_seconds'] / 3600) | round(2) }} hours
+          - Memory: {{ ansible_facts['memtotal_mb'] }} MB
+          - Processors: {{ ansible_facts['processor_count'] }}
+          
+          ---
+          Report generated by Ansible RHEL Update Playbook v2.0.0
+        dest: "/var/log/rhel-update-summary-{{ ansible_date_time.epoch }}.txt"
+        mode: '0644'
+      when: 
+        - generate_update_report | bool
+        - report_format == "text"
+
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg:
+          - "RHEL update process completed for {{ ansible_facts['hostname'] }}"
+          - "Subscription Status: {{ 'Registered' if subscription_status.rc == 0 else 'Unregistered/Expired' }}"
+          - "Insights Client: {{ 'Executed' if run_insights_client and insights_upload is defined else 'Skipped' }}"
+          - "Report Generated: {{ 'Yes' if generate_update_report else 'No' }}"
+          - "Next Steps: Check /var/log/ for detailed reports"
+
+  handlers:
+    - name: restart insights client
+      ansible.builtin.systemd:
+        name: insights-client
+        state: restarted
+        enabled: true
+      ignore_errors: true

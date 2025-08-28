@@ -1,0 +1,93 @@
+---
+# Content View Publication Tasks
+- name: "Publish content views"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/content_views/{{ content_view_id }}/publish"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      description: "{{ content_view_publication.publish_description_template }}"
+      major: "{{ item.major_version | default(omit) }}"
+      minor: "{{ item.minor_version | default(omit) }}"
+    status_code: [200, 201, 422]
+  vars:
+    content_view_id: "{{ content_view_mapping[item.name] }}"
+  loop: "{{ content_views }}"
+  when: 
+    - not item.composite | default(false)
+    - not dry_run | bool
+  register: content_view_publish_tasks
+  async: "{{ publication_settings.timeout }}"
+  poll: 0
+  tags:
+    - content-view-publish
+
+- name: "Wait for content view publications to complete"
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+  register: publish_jobs
+  until: publish_jobs.finished
+  retries: "{{ (publication_settings.timeout / 60) | int }}"
+  delay: 60
+  loop: "{{ content_view_publish_tasks.results }}"
+  when: 
+    - content_view_publish_tasks is defined
+    - content_view_publish_tasks.results is defined
+    - item.ansible_job_id is defined
+    - publication_settings.async_publish | bool
+  tags:
+    - content-view-publish
+
+- name: "Get content view versions"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/content_views/{{ content_view_id }}/content_view_versions"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  vars:
+    content_view_id: "{{ content_view_mapping[item.name] }}"
+  loop: "{{ content_views }}"
+  register: content_view_versions
+  tags:
+    - content-view-publish
+
+- name: "Display publication results"
+  debug:
+    msg:
+      - "Content View: {{ item.item.name }}"
+      - "Latest Version: {{ (item.json.results | first).version if item.json.results | length > 0 else 'None' }}"
+      - "Total Versions: {{ item.json.results | length }}"
+      - "Published: {{ (item.json.results | first).created_at if item.json.results | length > 0 else 'Never' }}"
+  loop: "{{ content_view_versions.results }}"
+  when: 
+    - content_view_versions is defined
+    - debug_mode | bool
+  tags:
+    - content-view-publish
+
+- name: "Clean up old content view versions"
+  uri:
+    url: "https://{{ satellite_server_url }}/katello/api/content_view_versions/{{ version_item.id }}"
+    method: DELETE
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    status_code: [200, 202, 404]
+  loop: "{{ item.json.results[content_view_settings.version_limit:] }}"
+  loop_control:
+    loop_var: version_item
+  with_items: "{{ content_view_versions.results }}"
+  when:
+    - content_view_settings.auto_cleanup_old_versions | bool
+    - item.json.results | length > content_view_settings.version_limit
+    - not dry_run | bool
+  register: version_cleanup
+  tags:
+    - content-view-publish

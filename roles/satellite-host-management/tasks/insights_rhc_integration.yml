@@ -1,0 +1,312 @@
+---
+# Red Hat Insights and RHC Integration
+- name: "Check if Red Hat Insights client is installed on hosts"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/hosts"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      search: "{{ insights_search_query }}"
+      per_page: 1000
+  vars:
+    insights_search_query: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  register: hosts_for_insights
+  tags:
+    - insights-integration
+
+- name: "Install Red Hat Insights client on target hosts"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ package_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ insights_host_search }}"
+      inputs:
+        action: "install"
+        packages: "insights-client"
+      description: "Install Red Hat Insights Client - {{ ansible_date_time.epoch }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: "{{ update_jobs.timeout }}"
+    status_code: [200, 201]
+  vars:
+    package_job_template_id: "{{ package_job_template.json.results[0].id }}"
+    insights_host_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  when:
+    - insights_integration.install_client | bool
+    - package_job_template.json.total > 0
+    - not dry_run | bool
+  register: insights_install_job
+  tags:
+    - insights-integration
+
+- name: "Register hosts with Red Hat Insights"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ command_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ insights_register_search }}"
+      inputs:
+        command: "/usr/bin/insights-client --register"
+      description: "Register with Red Hat Insights - {{ ansible_date_time.epoch }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: 900
+    status_code: [200, 201]
+  vars:
+    command_job_template_id: "{{ command_template.json.results[0].id }}"
+    insights_register_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  when:
+    - insights_integration.register_hosts | bool
+    - command_template.json.total > 0
+    - not dry_run | bool
+  register: insights_register_job
+  tags:
+    - insights-integration
+
+- name: "Install Red Hat Connector (RHC) on target hosts"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ package_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ rhc_host_search }}"
+      inputs:
+        action: "install"
+        packages: "rhc"
+      description: "Install Red Hat Connector - {{ ansible_date_time.epoch }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: "{{ update_jobs.timeout }}"
+    status_code: [200, 201]
+  vars:
+    package_job_template_id: "{{ package_job_template.json.results[0].id }}"
+    rhc_host_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  when:
+    - rhc_integration.install_rhc | bool
+    - package_job_template.json.total > 0
+    - not dry_run | bool
+  register: rhc_install_job
+  tags:
+    - rhc-integration
+
+- name: "Configure Red Hat Connector for Satellite connection"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ command_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ rhc_config_search }}"
+      inputs:
+        command: "/usr/bin/rhc connect --organization {{ satellite_organization }} --activation-key {{ rhc_activation_key }}"
+      description: "Configure RHC Connection - {{ ansible_date_time.epoch }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: 1200
+    status_code: [200, 201]
+  vars:
+    command_job_template_id: "{{ command_template.json.results[0].id }}"
+    rhc_config_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+    rhc_activation_key: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      {{ target_hosts.single_node.activation_key }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      {{ target_hosts.host_groups[0].activation_key }}
+      {% else %}
+      RHEL_9_PROD_x86_64_Key
+      {% endif %}
+  when:
+    - rhc_integration.configure_connection | bool
+    - command_template.json.total > 0
+    - not dry_run | bool
+  register: rhc_config_job
+  tags:
+    - rhc-integration
+
+- name: "Enable Red Hat Insights data collection"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ command_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ insights_collect_search }}"
+      inputs:
+        command: "/usr/bin/insights-client --force-reregister && systemctl enable --now insights-client.timer"
+      description: "Enable Insights Data Collection - {{ ansible_date_time.epoch }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: 1200
+    status_code: [200, 201]
+  vars:
+    command_job_template_id: "{{ command_template.json.results[0].id }}"
+    insights_collect_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  when:
+    - insights_integration.enable_data_collection | bool
+    - command_template.json.total > 0
+    - not dry_run | bool
+  register: insights_collection_job
+  tags:
+    - insights-integration
+
+- name: "Monitor Insights installation and configuration"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations/{{ item.json.id }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: insights_job_status
+  until: insights_job_status.json.status_label != 'running'
+  retries: 20
+  delay: 60
+  loop: "{{ [insights_install_job, insights_register_job, insights_collection_job] | select('defined') | list }}"
+  when: 
+    - item.json is defined
+    - not dry_run | bool
+  tags:
+    - insights-integration
+
+- name: "Monitor RHC installation and configuration"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations/{{ item.json.id }}"
+    method: GET
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+  register: rhc_job_status
+  until: rhc_job_status.json.status_label != 'running'
+  retries: 20
+  delay: 60
+  loop: "{{ [rhc_install_job, rhc_config_job] | select('defined') | list }}"
+  when: 
+    - item.json is defined
+    - not dry_run | bool
+  tags:
+    - rhc-integration
+
+- name: "Verify Insights and RHC connectivity"
+  uri:
+    url: "https://{{ satellite_server_url }}/api/job_invocations"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: yes
+    body_format: json
+    body:
+      job_template_id: "{{ command_job_template_id }}"
+      targeting_type: "static_query"
+      search_query: "{{ verification_search }}"
+      inputs:
+        command: "/usr/bin/insights-client --status && /usr/bin/rhc status"
+      description: "Verify Insights and RHC Status - {{ ansible_date_time.epoch }}"
+      concurrency_level: "{{ update_jobs.concurrency_level }}"
+      execution_timeout_interval: 600
+    status_code: [200, 201]
+  vars:
+    command_job_template_id: "{{ command_template.json.results[0].id }}"
+    verification_search: >-
+      {% if target_hosts.single_node.hostname != "" %}
+      name={{ target_hosts.single_node.hostname }}
+      {% elif target_hosts.host_groups | length > 0 %}
+      hostgroup="{{ target_hosts.host_groups[0].name }}"
+      {% else %}
+      organization="{{ satellite_organization }}"
+      {% endif %}
+  when:
+    - (insights_integration.install_client | bool) or (rhc_integration.install_rhc | bool)
+    - command_template.json.total > 0
+    - not dry_run | bool
+  register: compliance_verification_job
+  tags:
+    - verification
+
+- name: "Display Insights and RHC integration results"
+  debug:
+    msg:
+      - "========================================="
+      - "Red Hat Insights & RHC Integration"
+      - "========================================="
+      - "Insights Client Install: {{ 'Success' if insights_install_job.json.id is defined else 'Skipped' }}"
+      - "Insights Registration: {{ 'Success' if insights_register_job.json.id is defined else 'Skipped' }}"
+      - "RHC Install: {{ 'Success' if rhc_install_job.json.id is defined else 'Skipped' }}"
+      - "RHC Configuration: {{ 'Success' if rhc_config_job.json.id is defined else 'Skipped' }}"
+      - "Compliance Verification: {{ 'Completed' if compliance_verification_job.json.id is defined else 'Skipped' }}"
+      - "========================================="
+  when: debug_mode | bool
+  tags:
+    - compliance-integration
