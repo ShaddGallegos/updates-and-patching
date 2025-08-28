@@ -1,0 +1,163 @@
+---
+# Unified Satellite Management Site Playbook
+# This playbook uses the consolidated satellite-management role
+# Updated to use the unified role structure in satellite/roles/
+
+- name: Satellite Management and Operations
+  hosts: satellite_servers
+  become: yes
+  gather_facts: yes
+  
+  vars:
+    # Default organization and location
+    satellite_organization: "Default Organization"
+    satellite_location: "Default Location"
+    
+    # Connection settings
+    satellite_validate_certs: false
+    satellite_timeout: 300
+    
+    # Phase control - enable/disable specific phases
+    satellite_validation_enabled: true
+    satellite_repository_enabled: true
+    satellite_lifecycle_enabled: true
+    satellite_host_management_enabled: true
+    satellite_reporting_enabled: true
+    
+    # Repository synchronization settings
+    satellite_sync_timeout: 3600
+    satellite_sync_parallel: true
+    
+    # Content lifecycle settings
+    satellite_auto_promote: false
+    satellite_auto_publish: false
+    
+    # Host management settings
+    satellite_bulk_operations: true
+    satellite_host_timeout: 1800
+    
+    # Reporting settings
+    satellite_generate_reports: true
+    satellite_report_format: ['html', 'json']
+    satellite_report_path: "/tmp/satellite-reports"
+
+  pre_tasks:
+    - name: Verify Ansible version compatibility
+      assert:
+        that:
+          - ansible_version.full is version('2.9', '>=')
+        fail_msg: "This playbook requires Ansible 2.9 or higher"
+        success_msg: "Ansible version {{ ansible_version.full }} is compatible"
+
+    - name: Check satellite server connectivity
+      wait_for:
+        host: "{{ satellite_url | regex_replace('https?://([^/]+).*', '\\1') }}"
+        port: 443
+        timeout: 30
+      delegate_to: localhost
+
+  roles:
+    - role: satellite-management
+      tags: ['satellite', 'all']
+
+  post_tasks:
+    - name: Display deployment summary
+      debug:
+        msg: |
+          Satellite Management Deployment Complete:
+          
+          Server: {{ satellite_url }}
+          Organization: {{ satellite_organization }}
+          Location: {{ satellite_location }}
+          
+          Phases Executed:
+          - Validation: {{ satellite_validation_enabled | ternary('✓', '✗') }}
+          - Repository Management: {{ satellite_repository_enabled | ternary('✓', '✗') }}
+          - Content Lifecycle: {{ satellite_lifecycle_enabled | ternary('✓', '✗') }}
+          - Host Management: {{ satellite_host_management_enabled | ternary('✓', '✗') }}
+          - Reporting: {{ satellite_reporting_enabled | ternary('✓', '✗') }}
+          
+          {% if satellite_generate_reports %}
+          Reports generated at: {{ satellite_report_path }}
+          {% endif %}
+
+    - name: Generate completion timestamp
+      copy:
+        content: |
+          Satellite Management Deployment
+          Completed: {{ ansible_date_time.iso8601 }}
+          Playbook: {{ playbook_dir }}/{{ ansible_playbook }}
+          Target: {{ inventory_hostname }}
+          Organization: {{ satellite_organization }}
+        dest: "{{ satellite_report_path | default('/tmp') }}/satellite-deployment-{{ ansible_date_time.epoch }}.log"
+      delegate_to: localhost
+
+# Additional playbooks for specific use cases
+
+- name: Satellite Repository Sync Only
+  hosts: satellite_servers
+  become: yes
+  gather_facts: no
+  
+  vars:
+    # Only enable repository phase
+    satellite_validation_enabled: true
+    satellite_repository_enabled: true
+    satellite_lifecycle_enabled: false
+    satellite_host_management_enabled: false
+    satellite_reporting_enabled: false
+    
+  roles:
+    - role: satellite-management
+      tags: ['satellite-repo', 'sync']
+
+- name: Satellite Content Lifecycle Only
+  hosts: satellite_servers
+  become: yes
+  gather_facts: no
+  
+  vars:
+    # Only enable lifecycle phase
+    satellite_validation_enabled: true
+    satellite_repository_enabled: false
+    satellite_lifecycle_enabled: true
+    satellite_host_management_enabled: false
+    satellite_reporting_enabled: true
+    
+  roles:
+    - role: satellite-management
+      tags: ['satellite-lifecycle', 'content']
+
+- name: Satellite Host Management Only
+  hosts: satellite_servers
+  become: yes
+  gather_facts: no
+  
+  vars:
+    # Only enable host management phase
+    satellite_validation_enabled: true
+    satellite_repository_enabled: false
+    satellite_lifecycle_enabled: false
+    satellite_host_management_enabled: true
+    satellite_reporting_enabled: true
+    
+  roles:
+    - role: satellite-management
+      tags: ['satellite-hosts', 'management']
+
+- name: Satellite Reporting Only
+  hosts: satellite_servers
+  become: yes
+  gather_facts: no
+  
+  vars:
+    # Only enable reporting phase
+    satellite_validation_enabled: false
+    satellite_repository_enabled: false
+    satellite_lifecycle_enabled: false
+    satellite_host_management_enabled: false
+    satellite_reporting_enabled: true
+    
+  roles:
+    - role: satellite-management
+      tags: ['satellite-reports', 'reporting']

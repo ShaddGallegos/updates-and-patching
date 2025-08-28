@@ -1,0 +1,102 @@
+---
+# meta/main.yml - Comprehensive Satellite Management Role Metadata
+
+galaxy_info:
+  author: Red Hat Satellite Automation Team
+  description: Comprehensive Red Hat Satellite 6.17 management role combining repository management, content lifecycle, and host management
+  company: Red Hat, Inc.
+  
+  license: MIT
+  
+  min_ansible_version: 2.9
+  
+  platforms:
+    - name: EL
+      versions:
+        - 9
+        
+  galaxy_tags:
+    - satellite
+    - redhat
+    - rhel
+    - lifecycle
+    - content
+    - repository
+    - management
+    - automation
+    - compliance
+    - security
+    - updates
+    - patching
+
+collections:
+  - community.general
+  - ansible.posix
+
+dependencies: []
+
+# Role Information
+role_name: satellite-management
+version: 2.0.0
+description: |
+  This comprehensive role manages Red Hat Satellite 6.17 operations including:
+  
+  - Repository Management: Red Hat CDN repositories, sync plans, product management
+  - Content Lifecycle: Lifecycle environments, content views, composite content views  
+  - Host Management: Registration, updates, CVE management, compliance integration
+  - Reporting: Comprehensive HTML/JSON reporting with detailed operation logs
+  
+  The role combines three previously separate satellite management roles into a 
+  unified, enterprise-ready automation solution.
+
+# Compatibility
+compatible_satellite_versions:
+  - "6.17"
+  - "6.16"
+  - "6.15"
+
+compatible_rhel_versions:
+  - "9.4"
+  - "9.3"  
+  - "9.2"
+  - "9.1"
+  - "9.0"
+
+# Feature Set
+features:
+  repository_management: true
+  content_lifecycle: true
+  host_management: true
+  cve_management: true
+  compliance_integration: true
+  insights_integration: true
+  rhc_integration: true
+  comprehensive_reporting: true
+  
+# Requirements
+requirements:
+  ansible_version: ">=2.9"
+  collections:
+    - community.general
+    - ansible.posix
+  satellite_version: ">=6.15"
+  rhel_version: ">=9.0"
+  
+# Tags for organization
+tags:
+  primary:
+    - satellite-all
+  repository:
+    - repository-management  
+    - repository-sync
+  lifecycle:
+    - content-lifecycle
+  hosts:
+    - host-management
+    - single-node
+    - cve-updates
+    - security-updates
+  compliance:
+    - compliance-integration
+  reporting:
+    - satellite-reporting

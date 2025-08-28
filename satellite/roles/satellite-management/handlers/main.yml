@@ -1,0 +1,133 @@
+---
+# Unified Satellite Management Role - Handlers
+# Handles service restarts and configuration changes
+
+- name: restart foreman
+  systemd:
+    name: foreman
+    state: restarted
+    daemon_reload: yes
+  become: yes
+
+- name: restart apache
+  systemd:
+    name: httpd
+    state: restarted
+  become: yes
+
+- name: restart postgresql
+  systemd:
+    name: postgresql
+    state: restarted
+  become: yes
+
+- name: restart pulp
+  systemd:
+    name: pulpcore-worker@*
+    state: restarted
+  become: yes
+
+- name: restart satellite services
+  shell: |
+    satellite-maintain service restart
+  become: yes
+
+- name: reload apache
+  systemd:
+    name: httpd
+    state: reloaded
+  become: yes
+
+- name: restart qpid
+  systemd:
+    name: qpidd
+    state: restarted
+  become: yes
+
+- name: restart mongodb
+  systemd:
+    name: mongod
+    state: restarted
+  become: yes
+
+- name: update satellite configuration
+  shell: |
+    satellite-installer --reset
+  become: yes
+
+- name: refresh satellite manifest
+  uri:
+    url: "{{ satellite_url }}/katello/api/v2/organizations/{{ satellite_organization }}/subscriptions/refresh_manifest"
+    method: PUT
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: "{{ satellite_validate_certs | default(true) }}"
+  delegate_to: localhost
+
+- name: reindex elasticsearch
+  shell: |
+    foreman-rake foreman_search:reindex
+  become: yes
+
+- name: clear satellite cache
+  shell: |
+    foreman-rake tmp:cache:clear
+  become: yes
+
+- name: restart satellite-maintain
+  shell: |
+    satellite-maintain service restart --only=foreman,httpd
+  become: yes
+
+- name: update content views
+  uri:
+    url: "{{ satellite_url }}/katello/api/content_views/{{ item }}/publish"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: "{{ satellite_validate_certs | default(true) }}"
+    body_format: json
+    body:
+      description: "Automated publish triggered by configuration change"
+  delegate_to: localhost
+  with_items: "{{ affected_content_views | default([]) }}"
+  when: affected_content_views is defined
+
+- name: promote content views
+  uri:
+    url: "{{ satellite_url }}/katello/api/content_views/{{ item.cv_id }}/content_view_versions/{{ item.version_id }}/promote"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: "{{ satellite_validate_certs | default(true) }}"
+    body_format: json
+    body:
+      environment_ids: "{{ item.environment_ids }}"
+  delegate_to: localhost
+  with_items: "{{ content_views_to_promote | default([]) }}"
+  when: content_views_to_promote is defined
+
+- name: sync repositories
+  uri:
+    url: "{{ satellite_url }}/katello/api/repositories/{{ item }}/sync"
+    method: POST
+    user: "{{ satellite_username }}"
+    password: "{{ satellite_password }}"
+    force_basic_auth: yes
+    validate_certs: "{{ satellite_validate_certs | default(true) }}"
+  delegate_to: localhost
+  with_items: "{{ repositories_to_sync | default([]) }}"
+  when: repositories_to_sync is defined
+
+- name: regenerate host certificates
+  shell: |
+    satellite-installer --certs-regenerate
+  become: yes
+
+- name: update smart proxy features
+  shell: |
+    foreman-rake smart_proxies:refresh_features
+  become: yes

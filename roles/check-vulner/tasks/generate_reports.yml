@@ -3,248 +3,251 @@
 
 - name: Create reports directory
   ansible.builtin.file:
-  path: "{{ vulner_report_directory }}"
-  state: directory
-  owner: "{{ vulner_report_owner }}"
-  group: "{{ vulner_report_group }}"
-  mode: '0755'
+    path: "{{ vulner_report_directory }}"
+    state: directory
+    owner: "{{ vulner_report_owner }}"
+    group: "{{ vulner_report_group }}"
+    mode: '0755'
   when: vulner_generate_reports
 
 - name: Gather additional system information for reporting
   ansible.builtin.setup:
-  gather_subset:
-  - 'all'
+    gather_subset:
+      - 'all'
   when: vulner_generate_reports
 
 - name: Create vulnerability report data structure
   ansible.builtin.set_fact:
-  vulner_report_data:
-  scan_info:
-  hostname: "{{ ansible_facts['fqdn'] | default(ansible_facts['hostname']) }}"
-  ip_address: "{{ ansible_facts['default_ipv4']['address'] | default('N/A') }}"
-  scan_timestamp: "{{ vulner_scan_timestamp | default(ansible_date_time.iso8601) }}"
-  scan_duration: "{{ ((vulner_remediation_timestamp | default(ansible_date_time.iso8601)) | to_datetime('%Y-%m-%dT%H:%M:%SZ') - (vulner_scan_timestamp | default(ansible_date_time.iso8601)) | to_datetime('%Y-%m-%dT%H:%M:%SZ')).total_seconds() | int }}s"
-  ansible_user: "{{ ansible_user_id }}"
-  scan_version: "{{ vulner_role_version }}"
-
-  system_info:
-  os_family: "{{ ansible_facts['os_family'] }}"
-  distribution: "{{ ansible_facts['distribution'] }}"
-  distribution_version: "{{ ansible_facts['distribution_version'] }}"
-  kernel_version: "{{ ansible_facts['kernel'] }}"
-  architecture: "{{ ansible_facts['architecture'] }}"
-  virtualization_type: "{{ ansible_facts['virtualization_type'] | default('physical') }}"
-  total_memory: "{{ (ansible_facts['memtotal_mb'] / 1024) | round(1) }}GB"
-  cpu_cores: "{{ ansible_facts['processor_vcpus'] }}"
-  uptime: "{{ ansible_facts['uptime_seconds'] | int // 86400 }}d {{ (ansible_facts['uptime_seconds'] | int % 86400) // 3600 }}h"
-
-  vulnerability_summary:
-  total_vulnerabilities: "{{ vulner_total_count | default(0) }}"
-  critical_count: "{{ vulner_critical_count | default(0) }}"
-  high_count: "{{ vulner_high_count | default(0) }}"
-  medium_count: "{{ vulner_medium_count | default(0) }}"
-  low_count: "{{ vulner_low_count | default(0) }}"
-  system_vulnerable: "{{ security_system_vulnerable | default(false) }}"
-  risk_level: >-
-    {%- if vulner_critical_count | int > 0 -%}
-    CRITICAL
-    {%- elif vulner_high_count | int > 0 -%}
-    HIGH
-    {%- elif vulner_medium_count | int > 0 -%}
-    MEDIUM
-    {%- elif vulner_low_count | int > 0 -%}
-    LOW
-    {%- else -%}
-    SECURE
-    {%- endif -%}
-
-  vulnerabilities:
-  critical: "{{ vulner_critical_vulnerabilities | default([]) }}"
-  high: "{{ vulner_high_vulnerabilities | default([]) }}"
-  medium: "{{ vulner_medium_vulnerabilities | default([]) }}"
-  low: "{{ vulner_low_vulnerabilities | default([]) }}"
-  all: "{{ vulner_found_vulnerabilities | default([]) }}"
-
-  remediation_info:
-  auto_remediate_enabled: "{{ vulner_auto_remediate }}"
-  remediation_completed: "{{ vulner_remediation_completed | default(false) }}"
-  remediation_timestamp: "{{ vulner_remediation_timestamp | default('N/A') }}"
-  backup_created: "{{ vulner_remediation_summary.backup_created | default('N/A') if vulner_remediation_summary is defined else 'N/A' }}"
-  reboot_required: "{{ vulner_remediation_summary.reboot_required | default(false) if vulner_remediation_summary is defined else false }}"
-  vulnerabilities_before: "{{ vulner_vulnerabilities_before | default(vulner_total_count | default(0)) }}"
-
-  recommendations:
-  - "{{ 'Immediate action required for ' + vulner_critical_count|string + ' critical vulnerabilities' if vulner_critical_count | int > 0 else '' }}"
-- "{{ 'Schedule maintenance window for ' + vulner_high_count|string + ' high-priority vulnerabilities' if vulner_high_count | int > 0 else '' }}"
-- "{{ 'Plan system reboot to apply kernel updates' if vulner_remediation_summary.reboot_required | default(false) else '' }}"
-- "{{ 'Review and update security configurations' if vulner_found_vulnerabilities | select('search', 'SSH_|SUDO_') | list | length > 0 else '' }}"
-- "{{ 'Implement regular vulnerability scanning schedule' if vulner_total_count | int > 0 else 'Maintain current security practices' }}"
+    vulner_report_data:
+      scan_info:
+        hostname: "{{ ansible_facts['fqdn'] | default(ansible_facts['hostname']) }}"
+        ip_address: "{{ ansible_facts['default_ipv4']['address'] | default('N/A') }}"
+        scan_timestamp: "{{ vulner_scan_timestamp | default(ansible_date_time.iso8601) }}"
+        scan_duration: "{{ ((vulner_remediation_timestamp | default(ansible_date_time.iso8601)) | to_datetime('%Y-%m-%dT%H:%M:%SZ') - (vulner_scan_timestamp | default(ansible_date_time.iso8601)) | to_datetime('%Y-%m-%dT%H:%M:%SZ')).total_seconds() | int }}s"
+        ansible_user: "{{ ansible_user_id }}"
+        scan_version: "{{ vulner_role_version }}"
+      system_info:
+        os_family: "{{ ansible_facts['os_family'] }}"
+        distribution: "{{ ansible_facts['distribution'] }}"
+        distribution_version: "{{ ansible_facts['distribution_version'] }}"
+        kernel_version: "{{ ansible_facts['kernel'] }}"
+        architecture: "{{ ansible_facts['architecture'] }}"
+        virtualization_type: "{{ ansible_facts['virtualization_type'] | default('physical') }}"
+        total_memory: "{{ (ansible_facts['memtotal_mb'] / 1024) | round(1) }}GB"
+        cpu_cores: "{{ ansible_facts['processor_vcpus'] }}"
+        uptime: "{{ ansible_facts['uptime_seconds'] | int // 86400 }}d {{ (ansible_facts['uptime_seconds'] | int % 86400) // 3600 }}h"
+      vulnerability_summary:
+        total_vulnerabilities: "{{ vulner_total_count | default(0) }}"
+        critical_count: "{{ vulner_critical_count | default(0) }}"
+        high_count: "{{ vulner_high_count | default(0) }}"
+        medium_count: "{{ vulner_medium_count | default(0) }}"
+        low_count: "{{ vulner_low_count | default(0) }}"
+        system_vulnerable: "{{ security_system_vulnerable | default(false) }}"
+        risk_level: >-
+          {%- if vulner_critical_count | int > 0 -%}
+          CRITICAL
+          {%- elif vulner_high_count | int > 0 -%}
+          HIGH
+          {%- elif vulner_medium_count | int > 0 -%}
+          MEDIUM
+          {%- elif vulner_low_count | int > 0 -%}
+          LOW
+          {%- else -%}
+          SECURE
+          {%- endif -%}
+      vulnerabilities:
+        critical: "{{ vulner_critical_vulnerabilities | default([]) }}"
+        high: "{{ vulner_high_vulnerabilities | default([]) }}"
+        medium: "{{ vulner_medium_vulnerabilities | default([]) }}"
+        low: "{{ vulner_low_vulnerabilities | default([]) }}"
+        all: "{{ vulner_found_vulnerabilities | default([]) }}"
+      remediation_info:
+        auto_remediate_enabled: "{{ vulner_auto_remediate }}"
+        remediation_completed: "{{ vulner_remediation_completed | default(false) }}"
+        remediation_timestamp: "{{ vulner_remediation_timestamp | default('N/A') }}"
+        backup_created: "{{ vulner_remediation_summary.backup_created | default('N/A') if vulner_remediation_summary is defined else 'N/A' }}"
+        reboot_required: "{{ vulner_remediation_summary.reboot_required | default(false) if vulner_remediation_summary is defined else false }}"
+        vulnerabilities_before: "{{ vulner_vulnerabilities_before | default(vulner_total_count | default(0)) }}"
+      recommendations:
+        - "{{ 'Immediate action required for ' + vulner_critical_count|string + ' critical vulnerabilities' if vulner_critical_count | int > 0 else '' }}"
+        - "{{ 'Schedule maintenance window for ' + vulner_high_count|string + ' high-priority vulnerabilities' if vulner_high_count | int > 0 else '' }}"
+        - "{{ 'Plan system reboot to apply kernel updates' if vulner_remediation_summary.reboot_required | default(false) else '' }}"
+        - "{{ 'Review and update security configurations' if vulner_found_vulnerabilities | select('search', 'SSH_|SUDO_') | list | length > 0 else '' }}"
+        - "{{ 'Implement regular vulnerability scanning schedule' if vulner_total_count | int > 0 else 'Maintain current security practices' }}"
 
 - name: Generate JSON report
   ansible.builtin.copy:
-  content: "{{ vulner_report_data | to_nice_json(indent=2) }}"
-  dest: "{{ vulner_report_directory }}/vulnerability_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.json"
-  owner: "{{ vulner_report_owner }}"
-  group: "{{ vulner_report_group }}"
-  mode: '0644'
-  when: vulner_generate_reports and 'json' in vulner_report_formats
+    content: "{{ vulner_report_data | to_nice_json(indent=2) }}"
+    dest: "{{ vulner_report_directory }}/vulnerability_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.json"
+    owner: "{{ vulner_report_owner }}"
+    group: "{{ vulner_report_group }}"
+    mode: '0644'
+  when:
+    - vulner_generate_reports
+    - "'json' in vulner_report_formats"
 
 - name: Generate CSV report
   ansible.builtin.template:
-  src: vulnerability_report.csv.j2
-  dest: "{{ vulner_report_directory }}/vulnerability_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.csv"
-  owner: "{{ vulner_report_owner }}"
-  group: "{{ vulner_report_group }}"
-  mode: '0644'
-  when: vulner_generate_reports and 'csv' in vulner_report_formats
+    src: vulnerability_report.csv.j2
+    dest: "{{ vulner_report_directory }}/vulnerability_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.csv"
+    owner: "{{ vulner_report_owner }}"
+    group: "{{ vulner_report_group }}"
+    mode: '0644'
+  when:
+    - vulner_generate_reports
+    - "'csv' in vulner_report_formats"
 
 - name: Generate HTML report
   ansible.builtin.template:
-  src: vulnerability_report.html.j2
-  dest: "{{ vulner_report_directory }}/vulnerability_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.html"
-  owner: "{{ vulner_report_owner }}"
-  group: "{{ vulner_report_group }}"
-  mode: '0644'
-  when: vulner_generate_reports and 'html' in vulner_report_formats
+    src: vulnerability_report.html.j2
+    dest: "{{ vulner_report_directory }}/vulnerability_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.html"
+    owner: "{{ vulner_report_owner }}"
+    group: "{{ vulner_report_group }}"
+    mode: '0644'
+  when:
+    - vulner_generate_reports
+    - "'html' in vulner_report_formats"
 
 - name: Generate executive summary
   ansible.builtin.template:
-  src: vulnerability_executive_summary.txt.j2
-  dest: "{{ vulner_report_directory }}/vulnerability_executive_summary_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.txt"
-  owner: "{{ vulner_report_owner }}"
-  group: "{{ vulner_report_group }}"
-  mode: '0644'
+    src: vulnerability_executive_summary.txt.j2
+    dest: "{{ vulner_report_directory }}/vulnerability_executive_summary_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.txt"
+    owner: "{{ vulner_report_owner }}"
+    group: "{{ vulner_report_group }}"
+    mode: '0644'
   when: vulner_generate_reports
 
 - name: Create SYSLOG entry for critical vulnerabilities
   ansible.builtin.shell: |
-  logger -p security.crit -t "vulnerability-scan" "CRITICAL: {{ vulner_critical_count }} critical vulnerabilities found on {{ ansible_facts['hostname'] }}. Risk level: {{ vulner_report_data.vulnerability_summary.risk_level }}"
+    logger -p security.crit -t "vulnerability-scan" "CRITICAL: {{ vulner_critical_count }} critical vulnerabilities found on {{ ansible_facts['hostname'] }}. Risk level: {{ vulner_report_data.vulnerability_summary.risk_level }}"
   when:
-  - vulner_critical_count | int > 0
-  - vulner_log_to_syslog
+    - vulner_critical_count | int > 0
+    - vulner_log_to_syslog
   become: true
 
 - name: Send email notification for critical vulnerabilities
   community.general.mail:
-  to: "{{ vulner_notification_email }}"
-  subject: " CRITICAL: {{ vulner_critical_count }} vulnerabilities found on {{ ansible_facts['hostname'] }}"
-  body: |
-  Critical vulnerability alert for system: {{ ansible_facts['hostname'] }}
+    to: "{{ vulner_notification_email }}"
+    subject: "CRITICAL: {{ vulner_critical_count }} vulnerabilities found on {{ ansible_facts['hostname'] }}"
+    body: |
+      Critical vulnerability alert for system: {{ ansible_facts['hostname'] }}
 
-  Scan Summary:
-  - Total vulnerabilities: {{ vulner_total_count }}
-- Critical: {{ vulner_critical_count }}
-- High: {{ vulner_high_count }}
-- Medium: {{ vulner_medium_count }}
-- Low: {{ vulner_low_count }}
+      Scan Summary:
+      - Total vulnerabilities: {{ vulner_total_count }}
+      - Critical: {{ vulner_critical_count }}
+      - High: {{ vulner_high_count }}
+      - Medium: {{ vulner_medium_count }}
+      - Low: {{ vulner_low_count }}
 
-  Risk Level: {{ vulner_report_data.vulnerability_summary.risk_level }}
+      Risk Level: {{ vulner_report_data.vulnerability_summary.risk_level }}
 
-  Critical vulnerabilities detected:
-    {% for vuln in vulner_critical_vulnerabilities %}
-- {{ vuln }}
-    {% endfor %}
+      Critical vulnerabilities detected:
+      {% for vuln in vulner_critical_vulnerabilities %}
+      - {{ vuln }}
+      {% endfor %}
 
-    Immediate action is required. Please review the detailed report.
+      Immediate action is required. Please review the detailed report.
 
-  Scan timestamp: {{ vulner_scan_timestamp }}
-  System: {{ ansible_facts['fqdn'] }} ({{ ansible_facts['default_ipv4']['address'] }})
-  host: "{{ vulner_smtp_server }}"
-  port: "{{ vulner_smtp_port }}"
-  username: "{{ vulner_smtp_username | default(omit) }}"
-  password: "{{ vulner_smtp_password | default(omit) }}"
+      Scan timestamp: {{ vulner_scan_timestamp }}
+      System: {{ ansible_facts['fqdn'] }} ({{ ansible_facts['default_ipv4']['address'] }})
+    host: "{{ vulner_smtp_server }}"
+    port: "{{ vulner_smtp_port }}"
+    username: "{{ vulner_smtp_username | default(omit) }}"
+    password: "{{ vulner_smtp_password | default(omit) }}"
   when:
-  - vulner_critical_count | int > 0
-- vulner_send_email_notifications
-- vulner_notification_email is defined
+    - vulner_critical_count | int > 0
+    - vulner_send_email_notifications
+    - vulner_notification_email is defined
   delegate_to: localhost
 
 - name: Generate compliance report
   ansible.builtin.copy:
-  content: |
-  # Vulnerability Compliance Report
+    content: |
+      # Vulnerability Compliance Report
 
-  **System:** {{ ansible_facts['hostname'] }}
-  **Date:** {{ ansible_date_time.iso8601 }}
-  **Compliance Framework:** {{ vulner_compliance_framework }}
+      **System:** {{ ansible_facts['hostname'] }}
+      **Date:** {{ ansible_date_time.iso8601 }}
+      **Compliance Framework:** {{ vulner_compliance_framework }}
 
-    ## Compliance Status
-    {% if vulner_critical_count | int == 0 and vulner_high_count | int == 0 %}
-    **COMPLIANT** - No critical or high-priority vulnerabilities detected
-    {% elif vulner_critical_count | int > 0 %}
-    **NON-COMPLIANT** - {{ vulner_critical_count }} critical vulnerabilities require immediate attention
-    {% else %}
-    **PARTIALLY COMPLIANT** - {{ vulner_high_count }} high-priority vulnerabilities need resolution
-    {% endif %}
+      ## Compliance Status
+      {% if vulner_critical_count | int == 0 and vulner_high_count | int == 0 %}
+      **COMPLIANT** - No critical or high-priority vulnerabilities detected
+      {% elif vulner_critical_count | int > 0 %}
+      **NON-COMPLIANT** - {{ vulner_critical_count }} critical vulnerabilities require immediate attention
+      {% else %}
+      **PARTIALLY COMPLIANT** - {{ vulner_high_count }} high-priority vulnerabilities need resolution
+      {% endif %}
 
-    ## Vulnerability Summary
-- Critical: {{ vulner_critical_count }}
-- High: {{ vulner_high_count }}
-- Medium: {{ vulner_medium_count }}
-- Low: {{ vulner_low_count }}
+      ## Vulnerability Summary
+      - Critical: {{ vulner_critical_count }}
+      - High: {{ vulner_high_count }}
+      - Medium: {{ vulner_medium_count }}
+      - Low: {{ vulner_low_count }}
 
-    ## Remediation Status
-- Auto-remediation enabled: {{ vulner_auto_remediate }}
-- Remediation completed: {{ vulner_remediation_completed | default(false) }}
-- Backup created: {{ 'Yes' if vulner_remediation_summary.backup_created | default('') != 'No backup created' else 'No' }}
+      ## Remediation Status
+      - Auto-remediation enabled: {{ vulner_auto_remediate }}
+      - Remediation completed: {{ vulner_remediation_completed | default(false) }}
+      - Backup created: {{ 'Yes' if vulner_remediation_summary.backup_created | default('') != 'No backup created' else 'No' }}
 
-    ## Next Steps
-    {% for recommendation in vulner_report_data.recommendations %}
-    {% if recommendation != '' %}
-- {{ recommendation }}
-    {% endif %}
-    {% endfor %}
+      ## Next Steps
+      {% for recommendation in vulner_report_data.recommendations %}
+      {% if recommendation != '' %}
+      - {{ recommendation }}
+      {% endif %}
+      {% endfor %}
 
----
-Report generated by Ansible check-vulner role v{{ vulner_role_version }}
-dest: "{{ vulner_report_directory }}/compliance_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.md"
-owner: "{{ vulner_report_owner }}"
-group: "{{ vulner_report_group }}"
-mode: '0644'
-when: vulner_generate_reports and vulner_compliance_reporting
+      ---
+      Report generated by Ansible check-vulner role v{{ vulner_role_version }}
+    dest: "{{ vulner_report_directory }}/compliance_report_{{ ansible_facts['hostname'] }}_{{ ansible_date_time.strftime('%Y%m%d_%H%M%S') }}.md"
+    owner: "{{ vulner_report_owner }}"
+    group: "{{ vulner_report_group }}"
+    mode: '0644'
+  when:
+    - vulner_generate_reports
+    - vulner_compliance_reporting
 
 - name: Update central vulnerability database (if configured)
   ansible.builtin.uri:
-  url: "{{ vulner_central_api_endpoint }}/api/v1/vulnerability-reports"
-  method: POST
-  body_format: json
-  body:
-  hostname: "{{ ansible_facts['hostname'] }}"
-  ip_address: "{{ ansible_facts['default_ipv4']['address'] }}"
-  scan_timestamp: "{{ vulner_scan_timestamp }}"
-  vulnerability_summary: "{{ vulner_report_data.vulnerability_summary }}"
-  vulnerabilities: "{{ vulner_found_vulnerabilities[:50] }}" # Limit to prevent API overload
-  system_info: "{{ vulner_report_data.system_info }}"
-  headers:
-  Authorization: "Bearer {{ vulner_api_token }}"
-  Content-Type: "application/json"
-  status_code: [200, 201]
+    url: "{{ vulner_central_api_endpoint }}/api/v1/vulnerability-reports"
+    method: POST
+    body_format: json
+    body:
+      hostname: "{{ ansible_facts['hostname'] }}"
+      ip_address: "{{ ansible_facts['default_ipv4']['address'] }}"
+      scan_timestamp: "{{ vulner_scan_timestamp }}"
+      vulnerability_summary: "{{ vulner_report_data.vulnerability_summary }}"
+      vulnerabilities: "{{ vulner_found_vulnerabilities[:50] }}" # Limit to prevent API overload
+      system_info: "{{ vulner_report_data.system_info }}"
+    headers:
+      Authorization: "Bearer {{ vulner_api_token }}"
+      Content-Type: "application/json"
+    status_code: [200, 201]
   when:
-  - vulner_central_reporting
-  - vulner_central_api_endpoint is defined
-  - vulner_api_token is defined
+    - vulner_central_reporting
+    - vulner_central_api_endpoint is defined
+    - vulner_api_token is defined
   delegate_to: localhost
   ignore_errors: true
 
 - name: Set final report facts
   ansible.builtin.set_fact:
-  vulner_report_generated: true
-  vulner_report_timestamp: "{{ ansible_date_time.iso8601 }}"
-  vulner_report_location: "{{ vulner_report_directory }}"
-  vulner_latest_scan_result:
-  scan_timestamp: "{{ vulner_scan_timestamp }}"
-  total_vulnerabilities: "{{ vulner_total_count }}"
-  risk_level: "{{ vulner_report_data.vulnerability_summary.risk_level }}"
-  remediation_completed: "{{ vulner_remediation_completed | default(false) }}"
-  cacheable: true
+    vulner_report_generated: true
+    vulner_report_timestamp: "{{ ansible_date_time.iso8601 }}"
+    vulner_report_location: "{{ vulner_report_directory }}"
+    vulner_latest_scan_result:
+      scan_timestamp: "{{ vulner_scan_timestamp }}"
+      total_vulnerabilities: "{{ vulner_total_count }}"
+      risk_level: "{{ vulner_report_data.vulnerability_summary.risk_level }}"
+      remediation_completed: "{{ vulner_remediation_completed | default(false) }}"
+    cacheable: true
 
 - name: Display final report summary
   ansible.builtin.debug:
-  msg:
-  - "=== Vulnerability Report Summary ==="
-  - "Hostname: {{ ansible_facts['hostname'] }}"
-  - "Total vulnerabilities: {{ vulner_total_count }}"
-  - "Risk level: {{ vulner_report_data.vulnerability_summary.risk_level }}"
-  - "Reports generated in: {{ vulner_report_directory }}"
-  - "Scan completed: {{ vulner_scan_timestamp }}"
-  - "Next recommended scan: {{ (vulner_scan_timestamp | to_datetime('%Y-%m-%dT%H:%M:%SZ') + timedelta(days=vulner_scan_frequency_days)).strftime('%Y-%m-%d') }}"
+    msg:
+      - "=== Vulnerability Report Summary ==="
+      - "Hostname: {{ ansible_facts['hostname'] }}"
+      - "Total vulnerabilities: {{ vulner_total_count }}"
+      - "Risk level: {{ vulner_report_data.vulnerability_summary.risk_level }}"
+      - "Reports generated in: {{ vulner_report_directory }}"
+      - "Scan completed: {{ vulner_scan_timestamp }}"
+      - "Next recommended scan: {{ (vulner_scan_timestamp | to_datetime('%Y-%m-%dT%H:%M:%SZ') + timedelta(days=vulner_scan_frequency_days)).strftime('%Y-%m-%d') }}"

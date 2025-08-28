@@ -1,0 +1,177 @@
+---
+# tasks/main.yml - Comprehensive Red Hat Satellite 6.17 Management Role
+# This role combines repository management, content lifecycle, and host management
+
+- name: Display Satellite Management Role Banner
+  ansible.builtin.debug:
+    msg: |
+      ╔══════════════════════════════════════════════════════════════════════════════╗
+      ║              Red Hat Satellite 6.17 Comprehensive Management                ║
+      ║                        Unified Management Role                              ║
+      ╠══════════════════════════════════════════════════════════════════════════════╣
+      ║  Repository Management + Content Lifecycle + Host Management                ║
+      ║  Organization: {{ satellite_organization }}                                   ║
+      ║  Server: {{ satellite_server_url }}                                         ║
+      ╚══════════════════════════════════════════════════════════════════════════════╝
+
+# Phase 1: Validation and Prerequisites
+- name: Include validation tasks
+  ansible.builtin.include_tasks: validate.yml
+  when: satellite_perform_validation | default(true) | bool
+  tags:
+    - satellite-validation
+    - satellite-all
+
+# Phase 2: Repository Management
+- name: Include Red Hat repository management
+  ansible.builtin.include_tasks: redhat_repos.yml
+  when: satellite_manage_repositories | default(true) | bool
+  tags:
+    - repository-management
+    - satellite-all
+
+- name: Include product management
+  ansible.builtin.include_tasks: products.yml
+  when: satellite_manage_products | default(true) | bool
+  tags:
+    - repository-management
+    - satellite-all
+
+- name: Include repository configuration
+  ansible.builtin.include_tasks: repositories.yml
+  when: satellite_manage_repositories | default(true) | bool
+  tags:
+    - repository-management
+    - satellite-all
+
+- name: Include sync plans management
+  ansible.builtin.include_tasks: sync_plans.yml
+  when: satellite_manage_sync_plans | default(true) | bool
+  tags:
+    - repository-management
+    - satellite-all
+
+- name: Include repository synchronization
+  ansible.builtin.include_tasks: sync_repos.yml
+  when: satellite_sync_repositories | default(true) | bool
+  tags:
+    - repository-management
+    - repository-sync
+    - satellite-all
+
+# Phase 3: Content Lifecycle Management
+- name: Include lifecycle environments
+  ansible.builtin.include_tasks: lifecycle_environments.yml
+  when: satellite_manage_lifecycle | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+- name: Include content views
+  ansible.builtin.include_tasks: content_views.yml
+  when: satellite_manage_content_views | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+- name: Include content view publishing
+  ansible.builtin.include_tasks: publish_content_views.yml
+  when: satellite_publish_content_views | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+- name: Include content view promotion
+  ansible.builtin.include_tasks: promote_content_views.yml
+  when: satellite_promote_content_views | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+- name: Include composite content views
+  ansible.builtin.include_tasks: composite_content_views.yml
+  when: satellite_manage_composite_views | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+- name: Include activation keys
+  ansible.builtin.include_tasks: activation_keys.yml
+  when: satellite_manage_activation_keys | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+- name: Include host collections
+  ansible.builtin.include_tasks: host_collections.yml
+  when: satellite_manage_host_collections | default(true) | bool
+  tags:
+    - content-lifecycle
+    - satellite-all
+
+# Phase 4: Host Management
+- name: Include single node management
+  ansible.builtin.include_tasks: single_node.yml
+  when: 
+    - satellite_manage_hosts | default(true) | bool
+    - target_hosts.single_node.enabled | default(false) | bool
+  tags:
+    - host-management
+    - single-node
+    - satellite-all
+
+- name: Include CVE-specific updates
+  ansible.builtin.include_tasks: cve_updates.yml
+  when: 
+    - satellite_manage_updates | default(true) | bool
+    - package_operations.cve_updates.enabled | default(false) | bool
+  tags:
+    - host-management
+    - cve-updates
+    - satellite-all
+
+- name: Include security and bugfix updates
+  ansible.builtin.include_tasks: security_bugfix_updates.yml
+  when: 
+    - satellite_manage_updates | default(true) | bool
+    - (package_operations.security_updates.enabled | default(false) | bool) or 
+      (package_operations.bugfix_updates.enabled | default(false) | bool)
+  tags:
+    - host-management
+    - security-updates
+    - satellite-all
+
+- name: Include Red Hat Insights and RHC integration
+  ansible.builtin.include_tasks: insights_rhc_integration.yml
+  when: satellite_enable_insights | default(true) | bool
+  tags:
+    - host-management
+    - compliance-integration
+    - satellite-all
+
+# Phase 5: Reporting and Cleanup
+- name: Include comprehensive reporting
+  ansible.builtin.include_tasks: reporting.yml
+  when: satellite_generate_reports | default(true) | bool
+  tags:
+    - satellite-reporting
+    - satellite-all
+
+- name: Display comprehensive management summary
+  ansible.builtin.debug:
+    msg: |
+      ╔══════════════════════════════════════════════════════════════════════════════╗
+      ║                    Satellite Management Completed                           ║
+      ╠══════════════════════════════════════════════════════════════════════════════╣
+      ║  ✅ Repository Management: {{ 'Enabled' if satellite_manage_repositories | default(true) else 'Disabled' }}
+      ║  ✅ Content Lifecycle: {{ 'Enabled' if satellite_manage_lifecycle | default(true) else 'Disabled' }}
+      ║  ✅ Host Management: {{ 'Enabled' if satellite_manage_hosts | default(true) else 'Disabled' }}
+      ║  ✅ Security Updates: {{ 'Enabled' if satellite_manage_updates | default(true) else 'Disabled' }}
+      ║  ✅ Compliance Integration: {{ 'Enabled' if satellite_enable_insights | default(true) else 'Disabled' }}
+      ║
+      ║  Organization: {{ satellite_organization }}
+      ║  Server: {{ satellite_server_url }}
+      ║  Reports: {{ './reports/' if satellite_generate_reports | default(true) else 'Disabled' }}
+      ╚══════════════════════════════════════════════════════════════════════════════╝
+  tags:
+    - satellite-all

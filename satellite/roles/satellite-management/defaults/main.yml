@@ -1,0 +1,261 @@
+---
+# defaults/main.yml - Comprehensive Satellite Management Role Variables
+
+# ==========================================
+# Satellite Server Connection Configuration
+# ==========================================
+satellite_server_url: "https://satellite.example.com"
+satellite_username: "admin"
+satellite_password: "{{ vault_satellite_password | default('NTY4NjIw') }}"
+satellite_organization: "Default Organization"
+satellite_location: "Default Location"
+satellite_validate_certs: false
+
+# ==========================================
+# Role Execution Control
+# ==========================================
+satellite_perform_validation: true
+satellite_manage_repositories: true
+satellite_manage_products: true
+satellite_manage_sync_plans: true
+satellite_sync_repositories: true
+satellite_manage_lifecycle: true
+satellite_manage_content_views: true
+satellite_publish_content_views: true
+satellite_promote_content_views: true
+satellite_manage_composite_views: true
+satellite_manage_activation_keys: true
+satellite_manage_host_collections: true
+satellite_manage_hosts: true
+satellite_manage_updates: true
+satellite_enable_insights: true
+satellite_generate_reports: true
+
+# ==========================================
+# Repository Management Configuration
+# ==========================================
+satellite_repositories:
+  rhel_9_repositories:
+    - name: "Red Hat Enterprise Linux 9 for x86_64 - BaseOS (RPMs)"
+      product: "Red Hat Enterprise Linux for x86_64"
+      releasever: "9"
+      basearch: "x86_64"
+      enabled: true
+    - name: "Red Hat Enterprise Linux 9 for x86_64 - AppStream (RPMs)"
+      product: "Red Hat Enterprise Linux for x86_64"
+      releasever: "9"
+      basearch: "x86_64"
+      enabled: true
+    - name: "Red Hat Enterprise Linux 9 for x86_64 - Supplementary (RPMs)"
+      product: "Red Hat Enterprise Linux for x86_64"
+      releasever: "9"
+      basearch: "x86_64"
+      enabled: true
+
+  satellite_repositories:
+    - name: "Red Hat Satellite 6.17 for RHEL 9 x86_64 (RPMs)"
+      product: "Red Hat Satellite"
+      enabled: true
+
+# ==========================================
+# Sync Plans Configuration
+# ==========================================
+satellite_sync_plans:
+  - name: "RHEL_9_Daily_Sync"
+    description: "Daily sync for RHEL 9 repositories"
+    interval: "daily"
+    sync_date: "{{ ansible_date_time.date }} 02:00:00 UTC"
+    enabled: true
+    products:
+      - "Red Hat Enterprise Linux for x86_64"
+
+  - name: "Satellite_Weekly_Sync"
+    description: "Weekly sync for Satellite repositories"
+    interval: "weekly"
+    sync_date: "{{ ansible_date_time.date }} 03:00:00 UTC"
+    enabled: true
+    products:
+      - "Red Hat Satellite"
+
+# ==========================================
+# Lifecycle Environments Configuration
+# ==========================================
+satellite_lifecycle_environments:
+  - name: "RHEL_9_DEV_x86_64"
+    description: "RHEL 9 Development Environment"
+    prior: "Library"
+    
+  - name: "RHEL_9_TEST_x86_64"
+    description: "RHEL 9 Testing Environment"
+    prior: "RHEL_9_DEV_x86_64"
+    
+  - name: "RHEL_9_PROD_x86_64"
+    description: "RHEL 9 Production Environment"
+    prior: "RHEL_9_TEST_x86_64"
+
+# ==========================================
+# Content Views Configuration
+# ==========================================
+satellite_content_views:
+  - name: "RHEL_9_BaseOS_CV"
+    description: "RHEL 9 BaseOS Content View"
+    repositories:
+      - "Red Hat Enterprise Linux 9 for x86_64 - BaseOS (RPMs)"
+    
+  - name: "RHEL_9_AppStream_CV"
+    description: "RHEL 9 AppStream Content View"
+    repositories:
+      - "Red Hat Enterprise Linux 9 for x86_64 - AppStream (RPMs)"
+    
+  - name: "RHEL_9_Supplementary_CV"
+    description: "RHEL 9 Supplementary Content View"
+    repositories:
+      - "Red Hat Enterprise Linux 9 for x86_64 - Supplementary (RPMs)"
+
+# ==========================================
+# Composite Content Views Configuration
+# ==========================================
+satellite_composite_content_views:
+  - name: "RHEL_9_Complete_CCV"
+    description: "RHEL 9 Complete Composite Content View"
+    component_content_views:
+      - "RHEL_9_BaseOS_CV"
+      - "RHEL_9_AppStream_CV"
+      - "RHEL_9_Supplementary_CV"
+    auto_publish: true
+
+# ==========================================
+# Activation Keys Configuration
+# ==========================================
+satellite_activation_keys:
+  - name: "RHEL_9_DEV_x86_64_Key"
+    description: "RHEL 9 Development Activation Key"
+    lifecycle_environment: "RHEL_9_DEV_x86_64"
+    content_view: "RHEL_9_Complete_CCV"
+    unlimited_hosts: true
+    release_version: "9"
+    service_level: "Standard"
+    
+  - name: "RHEL_9_TEST_x86_64_Key"
+    description: "RHEL 9 Testing Activation Key"
+    lifecycle_environment: "RHEL_9_TEST_x86_64"
+    content_view: "RHEL_9_Complete_CCV"
+    unlimited_hosts: true
+    release_version: "9"
+    service_level: "Standard"
+    
+  - name: "RHEL_9_PROD_x86_64_Key"
+    description: "RHEL 9 Production Activation Key"
+    lifecycle_environment: "RHEL_9_PROD_x86_64"
+    content_view: "RHEL_9_Complete_CCV"
+    unlimited_hosts: false
+    max_hosts: 100
+    release_version: "9"
+    service_level: "Premium"
+
+# ==========================================
+# Host Collections Configuration
+# ==========================================
+satellite_host_collections:
+  - name: "RHEL_9_Development_Hosts"
+    description: "RHEL 9 Development Host Collection"
+    
+  - name: "RHEL_9_Testing_Hosts"
+    description: "RHEL 9 Testing Host Collection"
+    
+  - name: "RHEL_9_Production_Hosts"
+    description: "RHEL 9 Production Host Collection"
+
+# ==========================================
+# Target Hosts Configuration
+# ==========================================
+target_hosts:
+  single_node:
+    enabled: false
+    hostname: "rhel9-server-01.example.com"
+    activation_key: "RHEL_9_PROD_x86_64_Key"
+    host_collection: "RHEL_9_Production_Hosts"
+    
+  host_groups:
+    - name: "RHEL_9_Production_Servers"
+      enabled: false
+      activation_key: "RHEL_9_PROD_x86_64_Key"
+      host_collection: "RHEL_9_Production_Hosts"
+      
+  all_nodes:
+    enabled: false
+
+# ==========================================
+# Package Operations Configuration
+# ==========================================
+package_operations:
+  cve_updates:
+    enabled: false
+    target_cves:
+      - "CVE-2024-6387"
+      - "CVE-2024-1086"
+      - "CVE-2023-4911"
+      - "CVE-2023-2002"
+      - "CVE-2023-32629"
+    auto_reboot_if_needed: false
+    
+  security_updates:
+    enabled: false
+    auto_reboot_if_needed: false
+    
+  bugfix_updates:
+    enabled: false
+    auto_reboot_if_needed: false
+    
+  complete_updates:
+    enabled: false
+    auto_reboot_if_needed: false
+
+# ==========================================
+# Red Hat Insights Integration
+# ==========================================
+insights_integration:
+  install_client: true
+  register_hosts: true
+  enable_data_collection: true
+  compliance_reporting: true
+
+# ==========================================
+# Red Hat Connector Integration
+# ==========================================
+rhc_integration:
+  install_rhc: true
+  configure_connection: true
+  enable_remote_management: true
+  cloud_integration: true
+
+# ==========================================
+# Operation Control Settings
+# ==========================================
+dry_run: false
+debug_mode: true
+force_sync: false
+skip_existing: true
+validate_ssl: false
+timeout_minutes: 60
+
+# ==========================================
+# Reporting Configuration
+# ==========================================
+satellite_reporting:
+  generate_html_reports: true
+  generate_json_reports: true
+  report_directory: "./reports"
+  include_timestamps: true
+  detailed_logging: true
+
+# ==========================================
+# Advanced Configuration
+# ==========================================
+satellite_advanced:
+  parallel_sync: false
+  max_concurrent_syncs: 2
+  retry_attempts: 3
+  retry_delay: 30
+  cleanup_old_versions: false
+  verify_checksum: true

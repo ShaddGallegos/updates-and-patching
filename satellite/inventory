@@ -1,0 +1,114 @@
+# Unified Satellite Management Inventory
+# Configure your satellite servers and connection details
+
+[satellite_servers]
+satellite.example.com ansible_host=192.168.1.100
+# satellite2.example.com ansible_host=192.168.1.101
+
+[satellite_servers:vars]
+# Satellite connection details
+satellite_url=https://satellite.example.com
+satellite_username=admin
+satellite_password=changeme
+satellite_organization="Default Organization"
+satellite_location="Default Location"
+satellite_validate_certs=false
+
+# SSH connection settings
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+
+# Repository configuration
+satellite_repositories=[
+  {
+    "name": "Red Hat Enterprise Linux 9 for x86_64 - BaseOS RPMs 9",
+    "product": "Red Hat Enterprise Linux for x86_64",
+    "content_type": "yum",
+    "sync": true
+  },
+  {
+    "name": "Red Hat Enterprise Linux 9 for x86_64 - AppStream RPMs 9",
+    "product": "Red Hat Enterprise Linux for x86_64", 
+    "content_type": "yum",
+    "sync": true
+  }
+]
+
+# Content view configuration
+satellite_content_views=[
+  {
+    "name": "RHEL9-Base",
+    "repositories": [
+      "Red Hat Enterprise Linux 9 for x86_64 - BaseOS RPMs 9",
+      "Red Hat Enterprise Linux 9 for x86_64 - AppStream RPMs 9"
+    ],
+    "environments": ["Development", "Testing", "Production"]
+  }
+]
+
+# Lifecycle environments
+satellite_lifecycle_environments=[
+  {
+    "name": "Development",
+    "prior": "Library",
+    "description": "Development environment"
+  },
+  {
+    "name": "Testing", 
+    "prior": "Development",
+    "description": "Testing environment"
+  },
+  {
+    "name": "Production",
+    "prior": "Testing",
+    "description": "Production environment"
+  }
+]
+
+# Activation key configuration
+satellite_activation_keys=[
+  {
+    "name": "RHEL9-Dev",
+    "environment": "Development",
+    "content_view": "RHEL9-Base",
+    "subscriptions": ["Red Hat Enterprise Linux Server"]
+  },
+  {
+    "name": "RHEL9-Prod",
+    "environment": "Production", 
+    "content_view": "RHEL9-Base",
+    "subscriptions": ["Red Hat Enterprise Linux Server"]
+  }
+]
+
+# Host groups configuration  
+satellite_host_groups=[
+  {
+    "name": "RHEL9-Servers",
+    "environment": "Production",
+    "content_view": "RHEL9-Base",
+    "activation_key": "RHEL9-Prod"
+  }
+]
+
+# Smart proxy settings
+satellite_smart_proxies=[
+  {
+    "name": "satellite.example.com",
+    "url": "https://satellite.example.com:9090"
+  }
+]
+
+[development]
+# Development satellite servers (optional)
+
+[testing]  
+# Testing satellite servers (optional)
+
+[production]
+# Production satellite servers (optional)
+
+[all:vars]
+# Global variables for all hosts
+ansible_python_interpreter=/usr/bin/python3

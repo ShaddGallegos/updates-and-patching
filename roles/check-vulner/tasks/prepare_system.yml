@@ -3,92 +3,92 @@
 
 - name: Display vulnerability scanning information
   ansible.builtin.debug:
-  msg:
-  - "=== RHEL Vulnerability Scanning Initiated ==="
-  - "System: {{ ansible_facts['hostname'] }}"
-  - "RHEL Version: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
-  - "Kernel: {{ ansible_facts['kernel'] }}"
-  - "Architecture: {{ ansible_facts['architecture'] }}"
-  - "Scan Depth: {{ vulner_scan_depth }}"
-  - "Auto-Remediation: {{ vulner_auto_remediate }}"
+    msg:
+      - "=== RHEL Vulnerability Scanning Initiated ==="
+      - "System: {{ ansible_facts['hostname'] }}"
+      - "RHEL Version: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      - "Kernel: {{ ansible_facts['kernel'] }}"
+      - "Architecture: {{ ansible_facts['architecture'] }}"
+      - "Scan Depth: {{ vulner_scan_depth }}"
+      - "Auto-Remediation: {{ vulner_auto_remediate }}"
 
 - name: Validate RHEL version compatibility
   ansible.builtin.fail:
-  msg: "Vulnerability scanning supports RHEL 7, 8, 9, and 10. Current: {{ ansible_facts['distribution_version'] }}"
+    msg: "Vulnerability scanning supports RHEL 7, 8, 9, and 10. Current: {{ ansible_facts['distribution_version'] }}"
   when:
-  - ansible_facts['distribution'] == 'RedHat'
-  - ansible_facts['distribution_major_version'] | int not in [7, 8, 9, 10]
+    - ansible_facts['distribution'] == 'RedHat'
+    - ansible_facts['distribution_major_version'] | int not in [7, 8, 9, 10]
 
 - name: Set package manager based on RHEL version
   ansible.builtin.set_fact:
-  vulner_package_manager: >-
-  {%- if ansible_facts['distribution_major_version'] | int >= 8 -%}
-  dnf
-  {%- else -%}
-  yum
-  {%- endif -%}
+    vulner_package_manager: >-
+      {%- if ansible_facts['distribution_major_version'] | int >= 8 -%}
+      dnf
+      {%- else -%}
+      yum
+      {%- endif -%}
 
 - name: Install vulnerability scanning tools
   ansible.builtin.package:
-- name: "{{ item }}"
-  state: present
+    name: "{{ item }}"
+    state: present
   loop: "{{ vulner_tools_list }}"
   when:
-  - vulner_install_tools | bool
-  - item not in ['aide', 'lynis'] # Skip optional tools for now
+    - vulner_install_tools | bool
+    - item not in ['aide', 'lynis'] # Skip optional tools for now
   failed_when: false # Some tools might not be available
 
 - name: Install RHEL version-specific security tools
   ansible.builtin.package:
-- name:
-  - "{{ 'yum-plugin-security' if vulner_package_manager == 'yum' else 'dnf-plugin-security' }}"
-  - yum-utils
-  state: present
+    name:
+      - "{{ 'yum-plugin-security' if vulner_package_manager == 'yum' else 'dnf-plugin-security' }}"
+      - yum-utils
+    state: present
   when: vulner_install_tools | bool
   failed_when: false
 
 - name: Update package manager cache
   ansible.builtin.shell: |
-  {{ vulner_package_manager }} clean all && {{ vulner_package_manager }} makecache
+    {{ vulner_package_manager }} clean all && {{ vulner_package_manager }} makecache
   when: vulner_update_definitions | bool
   changed_when: true
 
 - name: Create vulnerability working directory
   ansible.builtin.file:
-  path: "/tmp/vulner_scan_{{ ansible_date_time.epoch }}"
-  state: directory
-  mode: '0700'
+    path: "/tmp/vulner_scan_{{ ansible_date_time.epoch }}"
+    state: directory
+    mode: '0700'
 
 - name: Set working directory fact
   ansible.builtin.set_fact:
-  vulner_work_dir: "/tmp/vulner_scan_{{ ansible_date_time.epoch }}"
+    vulner_work_dir: "/tmp/vulner_scan_{{ ansible_date_time.epoch }}"
 
 - name: Check Red Hat subscription status
   ansible.builtin.shell: |
-  if command -v subscription-manager >/dev/null 2>&1; then
-  subscription-manager status --format=json 2>/dev/null || echo '{"status": "Unknown"}'
-  else
-  echo '{"status": "No subscription-manager"}'
-  fi
+    if command -v subscription-manager >/dev/null 2>&1; then
+      subscription-manager status --format=json 2>/dev/null || echo '{"status": "Unknown"}'
+    else
+      echo '{"status": "No subscription-manager"}'
+    fi
   register: vulner_subscription_status
   changed_when: false
   failed_when: false
 
 - name: Parse subscription information
   ansible.builtin.set_fact:
-  vulner_subscription_active: >-
-  {{ 'Valid' in (vulner_subscription_status.stdout | from_json).get('status', 'Unknown') }}
+    vulner_subscription_active: >-
+      {{ 'Valid' in (vulner_subscription_status.stdout | from_json).get('status', 'Unknown') }}
 
 - name: Warn about subscription status
   ansible.builtin.debug:
-  msg: "WARNING: No active Red Hat subscription detected. Some vulnerability data may be limited."
+    msg: "WARNING: No active Red Hat subscription detected. Some vulnerability data may be limited."
   when: not vulner_subscription_active | bool
 
 - name: Initialize vulnerability tracking variables
   ansible.builtin.set_fact:
-  vulner_found_vulnerabilities: []
-  vulner_critical_count: 0
-  vulner_high_count: 0
-  vulner_medium_count: 0
-  vulner_low_count: 0
-  vulner_scan_start_time: "{{ ansible_date_time.iso8601 }}"
+    vulner_found_vulnerabilities: []
+    vulner_critical_count: 0
+    vulner_high_count: 0
+    vulner_medium_count: 0
+    vulner_low_count: 0
+    vulner_scan_start_time: "{{ ansible_date_time.iso8601 }}"

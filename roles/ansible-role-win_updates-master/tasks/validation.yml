@@ -26,109 +26,108 @@
 
 - name: "Check available disk space for updates"
   win_shell: |
-  $systemDrive = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq $env:SystemDrive}
-  $freeSpaceGB = [math]::Round($systemDrive.FreeSpace / 1GB, 2)
-  $totalSpaceGB = [math]::Round($systemDrive.Size / 1GB, 2)
-  $freeSpacePercent = [math]::Round(($systemDrive.FreeSpace / $systemDrive.Size) * 100, 1)
-
+    $systemDrive = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq $env:SystemDrive}
+    $freeSpaceGB = [math]::Round($systemDrive.FreeSpace / 1GB, 2)
+    $totalSpaceGB = [math]::Round($systemDrive.Size / 1GB, 2)
+    $freeSpacePercent = [math]::Round(($systemDrive.FreeSpace / $systemDrive.Size) * 100, 1)
     @{
-    'FreeSpaceGB' = $freeSpaceGB
-    'TotalSpaceGB' = $totalSpaceGB
-    'FreeSpacePercent' = $freeSpacePercent
-    'SufficientSpace' = ($freeSpaceGB -gt 10) # Minimum 10GB recommended
-    'Drive' = $systemDrive.DeviceID
+      'FreeSpaceGB' = $freeSpaceGB
+      'TotalSpaceGB' = $totalSpaceGB
+      'FreeSpacePercent' = $freeSpacePercent
+      'SufficientSpace' = ($freeSpaceGB -gt 10) # Minimum 10GB recommended
+      'Drive' = $systemDrive.DeviceID
     } | ConvertTo-Json
   register: disk_space_check
   changed_when: false
 
 - name: "Warn about insufficient disk space"
   debug:
-  msg:
-  - " WARNING: Low disk space detected "
-  - "Free Space: {{ (disk_space_check.stdout | from_json).FreeSpaceGB }}GB ({{ (disk_space_check.stdout | from_json).FreeSpacePercent }}%)"
-  - "Recommended: At least 10GB free space for updates"
-  - "Consider cleaning up disk space before proceeding"
+    msg:
+      - " WARNING: Low disk space detected "
+      - "Free Space: {{ (disk_space_check.stdout | from_json).FreeSpaceGB }}GB ({{ (disk_space_check.stdout | from_json).FreeSpacePercent }}%)"
+      - "Recommended: At least 10GB free space for updates"
+      - "Consider cleaning up disk space before proceeding"
   when:
-  - not (disk_space_check.stdout | from_json).SufficientSpace
-  - win_updates_generate_report | bool
+    - not (disk_space_check.stdout | from_json).SufficientSpace
+    - win_updates_generate_report | bool
 
 - name: "Clear Windows Update cache if needed"
   win_shell: |
-  try {
-  # Stop Windows Update service
-  Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
+    try {
+      # Stop Windows Update service
+      Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue
 
-    # Clear update cache
-  $cachePath = "$env:SystemRoot\SoftwareDistribution\Download"
-    if (Test-Path $cachePath) {
-    Remove-Item "$cachePath\*" -Recurse -Force -ErrorAction SilentlyContinue
-    $cacheCleared = $true
-    } else {
-    $cacheCleared = $false
-    }
+      # Clear update cache
+      $cachePath = "$env:SystemRoot\SoftwareDistribution\Download"
+      if (Test-Path $cachePath) {
+        Remove-Item "$cachePath\*" -Recurse -Force -ErrorAction SilentlyContinue
+        $cacheCleared = $true
+      } else {
+        $cacheCleared = $false
+      }
 
-    # Restart Windows Update service
-    Start-Service -Name wuauserv
+      # Restart Windows Update service
+      Start-Service -Name wuauserv
 
-    @{
-    'CacheCleared' = $cacheCleared
-    'CachePath' = $cachePath
-    'Status' = 'Success'
-    } | ConvertTo-Json
+      @{
+        'CacheCleared' = $cacheCleared
+        'CachePath' = $cachePath
+        'Status' = 'Success'
+      } | ConvertTo-Json
     }
     catch {
-    @{
-    'Error' = $_.Exception.Message
-    'Status' = 'Failed'
-    } | ConvertTo-Json
+      @{
+        'Error' = $_.Exception.Message
+        'Status' = 'Failed'
+      } | ConvertTo-Json
     }
   register: cache_clear_result
   when:
-  - not (disk_space_check.stdout | from_json).SufficientSpace
-- win_updates_clear_cache | default(true) | bool
+    - not (disk_space_check.stdout | from_json).SufficientSpace
+    - win_updates_clear_cache | default(true) | bool
   changed_when: "'Success' in cache_clear_result.stdout"
 
 - name: "Validate network connectivity to Windows Update servers"
   win_shell: |
-  try {
-  $updateServers = @(
-  'windowsupdate.microsoft.com',
-  'update.microsoft.com',
-  'download.windowsupdate.com'
-  )
-
-    $connectivityResults = @()
-    foreach ($server in $updateServers) {
     try {
-    $result = Test-NetConnection -ComputerName $server -Port 443 -InformationLevel Quiet
-    $connectivityResults += @{
-    'Server' = $server
-    'Connected' = $result
-    }
+      $updateServers = @(
+        'windowsupdate.microsoft.com',
+        'update.microsoft.com',
+        'download.windowsupdate.com'
+      )
+
+      $connectivityResults = @()
+      foreach ($server in $updateServers) {
+        try {
+          $result = Test-NetConnection -ComputerName $server -Port 443 -InformationLevel Quiet
+          $connectivityResults += @{
+            'Server' = $server
+            'Connected' = $result
+          }
+        }
+        catch {
+          $connectivityResults += @{
+            'Server' = $server
+            'Connected' = $false
+            'Error' = $_.Exception.Message
+          }
+        }
+      }
+
+      $successfulConnections = ($connectivityResults | Where-Object {$_.Connected}).Count
+
+      @{
+        'TotalServers' = $updateServers.Count
+        'SuccessfulConnections' = $successfulConnections
+        'ConnectivityStatus' = if ($successfulConnections -gt 0) { 'Good' } else { 'Failed' }
+        'Results' = $connectivityResults
+      } | ConvertTo-Json -Depth 3
     }
     catch {
-    $connectivityResults += @{
-    'Server' = $server
-    'Connected' = $false
-    'Error' = $_.Exception.Message
-    }
-    }
-    }
-
-    $successfulConnections = ($connectivityResults | Where-Object {$_.Connected}).Count
-
-    @{
-    'TotalServers' = $updateServers.Count
-    'SuccessfulConnections' = $successfulConnections
-    'ConnectivityStatus' = if ($successfulConnections -gt 0) { 'Good' } else { 'Failed' }
-    'Results' = $connectivityResults
-    } | ConvertTo-Json -Depth 3
-    }
-    catch {
-    @{
-    'ConnectivityStatus' = 'Error'
-    'Error' = $_.Exception.Message
-    } | ConvertTo-Json
+      @{
+        'ConnectivityStatus' = 'Error'
+        'Error' = $_.Exception.Message
+      } | ConvertTo-Json
     }
   register: connectivity_check
   changed_when: false
