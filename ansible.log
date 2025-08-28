@@ -12233,3 +12233,16 @@ The offending line appears to be:
   ^ here
 
 2025-08-28 08:13:51,133 p=2564360 u=sgallego n=ansible | playbook: check_rhel_updates_with_report.yml
+2025-08-28 08:53:53,206 p=3422778 u=sgallego n=ansible | ERROR! 'ansible.builtin.command' is not a valid attribute for a Play
+
+The error appears to be in '/home/sgallego/Downloads/GIT/updates-and-patching/update_rhel.yml': line 84, column 3, but may
+be elsewhere in the file depending on the exact syntax problem.
+
+The offending line appears to be:
+
+
+- name: Run Red Hat Insights client and upload to console.redhat.com
+  ^ here
+
+2025-08-28 08:54:16,324 p=3430971 u=sgallego n=ansible | playbook: update_rhel.yml
+2025-08-28 08:54:51,265 p=3443513 u=sgallego n=ansible | playbook: update_rhel.yml

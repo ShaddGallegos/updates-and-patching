@@ -16,13 +16,13 @@ node1.example.com ansible_host=192.168.1.10
 
 # Group variables for all systems
 [all:vars]
-# SSH Configuration
-ansible_user=root
+# SSH Configuration - Use your current user and enable password auth as fallback
+ansible_user=sgallego
 ansible_ssh_private_key_file=~/.ssh/id_rsa
 ansible_python_interpreter=auto_silent
 
-# Connection settings to avoid SSH issues
-ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=publickey'
+# Connection settings to avoid SSH issues and enable multiple auth methods
+ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=publickey,password'
 
 [rhel_systems:vars]
 # RHEL-specific variables
