@@ -1,0 +1,35 @@
+---
+galaxy_info:
+  author: Santiago Gallego
+  description: Modern kpatch live kernel patching role with comprehensive patch management, verification, and monitoring for RHEL 7, 8, 9, and 10
+  company: Red Hat
+  
+  license: Apache-2.0
+  
+  min_ansible_version: "2.9"
+  
+  platforms:
+    - name: EL
+      versions:
+        - "7"
+        - "8"
+        - "9"
+        - "10"
+  
+  galaxy_tags:
+    - system
+    - kernel
+    - patching
+    - kpatch
+    - livepatch
+    - rhel
+    - security
+    - updates
+    - maintenance
+    - enterprise
+    - redhat
+    - hotfix
+    - livepatching
+    - kernelmodules
+
+dependencies: []

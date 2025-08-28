@@ -1,0 +1,83 @@
+---
+# Post-update analysis and reboot detection
+
+- name: Gather package facts after update
+  package_facts:
+  register: update_rhel_packages_post
+
+- name: Store post-update package count
+  set_fact:
+    update_rhel_post_package_count: "{{ update_rhel_packages_post.ansible_facts.packages.keys() | length }}"
+
+- name: Determine latest installed kernel version
+  set_fact:
+    update_rhel_latest_kernel: "{{ update_rhel_packages_post.ansible_facts.packages.kernel[-1].version }}-{{ update_rhel_packages_post.ansible_facts.packages.kernel[-1].release }}.{{ update_rhel_packages_post.ansible_facts.packages.kernel[-1].arch }}"
+  when: 
+    - update_rhel_packages_post.ansible_facts.packages.kernel is defined
+    - update_rhel_packages_post.ansible_facts.packages.kernel | length > 0
+
+- name: Check if kernel update requires reboot
+  set_fact:
+    update_rhel_kernel_reboot_needed: "{{ update_rhel_latest_kernel is defined and update_rhel_os_info.kernel != update_rhel_latest_kernel }}"
+
+- name: Check for system reboot indicators (RHEL 8+)
+  stat:
+    path: /var/run/reboot-required
+  register: update_rhel_reboot_file
+  when: update_rhel_os_info.major_version >= 8
+
+- name: Check for systemd reboot indicators
+  command: systemctl is-system-running
+  register: update_rhel_system_status
+  failed_when: false
+  changed_when: false
+
+- name: Determine overall reboot requirement
+  set_fact:
+    update_rhel_reboot_needed: |
+      {{
+        update_rhel_kernel_reboot_needed | default(false) or
+        (update_rhel_reboot_file.stat.exists | default(false)) or
+        update_rhel_force_reboot | default(false)
+      }}
+
+- name: Display kernel information
+  debug:
+    msg: |
+      Kernel Analysis:
+      - Current running: {{ update_rhel_os_info.kernel }}
+      - Latest installed: {{ update_rhel_latest_kernel | default('Unable to determine') }}
+      - Kernel reboot needed: {{ update_rhel_kernel_reboot_needed | default(false) }}
+  when: update_rhel_verbose | default(true)
+
+- name: Display reboot requirement analysis
+  debug:
+    msg: |
+      Reboot Analysis:
+      {% if update_rhel_reboot_needed %}
+      REBOOT REQUIRED due to:
+      {% if update_rhel_kernel_reboot_needed | default(false) %}
+      - Kernel update: {{ update_rhel_os_info.kernel }} -> {{ update_rhel_latest_kernel }}
+      {% endif %}
+      {% if update_rhel_reboot_file.stat.exists | default(false) %}
+      - System reboot indicator file present
+      {% endif %}
+      {% if update_rhel_force_reboot | default(false) %}
+      - Forced reboot requested
+      {% endif %}
+      {% else %}
+      No reboot required
+      {% endif %}
+  when: update_rhel_verbose | default(true)
+
+- name: Display update summary
+  debug:
+    msg: |
+      Update Summary:
+      - System: {{ update_rhel_os_info.distribution }} {{ update_rhel_os_info.version }}
+      - Pre-update packages: {{ update_rhel_pre_package_count | default('Unknown') }}
+      - Post-update packages: {{ update_rhel_post_package_count | default('Unknown') }}
+      - Updates applied: {{ 'Yes' if update_rhel_package_result.changed | default(false) else 'No' }}
+      - Updates remaining: {{ update_rhel_remaining_count | default('Unknown') }}
+      - Reboot needed: {{ update_rhel_reboot_needed }}
+  when: update_rhel_verbose | default(true)

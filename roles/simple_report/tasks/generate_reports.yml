@@ -1,0 +1,95 @@
+---
+# Report generation tasks for multiple formats
+
+- name: Aggregate data from all hosts
+  ansible.builtin.set_fact:
+    all_hosts_data: "{{ all_hosts_data | default([]) + [host_report_data] }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Generate CSV report
+  ansible.builtin.template:
+    src: report.csv.j2
+    dest: "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.csv"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+  when: "'csv' in report_output_formats"
+
+- name: Generate JSON report
+  ansible.builtin.copy:
+    content: |
+      {
+        "report_metadata": {
+          "title": "{{ report_title }}",
+          "generation_time": "{{ ansible_date_time.iso8601 }}",
+          "ansible_version": "{{ ansible_version.full }}",
+          "total_hosts": {{ groups['all'] | length }},
+          "report_formats": {{ report_output_formats | to_json }}
+        },
+        "hosts": {{ all_hosts_data | to_nice_json }}
+      }
+    dest: "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.json"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+  when: "'json' in report_output_formats"
+
+- name: Generate professional HTML report
+  ansible.builtin.template:
+    src: report_professional.html.j2
+    dest: "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+  when: "'html' in report_output_formats"
+
+- name: Generate PDF report from HTML (if wkhtmltopdf available)
+  ansible.builtin.shell: |
+    wkhtmltopdf \
+      --page-size {{ report_pdf_page_size }} \
+      --orientation {{ report_pdf_orientation }} \
+      --margin-top {{ report_pdf_margins }} \
+      --margin-right {{ report_pdf_margins }} \
+      --margin-bottom {{ report_pdf_margins }} \
+      --margin-left {{ report_pdf_margins }} \
+      --enable-local-file-access \
+      "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html" \
+      "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.pdf"
+  delegate_to: localhost
+  run_once: true
+  when: 
+    - report_include_pdf | bool
+    - pdf_generation_available | bool
+    - "'html' in report_output_formats"
+  changed_when: true
+
+- name: Generate summary statistics
+  ansible.builtin.set_fact:
+    report_summary:
+      total_hosts: "{{ groups['all'] | length }}"
+      rhel_versions: "{{ all_hosts_data | map(attribute='system.distribution_major_version') | list | unique | sort }}"
+      total_security_updates: "{{ all_hosts_data | selectattr('updates', 'defined') | map(attribute='updates.security_updates') | sum }}"
+      total_bugfix_updates: "{{ all_hosts_data | selectattr('updates', 'defined') | map(attribute='updates.bugfix_updates') | sum }}"
+      total_enhancement_updates: "{{ all_hosts_data | selectattr('updates', 'defined') | map(attribute='updates.enhancement_updates') | sum }}"
+      hosts_needing_updates: "{{ all_hosts_data | selectattr('updates', 'defined') | selectattr('updates.total_updates', '>', 0) | list | length }}"
+      avg_memory_usage: "{{ (all_hosts_data | map(attribute='memory.usage_percent') | sum / groups['all'] | length) | round(1) }}"
+      subscription_status: "{{ all_hosts_data | map(attribute='subscription.status') | list | unique }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Generate executive summary report
+  ansible.builtin.template:
+    src: executive_summary.html.j2
+    dest: "{{ report_output_dir }}/executive_summary_{{ report_date }}.html"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+
+- name: Create report index file
+  ansible.builtin.template:
+    src: index.html.j2
+    dest: "{{ report_output_dir }}/index.html"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true

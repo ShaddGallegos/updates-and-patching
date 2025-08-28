@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RHEL System Reports - {{ report_date }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        .reports-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .report-card {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+        
+        .report-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .report-card h3 {
+            color: #2c3e50;
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+        }
+        
+        .report-card p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #20c997);
+        }
+        
+        .btn-info {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+        }
+        
+        .stats-summary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .stats-summary h2 {
+            margin-bottom: 20px;
+            font-size: 2rem;
+        }
+        
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .footer {
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid #dee2e6;
+            color: #666;
+        }
+        
+        .red-hat-branding {
+            color: #cc0000;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .reports-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 RHEL System Reports</h1>
+            <div class="subtitle">Generated on {{ ansible_date_time.iso8601[:19] | replace('T', ' at ') }} UTC</div>
+            <div class="subtitle">Analysis of {{ groups['all'] | length }} RHEL Systems</div>
+        </div>
+
+        <div class="stats-summary">
+            <h2>Infrastructure Summary</h2>
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-number">{{ groups['all'] | length }}</span>
+                    <span class="stat-label">Total Systems</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ report_summary.total_security_updates | default(0) }}</span>
+                    <span class="stat-label">Security Updates</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ report_summary.hosts_needing_updates | default(0) }}</span>
+                    <span class="stat-label">Need Updates</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">{{ report_summary.avg_memory_usage | default(0) }}%</span>
+                    <span class="stat-label">Avg Memory</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="reports-grid">
+            <div class="report-card">
+                <h3>📊 Executive Summary</h3>
+                <p>High-level overview and key recommendations for management stakeholders.</p>
+                <a href="executive_summary_{{ report_date }}.html" class="btn btn-success">View Summary</a>
+            </div>
+
+            {% if 'html' in report_output_formats %}
+            <div class="report-card">
+                <h3>📋 Detailed System Report</h3>
+                <p>Comprehensive analysis of all systems including security status, updates, and performance metrics.</p>
+                <a href="{{ report_filename_prefix }}_{{ report_date }}.html" class="btn">View Details</a>
+            </div>
+            {% endif %}
+
+            {% if 'csv' in report_output_formats %}
+            <div class="report-card">
+                <h3>📈 Data Export (CSV)</h3>
+                <p>Raw data export for further analysis in spreadsheets or business intelligence tools.</p>
+                <a href="{{ report_filename_prefix }}_{{ report_date }}.csv" class="btn btn-secondary">Download CSV</a>
+            </div>
+            {% endif %}
+
+            {% if 'json' in report_output_formats %}
+            <div class="report-card">
+                <h3>🔧 Machine Data (JSON)</h3>
+                <p>Structured data format for integration with monitoring tools and automation systems.</p>
+                <a href="{{ report_filename_prefix }}_{{ report_date }}.json" class="btn btn-info">Download JSON</a>
+            </div>
+            {% endif %}
+
+            {% if report_include_pdf and pdf_generation_available %}
+            <div class="report-card">
+                <h3>🖨️ Printable Report (PDF)</h3>
+                <p>Professional PDF report suitable for printing and offline distribution.</p>
+                <a href="{{ report_filename_prefix }}_{{ report_date }}.pdf" class="btn btn-secondary">Download PDF</a>
+            </div>
+            {% endif %}
+
+            <div class="report-card">
+                <h3>📄 Report Manifest</h3>
+                <p>Complete list of generated files and metadata about this reporting session.</p>
+                <a href="REPORT_MANIFEST.txt" class="btn btn-secondary">View Manifest</a>
+            </div>
+        </div>
+
+        {% if report_enable_web_server %}
+        <div style="background: #e8f5e8; border: 1px solid #28a745; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #28a745; margin-bottom: 10px;">🌐 Web Server Active</h3>
+            <p>A web server is running to serve these reports. Access them at:</p>
+            <p><strong>URL:</strong> <a href="http://{{ report_web_server_host }}:{{ report_web_server_port }}">http://{{ report_web_server_host }}:{{ report_web_server_port }}</a></p>
+        </div>
+        {% endif %}
+
+        <div class="footer">
+            <p class="red-hat-branding">Red Hat Enterprise Linux</p>
+            <p>Automated System Reporting • Generated by Ansible</p>
+            <p>Report ID: {{ report_timestamp }} • Location: {{ report_output_dir }}</p>
+        </div>
+    </div>
+</body>
+</html>

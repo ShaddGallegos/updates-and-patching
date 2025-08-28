@@ -1,0 +1,58 @@
+galaxy_info:
+  role_name: check_vulner
+  namespace: security
+  author: IT Security Team
+  description: Enterprise-grade vulnerability scanning and automated remediation for RHEL systems
+  company: Enterprise Security Solutions
+  
+  license: MIT
+  
+  min_ansible_version: '2.9'
+  
+  platforms:
+    - name: EL
+      versions:
+        - '7'
+        - '8'
+        - '9'
+    - name: RedHat  
+      versions:
+        - '7'
+        - '8'
+        - '9'
+        - '10'
+    - name: CentOS
+      versions:
+        - '7'
+        - '8'
+    - name: Rocky
+      versions:
+        - '8'
+        - '9'
+    - name: AlmaLinux
+      versions:
+        - '8'
+        - '9'
+
+  galaxy_tags:
+    - security
+    - vulnerability
+    - scanning
+    - remediation
+    - cve
+    - compliance
+    - patching
+    - rhel
+    - centos
+    - rocky
+    - almalinux
+    - monitoring
+    - reporting
+    - automation
+    - enterprise
+
+dependencies:
+  - name: community.general
+    version: ">=3.0.0"
+  - name: ansible.posix
+    version: ">=1.2.0"

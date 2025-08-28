@@ -1,2 +1,50 @@
 ---
-# default yum file
+# Default variables for ansible-role-yum
+# Supports RHEL 7, 8, 9, and 10
+
+# Package manager configuration
+yum_config_file: "{{ '/etc/yum.conf' if ansible_facts['distribution_major_version']|int < 8 else '/etc/dnf/dnf.conf' }}"
+yum_backup_original: true
+yum_validate_config: true
+
+# RHEL version-specific settings
+yum_rhel_supported_versions:
+  - "7"
+  - "8" 
+  - "9"
+  - "10"
+
+# Configuration options that can be overridden
+yum_keepcache: 0
+yum_debuglevel: 2
+yum_exactarch: 1
+yum_obsoletes: 1
+yum_gpgcheck: 1
+yum_plugins: 1
+yum_skip_if_unavailable: 1
+
+# Version-specific defaults
+yum_installonly_limit: "{{ 5 if ansible_facts['distribution_major_version']|int >= 10 else 3 }}"
+yum_timeout: "{{ 600 if ansible_facts['distribution_major_version']|int >= 9 else 300 }}"
+yum_minrate: 1
+
+# DNF-specific settings for RHEL 8+
+yum_best: "{{ 1 if ansible_facts['distribution_major_version']|int >= 8 else omit }}"
+yum_clean_requirements_on_remove: "{{ 1 if ansible_facts['distribution_major_version']|int >= 8 else omit }}"
+
+# RHEL 9+ features
+yum_zchunk: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
+yum_countme: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
+yum_fastestmirror: "{{ 1 if ansible_facts['distribution_major_version']|int >= 9 else omit }}"
+
+# RHEL 10+ advanced features  
+yum_module_hotfixes: "{{ 1 if ansible_facts['distribution_major_version']|int >= 10 else omit }}"
+yum_protect_running_kernel: "{{ 1 if ansible_facts['distribution_major_version']|int >= 10 else omit }}"
+
+# Enhanced security for RHEL 8+
+yum_localpkg_gpgcheck: "{{ 1 if ansible_facts['distribution_major_version']|int >= 8 else omit }}"
+yum_repo_gpgcheck: "{{ 0 if ansible_facts['distribution_major_version']|int >= 8 else omit }}"
+
+# Service management
+yum_enable_automatic_updates: false
+yum_restart_services_on_change: true

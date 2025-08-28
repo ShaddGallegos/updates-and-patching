@@ -1,0 +1,115 @@
+---
+# Kpatch installation and setup tasks
+
+- name: Enable additional repositories if specified
+  ansible.builtin.shell: |
+    {{ active_package_manager }} config-manager --enable {{ item }}
+  loop: "{{ kpatch_enable_repos }}"
+  when: 
+    - kpatch_enable_repos | length > 0
+    - kpatch_install_from_repos | bool
+  changed_when: true
+
+- name: Install kpatch package
+  ansible.builtin.package:
+    name: kpatch
+    state: present
+  register: kpatch_package_install
+  when: not kpatch_already_installed | bool
+
+- name: Display kpatch installation result
+  ansible.builtin.debug:
+    msg: "Kpatch package {% if kpatch_package_install.changed %}installed successfully{% else %}was already present{% endif %}"
+  when: kpatch_verbose_output | bool
+
+- name: Install kpatch-dnf plugin for DNF systems (RHEL 8+)
+  ansible.builtin.package:
+    name: kpatch-dnf
+    state: present
+  when:
+    - active_package_manager == 'dnf'
+    - ansible_facts['distribution_major_version'] | int >= 8
+  failed_when: false  # Plugin may not be available on all systems
+
+- name: Check for available kpatch patches for current kernel
+  ansible.builtin.shell: |
+    {{ active_package_manager }} list available | grep "kpatch-patch.*{{ kpatch_specific_kernel }}" || echo "no_patches_available"
+  register: available_kpatch_patches
+  changed_when: false
+
+- name: Parse available patches
+  ansible.builtin.set_fact:
+    kpatch_patches_available: "{{ available_kpatch_patches.stdout_lines | select('match', '^kpatch-patch.*') | list }}"
+
+- name: Display available patches
+  ansible.builtin.debug:
+    msg: 
+      - "Available kpatch patches for kernel {{ kpatch_specific_kernel }}:"
+      - "{{ kpatch_patches_available if kpatch_patches_available | length > 0 else ['No patches available'] }}"
+  when: kpatch_verbose_output | bool
+
+- name: Install kpatch patches for current kernel
+  ansible.builtin.package:
+    name: "{{ item.split()[0] }}"  # Extract package name from yum/dnf output
+    state: present
+  loop: "{{ kpatch_patches_available }}"
+  register: kpatch_patches_install
+  when:
+    - kpatch_auto_install_patches | bool
+    - kpatch_patches_available | length > 0
+    - kpatch_action in ['install']
+  failed_when: false  # Some patches might not be installable
+
+- name: Install specific kpatch patches if provided
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kpatch_patch_list }}"
+  register: kpatch_specific_patches_install
+  when:
+    - kpatch_patch_list | length > 0
+    - kpatch_action in ['install']
+
+- name: Backup kernel modules before applying patches (if enabled)
+  ansible.builtin.shell: |
+    backup_dir="/var/lib/kpatch/backup/$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "${backup_dir}"
+    cp -r /lib/modules/{{ kpatch_specific_kernel }}/ "${backup_dir}/" 2>/dev/null || echo "Backup completed with some warnings"
+  when: kpatch_backup_before_install | bool
+  changed_when: true
+
+- name: Ensure kpatch service is configured
+  ansible.builtin.systemd:
+    name: kpatch
+    enabled: "{{ kpatch_service_enabled }}"
+    state: "{{ kpatch_service_state }}"
+    daemon_reload: true
+  register: kpatch_service_config
+  notify: restart kpatch service
+
+- name: Display service configuration result
+  ansible.builtin.debug:
+    msg: "Kpatch service configured - Enabled: {{ kpatch_service_enabled }}, State: {{ kpatch_service_state }}"
+  when: kpatch_verbose_output | bool
+
+- name: Check kpatch service status
+  ansible.builtin.systemd:
+    name: kpatch
+  register: kpatch_service_status
+
+- name: Set kpatch service facts
+  ansible.builtin.set_fact:
+    kpatch_service_active: "{{ kpatch_service_status.status.ActiveState == 'active' }}"
+    kpatch_service_enabled_status: "{{ kpatch_service_status.status.UnitFileState == 'enabled' }}"
+  when: kpatch_set_facts | bool
+
+- name: Verify kpatch installation
+  ansible.builtin.command: kpatch --version
+  register: kpatch_version_check
+  changed_when: false
+  failed_when: kpatch_version_check.rc != 0
+
+- name: Display kpatch version
+  ansible.builtin.debug:
+    msg: "Installed kpatch version: {{ kpatch_version_check.stdout }}"
+  when: kpatch_verbose_output | bool

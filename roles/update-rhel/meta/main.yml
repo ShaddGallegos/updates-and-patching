@@ -1,17 +1,31 @@
 ---
 galaxy_info:
-  author: Orcun Atakan (oatakan@redhat.com)
-  description: Ansible galaxy role for upgrading RHEL system to the latest version
+  author: Orcun Atakan (oatakan@redhat.com) / Updated by ShaddGallegos
+  description: Modern RHEL system update role with comprehensive package management, intelligent reboot handling, and enhanced error recovery across RHEL 7, 8, 9, and 10
   company: "Red Hat"
-  license: "license (BSD, MIT)"
-  min_ansible_version: 2.6
+  license: "Apache-2.0"
+  min_ansible_version: 2.9
   platforms:
     - name: EL
       versions:
-        - all
+        - 7
+        - 8
+        - 9
+        - 10
   galaxy_tags:
     - rhel
+    - rhel7
+    - rhel8
+    - rhel9
+    - rhel10
     - os
     - update
+    - yum
+    - dnf
+    - patching
+    - system
+    - maintenance
+    - reboot
+    - packages
 
 dependencies: []

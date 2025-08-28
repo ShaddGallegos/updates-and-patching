@@ -1,0 +1,108 @@
+---
+# tasks file for unregister_rhel
+
+- name: Check if system is registered to Satellite
+  stat:
+    path: /etc/rhsm/ca/katello-server-ca.pem
+  register: satellite_ca_check
+
+- name: Check for Satellite consumer certificate
+  stat:
+    path: /etc/pki/consumer/cert.pem
+  register: consumer_cert_check
+
+- name: Determine registration type
+  set_fact:
+    is_satellite_registered: "{{ satellite_ca_check.stat.exists or consumer_cert_check.stat.exists }}"
+
+- name: Display registration type
+  debug:
+    msg: |
+      {% if is_satellite_registered %}
+      System appears to be registered to Red Hat Satellite
+      {% else %}
+      System appears to be registered to Red Hat Subscription Manager (direct)
+      {% endif %}
+  when: unregister_rhel_verbose | default(true)
+
+- name: Unregister from Red Hat Subscription Manager/Satellite
+  redhat_subscription:
+    state: absent
+  ignore_errors: true
+
+- name: Clean subscription-manager data
+  command: subscription-manager clean
+  ignore_errors: true
+
+- name: Remove subscription-manager cache
+  file:
+    path: /var/lib/rhsm/cache
+    state: absent
+  ignore_errors: true
+
+- name: Clean yum/dnf cache
+  command: "{{ ansible_pkg_mgr }} clean all"
+  ignore_errors: true
+
+- name: Remove yum/dnf metadata
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/cache/yum
+    - /var/cache/dnf
+  ignore_errors: true
+
+- name: Remove Red Hat repository files
+  file:
+    path: /etc/yum.repos.d/redhat.repo
+    state: absent
+  ignore_errors: true
+
+- name: Remove subscription-manager configuration
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/rhsm/rhsm.conf.rpmsave
+    - /etc/pki/consumer/cert.pem
+    - /etc/pki/consumer/key.pem
+    - /etc/pki/entitlement
+  ignore_errors: true
+
+- name: Clean up katello-ca-consumer packages
+  package:
+    name: "katello-ca-consumer-*"
+    state: absent
+  ignore_errors: true
+
+- name: Remove Satellite/Katello certificates
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/rhsm/ca/katello-server-ca.pem
+    - /etc/pki/ca-trust/source/anchors/katello-server-ca.pem
+  ignore_errors: true
+
+- name: Update CA trust store
+  command: update-ca-trust
+  ignore_errors: true
+
+# Include Satellite-specific cleanup tasks
+- include_tasks: satellite_cleanup.yml
+  when: is_satellite_registered and unregister_rhel_clean_satellite | default(true)
+
+- name: Display unregistration status
+  debug:
+    msg: |
+      {% if is_satellite_registered %}
+      Satellite unregistration and cleanup completed.
+      System has been unregistered from Red Hat Satellite.
+      All Satellite-specific configurations, packages, and services have been cleaned up.
+      {% else %}
+      Red Hat Subscription Manager unregistration and cleanup completed.
+      System has been unregistered from Red Hat Network.
+      {% endif %}
+      All subscription data and repositories have been cleaned up.
+  when: unregister_rhel_verbose | default(true)

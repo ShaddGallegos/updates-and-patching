@@ -1,0 +1,88 @@
+---
+# Satellite registration tasks
+
+- name: Install Satellite CA certificate
+  get_url:
+    url: "{{ register_rhel_satellite_url }}/pub/katello-ca-consumer-latest.noarch.rpm"
+    dest: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+    validate_certs: "{{ register_rhel_validate_certs | default(true) }}"
+  when: register_rhel_install_satellite_ca | default(true)
+
+- name: Install Satellite CA certificate package
+  package:
+    name: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+    state: present
+  when: register_rhel_install_satellite_ca | default(true)
+
+- name: Unregister if forcing re-registration
+  command: subscription-manager unregister
+  when: 
+    - already_registered
+    - register_rhel_force | default(false)
+  ignore_errors: true
+
+- name: Register with Satellite using activation key
+  redhat_subscription:
+    state: present
+    server_hostname: "{{ register_rhel_satellite_url | regex_replace('https?://') }}"
+    org_id: "{{ register_rhel_org_id }}"
+    activationkey: "{{ register_rhel_activation_key }}"
+    force_register: "{{ register_rhel_force | default(false) }}"
+  register: satellite_registration_result
+  when: register_rhel_activation_key is defined
+
+- name: Register with Satellite using username/password
+  redhat_subscription:
+    state: present
+    server_hostname: "{{ register_rhel_satellite_url | regex_replace('https?://') }}"
+    username: "{{ register_rhel_satellite_username }}"
+    password: "{{ register_rhel_satellite_password }}"
+    org_id: "{{ register_rhel_org_id }}"
+    force_register: "{{ register_rhel_force | default(false) }}"
+  register: satellite_registration_result
+  when: 
+    - register_rhel_activation_key is not defined
+    - register_rhel_satellite_username is defined
+    - register_rhel_satellite_password is defined
+
+- name: Display Satellite registration result
+  debug:
+    msg: |
+      Satellite Registration completed successfully.
+      System is now registered to Red Hat Satellite: {{ register_rhel_satellite_url }}
+      Organization: {{ register_rhel_org_id }}
+  when: 
+    - satellite_registration_result is succeeded
+    - register_rhel_verbose | default(true)
+
+- name: Install Satellite client tools if requested
+  package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - katello-agent
+    - katello-host-tools
+    - katello-host-tools-tracer
+  when: 
+    - register_rhel_install_satellite_tools | default(false)
+    - satellite_registration_result is succeeded
+  ignore_errors: true
+
+- name: Enable and start Satellite services
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - goferd
+    - rhsmcertd
+  when: 
+    - register_rhel_install_satellite_tools | default(false)
+    - satellite_registration_result is succeeded
+  ignore_errors: true
+
+- name: Clean up CA certificate download
+  file:
+    path: "/tmp/katello-ca-consumer-latest.noarch.rpm"
+    state: absent
+  when: register_rhel_install_satellite_ca | default(true)

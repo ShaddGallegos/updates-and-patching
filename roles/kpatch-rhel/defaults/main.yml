@@ -1,0 +1,63 @@
+---
+# Modern kpatch-rhel role defaults
+
+# Kpatch operation mode
+kpatch_action: "install"  # install, enable, disable, list, remove, info
+
+# Package management
+kpatch_package_manager: "auto"  # auto, yum, dnf
+kpatch_enable_repos: []  # Additional repos to enable for kpatch packages
+kpatch_install_from_repos: true  # Install kpatch packages from repos
+kpatch_specific_kernel: "{{ ansible_facts['kernel'] }}"  # Target kernel version
+
+# Service management
+kpatch_service_enabled: true
+kpatch_service_state: "started"
+
+# Patch management
+kpatch_patch_list: []  # Specific patches to install (empty means all available)
+kpatch_auto_install_patches: true  # Automatically install available patches
+kpatch_verify_patches: true  # Verify patch installation
+kpatch_force_install: false  # Force installation even if already installed
+
+# Validation settings
+kpatch_validate_kernel: true  # Validate kernel compatibility
+kpatch_validate_architecture: true  # Validate architecture compatibility
+kpatch_validate_subscription: true  # Validate Red Hat subscription
+kpatch_skip_validation: false  # Skip all validations (dangerous)
+
+# Timeout and retry settings
+kpatch_install_timeout: 300  # Timeout for patch installation (seconds)
+kpatch_install_retries: 3  # Number of installation retries
+kpatch_install_delay: 5  # Delay between retries (seconds)
+
+# Verification settings
+kpatch_verification_timeout: 60  # Timeout for patch verification
+kpatch_verification_retries: 12  # Number of verification retries
+kpatch_verification_delay: 5  # Delay between verification attempts
+
+# Cleanup settings
+kpatch_cleanup_old_patches: false  # Remove old/unused patches
+kpatch_keep_patches_count: 3  # Number of patch versions to keep
+
+# Logging and reporting
+kpatch_verbose_output: true  # Show detailed output
+kpatch_log_patches: true  # Log patch operations
+kpatch_report_status: true  # Report final patch status
+
+# Security settings
+kpatch_require_signature: true  # Require signed patches (RHEL 8+)
+kpatch_check_certificates: true  # Verify patch certificates
+
+# Emergency settings
+kpatch_emergency_disable: false  # Emergency disable all patches
+kpatch_backup_before_install: true  # Backup kernel modules before patching
+
+# Integration settings
+kpatch_notify_handlers: true  # Notify handlers on changes
+kpatch_set_facts: true  # Set Ansible facts with patch information
+
+# Compatibility settings (RHEL version specific)
+kpatch_rhel7_compat: true  # Enable RHEL 7 specific compatibility
+kpatch_rhel8_features: true  # Enable RHEL 8+ specific features
+kpatch_rhel9_features: true  # Enable RHEL 9+ specific features

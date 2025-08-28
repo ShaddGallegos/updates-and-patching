@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Executive Summary - {{ report_title }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .executive-header {
+            background: linear-gradient(135deg, #2c3e50, #4a6741);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .executive-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .kpi-card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+        }
+        
+        .kpi-number {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .kpi-label {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .critical { color: #dc3545; border-color: #dc3545; }
+        .warning { color: #ffc107; border-color: #ffc107; }
+        .success { color: #28a745; border-color: #28a745; }
+        .info { color: #17a2b8; border-color: #17a2b8; }
+        
+        .summary-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .summary-section h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .recommendation {
+            background: #e8f4f8;
+            border-left: 4px solid #17a2b8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .recommendation h3 {
+            color: #17a2b8;
+            margin-bottom: 10px;
+        }
+        
+        .risk-high {
+            background: #ffeaea;
+            border-left-color: #dc3545;
+        }
+        
+        .risk-high h3 {
+            color: #dc3545;
+        }
+        
+        .risk-medium {
+            background: #fff8e1;
+            border-left-color: #ffc107;
+        }
+        
+        .risk-medium h3 {
+            color: #ffc107;
+        }
+        
+        .print-friendly {
+            color: #333 !important;
+            background: white !important;
+        }
+        
+        @media print {
+            body { background: white !important; }
+            .executive-header { background: #2c3e50 !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="executive-header">
+        <h1>Executive Summary</h1>
+        <p>{{ report_title }} - {{ report_date }}</p>
+        <p>RHEL Infrastructure Status Report</p>
+    </div>
+
+    {% set total_security = report_summary.total_security_updates | default(0) %}
+    {% set total_hosts = report_summary.total_hosts | default(groups['all'] | length) %}
+    {% set hosts_with_updates = report_summary.hosts_needing_updates | default(0) %}
+    {% set avg_memory = report_summary.avg_memory_usage | default(0) %}
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-number info">{{ total_hosts }}</div>
+            <div class="kpi-label">Total RHEL Systems</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-number {% if total_security > 0 %}critical{% else %}success{% endif %}">{{ total_security }}</div>
+            <div class="kpi-label">Security Updates Required</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-number {% if hosts_with_updates > total_hosts // 2 %}warning{% else %}success{% endif %}">{{ hosts_with_updates }}</div>
+            <div class="kpi-label">Systems Need Updates</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-number {% if avg_memory > 90 %}critical{% elif avg_memory > 80 %}warning{% else %}success{% endif %}">{{ avg_memory }}%</div>
+            <div class="kpi-label">Avg Memory Utilization</div>
+        </div>
+    </div>
+
+    <div class="summary-section">
+        <h2>Infrastructure Overview</h2>
+        <p><strong>Assessment Date:</strong> {{ ansible_date_time.iso8601[:19] | replace('T', ' at ') }} UTC</p>
+        <p><strong>Systems Analyzed:</strong> {{ total_hosts }} Red Hat Enterprise Linux servers</p>
+        <p><strong>RHEL Versions:</strong> {{ report_summary.rhel_versions | default([]) | join(', ') }}</p>
+        <p><strong>Patch Compliance:</strong> {{ ((total_hosts - hosts_with_updates) / total_hosts * 100) | round(1) }}% of systems are up to date</p>
+    </div>
+
+    {% if total_security > 0 %}
+    <div class="recommendation risk-high">
+        <h3>🚨 Critical Security Action Required</h3>
+        <p><strong>{{ total_security }}</strong> security updates are pending across your infrastructure. These updates address known vulnerabilities and should be applied immediately during the next maintenance window.</p>
+        <ul>
+            <li>Schedule emergency maintenance window for critical security patches</li>
+            <li>Prioritize internet-facing systems and those handling sensitive data</li>
+            <li>Test patches in development environment before production deployment</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if hosts_with_updates > total_hosts // 2 %}
+    <div class="recommendation risk-medium">
+        <h3>⚠️ Patch Management Attention Needed</h3>
+        <p>{{ hosts_with_updates }} out of {{ total_hosts }} systems ({{ (hosts_with_updates / total_hosts * 100) | round(1) }}%) require updates. This indicates a need for improved patch management processes.</p>
+        <ul>
+            <li>Implement automated patching schedule for non-critical updates</li>
+            <li>Review current maintenance window frequency</li>
+            <li>Consider implementing staged patching approach</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if avg_memory > 85 %}
+    <div class="recommendation risk-medium">
+        <h3>💾 Memory Utilization Monitoring</h3>
+        <p>Average memory utilization across systems is {{ avg_memory }}%. High memory usage may impact system performance and stability.</p>
+        <ul>
+            <li>Review applications and services consuming high memory</li>
+            <li>Consider memory optimization or hardware upgrades</li>
+            <li>Implement proactive monitoring and alerting</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    <div class="summary-section">
+        <h2>Key Metrics</h2>
+        <table style="width: 100%; border-collapse: collapse;">
+            <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 12px; font-weight: bold;">Metric</td>
+                <td style="padding: 12px; font-weight: bold;">Value</td>
+                <td style="padding: 12px; font-weight: bold;">Status</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px;">Security Updates Available</td>
+                <td style="padding: 12px;">{{ total_security }}</td>
+                <td style="padding: 12px; color: {% if total_security == 0 %}#28a745{% else %}#dc3545{% endif %};">
+                    {% if total_security == 0 %}✅ Good{% else %}🚨 Action Required{% endif %}
+                </td>
+            </tr>
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px;">Patch Compliance</td>
+                <td style="padding: 12px;">{{ ((total_hosts - hosts_with_updates) / total_hosts * 100) | round(1) }}%</td>
+                <td style="padding: 12px; color: {% if ((total_hosts - hosts_with_updates) / total_hosts * 100) > 80 %}#28a745{% else %}#ffc107{% endif %};">
+                    {% if ((total_hosts - hosts_with_updates) / total_hosts * 100) > 80 %}✅ Good{% else %}⚠️ Needs Improvement{% endif %}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 12px;">Average System Uptime</td>
+                <td style="padding: 12px;">{{ (all_hosts_data | map(attribute='system.uptime_seconds') | sum / all_hosts_data | length / 86400) | round(1) }} days</td>
+                <td style="padding: 12px; color: #28a745;">✅ Stable</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="recommendation">
+        <h3>📋 Recommended Actions</h3>
+        <ol>
+            <li><strong>Immediate (0-7 days):</strong> Apply all available security updates</li>
+            <li><strong>Short-term (1-4 weeks):</strong> Implement automated patch management</li>
+            <li><strong>Medium-term (1-3 months):</strong> Establish regular maintenance windows</li>
+            <li><strong>Long-term (3-12 months):</strong> Plan RHEL version standardization</li>
+        </ol>
+    </div>
+
+    <div class="summary-section">
+        <h2>Additional Resources</h2>
+        <p><strong>Detailed Reports Available:</strong></p>
+        <ul>
+            <li>Comprehensive system report (HTML format)</li>
+            <li>Raw data export (CSV format)</li>
+            <li>Machine-readable data (JSON format)</li>
+            {% if pdf_generation_available %}
+            <li>Printable report (PDF format)</li>
+            {% endif %}
+        </ul>
+        <p><strong>Generated by:</strong> Ansible Automation • <strong>Report ID:</strong> {{ report_timestamp }}</p>
+    </div>
+</body>
+</html>

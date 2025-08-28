@@ -1,0 +1,82 @@
+---
+# Package update tasks
+
+- name: Update packages using yum (RHEL 7)
+  yum:
+    name: "{{ update_distro_packages | default('*') }}"
+    exclude: "{{ update_distro_packages_excludes | join(',') if update_distro_packages_excludes else omit }}"
+    state: latest
+    update_cache: true
+    skip_broken: "{{ update_rhel_skip_broken | default(true) }}"
+    security: "{{ update_rhel_security_only | default(false) }}"
+    bugfix: "{{ update_rhel_bugfix | default(false) }}"
+  when: 
+    - update_rhel_os_info.major_version == 7
+    - update_rhel_updates_available > 0
+  register: update_rhel_yum_result
+  ignore_errors: "{{ update_rhel_ignore_errors | default(false) }}"
+
+- name: Update packages using dnf (RHEL 8+)
+  dnf:
+    name: "{{ update_distro_packages | default('*') }}"
+    exclude: "{{ update_distro_packages_excludes | join(',') if update_distro_packages_excludes else omit }}"
+    state: latest
+    update_cache: true
+    skip_broken: "{{ update_rhel_skip_broken | default(true) }}"
+    nobest: "{{ update_rhel_nobest | default(false) }}"
+    allowerasing: "{{ update_rhel_allow_erasing | default(false) }}"
+    security: "{{ update_rhel_security_only | default(false) }}"
+    bugfix: "{{ update_rhel_bugfix | default(false) }}"
+  when: 
+    - update_rhel_os_info.major_version >= 8
+    - update_rhel_updates_available > 0
+  register: update_rhel_dnf_result
+  ignore_errors: "{{ update_rhel_ignore_errors | default(false) }}"
+
+- name: Set package update result
+  set_fact:
+    update_rhel_package_result: "{{ update_rhel_yum_result if update_rhel_os_info.major_version == 7 else update_rhel_dnf_result }}"
+
+- name: Display update results
+  debug:
+    msg: |
+      Package update status: {{ 'SUCCESS' if update_rhel_package_result.changed else 'NO_CHANGES' }}
+      {% if update_rhel_package_result.failed | default(false) %}
+      Update failed: {{ update_rhel_package_result.msg | default('Unknown error') }}
+      {% elif update_rhel_package_result.changed %}
+      Packages were successfully updated
+      {% else %}
+      No packages required updates or all packages were already current
+      {% endif %}
+  when: 
+    - update_rhel_package_result is defined
+    - update_rhel_verbose | default(true)
+
+- name: Fail on update errors if not ignored
+  fail:
+    msg: "Package updates failed: {{ update_rhel_package_result.msg | default('Unknown error') }}"
+  when:
+    - update_rhel_package_result is defined
+    - update_rhel_package_result.failed | default(false)
+    - not update_rhel_ignore_errors | default(false)
+
+- name: Check remaining updates after package update (RHEL 7)
+  yum:
+    list: updates
+  register: update_rhel_remaining_updates
+  when: update_rhel_os_info.major_version == 7
+
+- name: Check remaining updates after package update (RHEL 8+)
+  dnf:
+    list: updates
+  register: update_rhel_remaining_updates
+  when: update_rhel_os_info.major_version >= 8
+
+- name: Set remaining updates count
+  set_fact:
+    update_rhel_remaining_count: "{{ update_rhel_remaining_updates.results | length }}"
+
+- name: Display remaining updates
+  debug:
+    msg: "Remaining updates after package update: {{ update_rhel_remaining_count }}"
+  when: update_rhel_verbose | default(true)

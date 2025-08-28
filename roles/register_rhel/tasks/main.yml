@@ -1,0 +1,76 @@
+---
+# tasks file for register_rhel
+
+- name: Validate registration parameters
+  fail:
+    msg: "Registration type must be either 'cdn' or 'satellite'"
+  when: register_rhel_type not in ['cdn', 'satellite']
+
+- name: Validate required variables for CDN registration
+  fail:
+    msg: "CDN registration requires register_rhel_username and register_rhel_password"
+  when: 
+    - register_rhel_type == 'cdn'
+    - (register_rhel_username is not defined or register_rhel_password is not defined)
+
+- name: Validate required variables for Satellite registration
+  fail:
+    msg: "Satellite registration requires register_rhel_satellite_url and register_rhel_org_id and register_rhel_activation_key"
+  when: 
+    - register_rhel_type == 'satellite'
+    - (register_rhel_satellite_url is not defined or register_rhel_org_id is not defined or register_rhel_activation_key is not defined)
+
+- name: Check current registration status
+  command: subscription-manager status
+  register: subscription_status
+  failed_when: false
+  changed_when: false
+
+- name: Display current registration status
+  debug:
+    msg: |
+      Current subscription status: 
+      {{ subscription_status.stdout }}
+  when: register_rhel_verbose | default(true)
+
+- name: Determine if system is already registered
+  set_fact:
+    already_registered: "{{ 'Overall Status: Current' in subscription_status.stdout }}"
+
+- name: Skip registration if already registered and force is false
+  debug:
+    msg: "System is already registered. Use register_rhel_force: true to re-register."
+  when: 
+    - already_registered
+    - not (register_rhel_force | default(false))
+
+# Include CDN registration tasks
+- include_tasks: cdn_register.yml
+  when: 
+    - register_rhel_type == 'cdn'
+    - not already_registered or (register_rhel_force | default(false))
+
+# Include Satellite registration tasks
+- include_tasks: satellite_register.yml
+  when: 
+    - register_rhel_type == 'satellite'
+    - not already_registered or (register_rhel_force | default(false))
+
+# Include repository configuration tasks
+- include_tasks: configure_repos.yml
+  when: 
+    - register_rhel_configure_repos | default(true)
+    - not already_registered or (register_rhel_force | default(false))
+
+- name: Verify final registration status
+  command: subscription-manager status
+  register: final_status
+  failed_when: false
+  changed_when: false
+
+- name: Display final registration status
+  debug:
+    msg: |
+      Final registration status:
+      {{ final_status.stdout }}
+  when: register_rhel_verbose | default(true)

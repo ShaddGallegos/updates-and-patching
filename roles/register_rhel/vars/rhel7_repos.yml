@@ -1,0 +1,8 @@
+---
+# Default repositories for RHEL 7
+default_repos:
+  - rhel-7-server-rpms
+  - rhel-7-server-rh-common-rpms
+  - rhel-7-server-extras-rpms
+  - rhel-7-server-optional-rpms
+  - rhel-7-server-supplementary-rpms

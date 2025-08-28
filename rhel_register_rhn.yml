@@ -28,6 +28,16 @@
           - ansible-2.8-for-rhel-8-x86_64-rpms
       when: ansible_os_family == 'RedHat' and ansible_distribution_major_version|int == 8
 
+    - name: set repos for 9.x
+      set_fact:
+        repo_channels:
+          - rhel-9-for-x86_64-baseos-rpms
+          - rhel-9-for-x86_64-supplementary-rpms
+          - rhel-9-for-x86_64-appstream-rpms
+          - rhel-9-for-x86_64-highavailability-rpms
+          - ansible-automation-platform-2.4-for-rhel-9-x86_64-rpms
+      when: ansible_os_family == 'RedHat' and ansible_distribution_major_version|int == 9
+
   tasks:
     - block:
         - include_role:

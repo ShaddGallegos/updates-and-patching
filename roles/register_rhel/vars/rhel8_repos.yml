@@ -1,0 +1,7 @@
+---
+# Default repositories for RHEL 8
+default_repos:
+  - rhel-8-for-x86_64-baseos-rpms
+  - rhel-8-for-x86_64-appstream-rpms
+  - rhel-8-for-x86_64-supplementary-rpms
+  - rhel-8-for-x86_64-highavailability-rpms

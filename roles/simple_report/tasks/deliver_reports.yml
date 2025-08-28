@@ -1,0 +1,128 @@
+---
+# Report delivery and notification tasks
+
+- name: Set report file permissions
+  ansible.builtin.file:
+    path: "{{ report_output_dir }}"
+    mode: '0755'
+    recurse: true
+  delegate_to: localhost
+  run_once: true
+
+- name: Create report manifest
+  ansible.builtin.copy:
+    content: |
+      # RHEL System Report Manifest
+      Report Generated: {{ ansible_date_time.iso8601 }}
+      Report Title: {{ report_title }}
+      Total Hosts: {{ groups['all'] | length }}
+      Output Directory: {{ report_output_dir }}
+      
+      Generated Files:
+      {% for format in report_output_formats %}
+      - {{ report_filename_prefix }}_{{ report_date }}.{{ format }}
+      {% endfor %}
+      {% if report_include_pdf and pdf_generation_available %}
+      - {{ report_filename_prefix }}_{{ report_date }}.pdf
+      {% endif %}
+      - executive_summary_{{ report_date }}.html
+      - index.html
+      
+      Summary Statistics:
+      - Total Hosts: {{ report_summary.total_hosts | default('N/A') }}
+      - RHEL Versions: {{ report_summary.rhel_versions | default([]) | join(', ') }}
+      - Security Updates Available: {{ report_summary.total_security_updates | default('N/A') }}
+      - Hosts Needing Updates: {{ report_summary.hosts_needing_updates | default('N/A') }}
+      - Average Memory Usage: {{ report_summary.avg_memory_usage | default('N/A') }}%
+    dest: "{{ report_output_dir }}/REPORT_MANIFEST.txt"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true
+
+- name: Start simple web server for report viewing (if enabled)
+  ansible.builtin.shell: |
+    cd "{{ report_output_dir }}" && python3 -m http.server {{ report_web_server_port }} --bind {{ report_web_server_host }} > /dev/null 2>&1 &
+    echo $! > "{{ report_output_dir }}/.webserver.pid"
+  delegate_to: localhost
+  run_once: true
+  when: report_enable_web_server | bool
+  changed_when: true
+
+- name: Display web server information
+  ansible.builtin.debug:
+    msg:
+      - "Web server started for report viewing"
+      - "URL: http://{{ report_web_server_host }}:{{ report_web_server_port }}"
+      - "Access the main report at: http://{{ report_web_server_host }}:{{ report_web_server_port }}/index.html"
+      - "To stop the server: kill $(cat {{ report_output_dir }}/.webserver.pid)"
+  run_once: true
+  when: report_enable_web_server | bool
+
+- name: Generate browser-friendly URLs
+  ansible.builtin.set_fact:
+    report_urls:
+      main_report: "file://{{ report_output_dir }}/index.html"
+      detailed_report: "file://{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html"
+      executive_summary: "file://{{ report_output_dir }}/executive_summary_{{ report_date }}.html"
+      csv_report: "file://{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.csv"
+      json_report: "file://{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.json"
+  run_once: true
+
+- name: Display report generation summary
+  ansible.builtin.debug:
+    msg:
+      - "==================== RHEL SYSTEM REPORT GENERATED ===================="
+      - "Report Title: {{ report_title }}"
+      - "Generation Time: {{ ansible_date_time.iso8601 }}"
+      - "Output Directory: {{ report_output_dir }}"
+      - ""
+      - "Generated Files:"
+      - "  • Main Index: {{ report_output_dir }}/index.html"
+      - "  • Detailed HTML Report: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html"
+      - "  • CSV Data: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.csv"
+      - "  • JSON Data: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.json"
+      - "  • PDF Report: {{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.pdf"
+      - "  • Executive Summary: {{ report_output_dir }}/executive_summary_{{ report_date }}.html"
+      - "  • Report Manifest: {{ report_output_dir }}/REPORT_MANIFEST.txt"
+      - ""
+      - "Quick Summary:"
+      - "  • Total Hosts Analyzed: {{ groups['all'] | length }}"
+      - "  • RHEL Versions Found: {{ report_summary.rhel_versions | default([]) | join(', ') if report_summary is defined else 'N/A' }}"
+      - "  • Security Updates Available: {{ report_summary.total_security_updates | default('N/A') if report_summary is defined else 'N/A' }}"
+      - "  • Hosts Needing Updates: {{ report_summary.hosts_needing_updates | default('N/A') if report_summary is defined else 'N/A' }}"
+      - ""
+      - "To view reports:"
+      - "  • Open in browser: {{ report_urls.main_report }}"
+      - "  • Web server available if enabled"
+      - "======================================================================"
+  run_once: true
+
+- name: Save report metadata for integration
+  ansible.builtin.copy:
+    content: |
+      {
+        "report_metadata": {
+          "title": "{{ report_title }}",
+          "generation_time": "{{ ansible_date_time.iso8601 }}",
+          "output_directory": "{{ report_output_dir }}",
+          "total_hosts": {{ groups['all'] | length }},
+          "formats": {{ report_output_formats | to_json }},
+          "pdf_available": {{ (report_include_pdf and pdf_generation_available) | bool | lower }},
+          "web_server_enabled": {{ report_enable_web_server | bool | lower }},
+          "web_server_url": "http://{{ report_web_server_host }}:{{ report_web_server_port }}"
+        },
+        "summary": {{ report_summary | default({}) | to_json }},
+        "file_paths": {
+          "index": "{{ report_output_dir }}/index.html",
+          "detailed_html": "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.html",
+          "executive_summary": "{{ report_output_dir }}/executive_summary_{{ report_date }}.html",
+          "csv": "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.csv",
+          "json": "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.json",
+          "pdf": "{{ report_output_dir }}/{{ report_filename_prefix }}_{{ report_date }}.pdf",
+          "manifest": "{{ report_output_dir }}/REPORT_MANIFEST.txt"
+        }
+      }
+    dest: "{{ report_output_dir }}/.report_metadata.json"
+    mode: '0644'
+  delegate_to: localhost
+  run_once: true

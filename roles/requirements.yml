@@ -1,1 +1,22 @@
-- src: oatakan.rhn
+---
+# Ansible Galaxy Requirements for Updates and Patching Project
+
+# Roles
+- name: oatakan.rhn
+  version: ">=1.0.0"
+
+# Collections  
+- name: community.general
+  version: ">=8.0.0"
+
+- name: ansible.posix
+  version: ">=1.5.0"
+
+- name: redhat.rhel_system_roles
+  version: ">=1.21.0"
+
+- name: community.windows
+  version: ">=2.0.0"
+
+- name: theforeman.foreman
+  version: ">=4.0.0"

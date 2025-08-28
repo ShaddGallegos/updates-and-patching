@@ -1,0 +1,13 @@
+---
+# Example playbook using the unregister_rhel role
+
+- name: Unregister RHEL systems from RHN/Satellite
+  hosts: all
+  become: true
+  
+  roles:
+    - role: unregister_rhel
+      vars:
+        unregister_rhel_verbose: true
+        unregister_rhel_clean_satellite: true
+        unregister_rhel_clean_logs: false

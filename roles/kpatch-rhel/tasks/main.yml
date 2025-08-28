@@ -1,34 +1,20 @@
 ---
+# Modern kpatch-rhel role for live kernel patching on RHEL 7, 8, 9, 10
 
-- name: show current kernel version
-  debug:
-    msg: "{{ ansible_kernel }}"
+- name: Include pre-patch validation tasks
+  ansible.builtin.include_tasks: validate_system.yml
 
-- name: install kpatch
-  yum:
-    name: "kpatch-patch = {{ ansible_kernel }}"
-    state: latest
-  register: kpatch_patch_install
+- name: Include kpatch installation tasks
+  ansible.builtin.include_tasks: install_kpatch.yml
 
-- name: ensure kpatch service is enabled and started
-  service:
-    name: kpatch
-    state: started
-    enabled: yes
+- name: Include patch management tasks
+  ansible.builtin.include_tasks: manage_patches.yml
+  when: kpatch_action in ['install', 'enable', 'disable', 'list']
 
-- name: wait for patch to be applied
-  shell: |
-    loaded_patch=$(kpatch list | grep "{{ ansible_kernel }}" | cut -d' ' -f1)
-    kpatch list | grep ${loaded_patch} | grep "\[enabled\]" | cut -d' ' -f1
-  register: kpatch_patch_status
-  until: kpatch_patch_status is success
-  delay: 5
-  retries: 300
+- name: Include patch verification tasks
+  ansible.builtin.include_tasks: verify_patches.yml
+  when: kpatch_verify_patches | bool
 
-- name: set enabled kpatch
-  set_fact:
-    enabled_kpatch: "{{ kpatch_patch_status.stdout }}"
-    cacheable: True
-
-- debug:
-    msg: "{{ enabled_kpatch }}"
+- name: Include cleanup tasks
+  ansible.builtin.include_tasks: cleanup.yml
+  when: kpatch_cleanup_old_patches | bool

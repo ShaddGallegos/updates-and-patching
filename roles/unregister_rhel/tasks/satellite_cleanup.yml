@@ -1,0 +1,85 @@
+---
+# Satellite-specific cleanup tasks
+
+- name: Remove Satellite host configuration
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/foreman
+    - /etc/puppet/puppet.conf.rpmsave
+    - /var/lib/puppet
+    - /opt/puppetlabs
+  ignore_errors: true
+
+- name: Clean up Satellite agent packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  loop:
+    - katello-agent
+    - puppet-agent
+    - satellite-cli
+    - foreman-cli
+    - gofer
+    - pulp-rpm-handlers
+    - katello-host-tools
+    - katello-host-tools-tracer
+  ignore_errors: true
+
+- name: Remove Satellite cron jobs
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/cron.d/katello-agent
+    - /etc/cron.d/foreman_report
+  ignore_errors: true
+
+- name: Stop and disable Satellite services
+  service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - goferd
+    - puppet
+    - katello-agent
+  ignore_errors: true
+
+- name: Remove Satellite service files
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/goferd.service
+    - /etc/systemd/system/puppet.service
+    - /etc/systemd/system/katello-agent.service
+  ignore_errors: true
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: true
+  ignore_errors: true
+
+- name: Remove Satellite configuration backups
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/rhsm/rhsm.conf.kat-backup
+    - /etc/yum.repos.d/*.repo.backup
+    - /root/ssl-build
+  ignore_errors: true
+
+- name: Clean up Satellite logs
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/log/rhsm
+    - /var/log/foreman
+    - /var/log/puppet
+    - /var/log/katello-agent
+  ignore_errors: true
+  when: unregister_rhel_clean_logs | default(false)

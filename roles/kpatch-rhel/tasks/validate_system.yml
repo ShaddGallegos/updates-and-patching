@@ -1,0 +1,120 @@
+---
+# System validation tasks for kpatch compatibility
+
+- name: Display current system information
+  ansible.builtin.debug:
+    msg:
+      - "Current Kernel: {{ ansible_facts['kernel'] }}"
+      - "RHEL Version: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      - "Architecture: {{ ansible_facts['architecture'] }}"
+      - "Hostname: {{ ansible_facts['hostname'] }}"
+  when: kpatch_verbose_output | bool
+
+- name: Validate RHEL version compatibility
+  ansible.builtin.fail:
+    msg: "kpatch is only supported on RHEL 7, 8, 9, and 10. Current version: {{ ansible_facts['distribution_version'] }}"
+  when:
+    - not kpatch_skip_validation | bool
+    - ansible_facts['distribution'] == 'RedHat'
+    - ansible_facts['distribution_major_version'] | int not in [7, 8, 9, 10]
+
+- name: Validate architecture compatibility
+  ansible.builtin.fail:
+    msg: "kpatch requires x86_64 architecture. Current architecture: {{ ansible_facts['architecture'] }}"
+  when:
+    - kpatch_validate_architecture | bool
+    - not kpatch_skip_validation | bool
+    - ansible_facts['architecture'] != 'x86_64'
+
+- name: Set package manager based on RHEL version
+  ansible.builtin.set_fact:
+    detected_package_manager: >-
+      {%- if ansible_facts['distribution_major_version'] | int >= 8 -%}
+        dnf
+      {%- else -%}
+        yum
+      {%- endif -%}
+
+- name: Set active package manager
+  ansible.builtin.set_fact:
+    active_package_manager: >-
+      {%- if kpatch_package_manager == 'auto' -%}
+        {{ detected_package_manager }}
+      {%- else -%}
+        {{ kpatch_package_manager }}
+      {%- endif -%}
+
+- name: Check if kpatch is already installed
+  ansible.builtin.package_facts:
+    manager: "{{ active_package_manager }}"
+
+- name: Set kpatch installation status
+  ansible.builtin.set_fact:
+    kpatch_already_installed: "{{ 'kpatch' in ansible_facts.packages }}"
+
+- name: Check Red Hat subscription status (if validation enabled)
+  ansible.builtin.shell: |
+    subscription-manager status --format=json 2>/dev/null || echo '{"status": "Unknown"}'
+  register: subscription_status_raw
+  changed_when: false
+  failed_when: false
+  when: 
+    - kpatch_validate_subscription | bool
+    - not kpatch_skip_validation | bool
+
+- name: Parse subscription status
+  ansible.builtin.set_fact:
+    subscription_status: "{{ subscription_status_raw.stdout | from_json if subscription_status_raw.stdout else {'status': 'Unknown'} }}"
+  when: 
+    - kpatch_validate_subscription | bool
+    - not kpatch_skip_validation | bool
+    - subscription_status_raw is defined
+
+- name: Validate Red Hat subscription
+  ansible.builtin.fail:
+    msg: "Valid Red Hat subscription required for kpatch. Status: {{ subscription_status.status | default('Unknown') }}"
+  when:
+    - kpatch_validate_subscription | bool
+    - not kpatch_skip_validation | bool
+    - subscription_status is defined
+    - "'Valid' not in subscription_status.status | default('Unknown')"
+
+- name: Check kernel development packages availability
+  ansible.builtin.shell: |
+    {{ active_package_manager }} list available kernel-devel-{{ ansible_facts['kernel'] }} 2>/dev/null | grep -q kernel-devel || echo "not_available"
+  register: kernel_devel_check
+  changed_when: false
+  failed_when: false
+
+- name: Warn about kernel development packages
+  ansible.builtin.debug:
+    msg: "WARNING: kernel-devel packages for current kernel may not be available. Some kpatch operations may fail."
+  when: 
+    - "'not_available' in kernel_devel_check.stdout"
+    - kpatch_verbose_output | bool
+
+- name: Check if system supports live patching
+  ansible.builtin.shell: |
+    if [ -f /proc/sys/kernel/kpatch ]; then
+      echo "supported"
+    else
+      echo "not_supported"
+    fi
+  register: live_patch_support
+  changed_when: false
+
+- name: Set live patching capability
+  ansible.builtin.set_fact:
+    kpatch_live_patching_supported: "{{ 'supported' in live_patch_support.stdout }}"
+
+- name: Display validation summary
+  ansible.builtin.debug:
+    msg:
+      - "=== Kpatch Validation Summary ==="
+      - "RHEL Version: RHEL {{ ansible_facts['distribution_major_version'] }} - ✅ Compatible"
+      - "Architecture: {{ ansible_facts['architecture'] }} - {% if ansible_facts['architecture'] == 'x86_64' %}✅ Compatible{% else %}❌ Not Compatible{% endif %}"
+      - "Package Manager: {{ active_package_manager }}"
+      - "Kpatch Already Installed: {% if kpatch_already_installed %}✅ Yes{% else %}❌ No{% endif %}"
+      - "Live Patching Support: {% if kpatch_live_patching_supported %}✅ Available{% else %}⚠️ Limited{% endif %}"
+      - "Subscription Status: {{ subscription_status.status | default('Not Checked') }}"
+  when: kpatch_verbose_output | bool

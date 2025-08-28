@@ -1,0 +1,4 @@
+Hostname,RHEL Version,IP Address,Uptime Days,Memory Total MB,Memory Used MB,Memory Usage %,CPU Cores,Security Updates,Bugfix Updates,Enhancement Updates,Total Updates,Package Manager,Subscription Status,Collection Time
+{% for host in all_hosts_data -%}
+{{ host.system.hostname }},RHEL {{ host.system.distribution_major_version }}.{{ host.system.distribution_version.split('.')[1] | default('0') }},{{ host.network.default_ipv4_address | default('N/A') }},{{ (host.system.uptime_seconds | int / 86400) | round(1) }},{{ host.memory.total_mb }},{{ host.memory.used_mb }},{{ host.memory.usage_percent }},{{ host.cpu.processor_vcpus }},{{ host.updates.security_updates | default(0) }},{{ host.updates.bugfix_updates | default(0) }},{{ host.updates.enhancement_updates | default(0) }},{{ host.updates.total_updates | default(0) }},{{ host.updates.package_manager | default('N/A') }},{{ host.subscription.status | default('Unknown') }},{{ host.collection_time }}
+{% endfor %}

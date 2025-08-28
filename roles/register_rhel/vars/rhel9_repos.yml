@@ -1,0 +1,7 @@
+---
+# Default repositories for RHEL 9
+default_repos:
+  - rhel-9-for-x86_64-baseos-rpms
+  - rhel-9-for-x86_64-appstream-rpms
+  - rhel-9-for-x86_64-supplementary-rpms
+  - rhel-9-for-x86_64-highavailability-rpms

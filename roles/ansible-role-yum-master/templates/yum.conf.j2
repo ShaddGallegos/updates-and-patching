@@ -1,28 +1,93 @@
+# Configuration for RHEL systems - supports both yum and dnf
+# Compatible with RHEL 7, 8, 9, and 10
+{% if ansible_facts['os_family'] == 'RedHat' and ansible_facts['distribution'] in ['RedHat', 'Red Hat Enterprise Linux'] %}
+{% set rhel_version = ansible_facts['distribution_major_version']|int %}
 [main]
-{% if ansible_os_family == 'RedHat' %}
-cachedir=/opt/cache/yum/
-{% elif ansible_os_family == 'Suse' %}
+# Cache directory - version-specific for optimal performance
+{% if rhel_version >= 8 %}
+# RHEL 8/9/10 use dnf as the primary package manager
+cachedir=/var/cache/dnf/$basearch/$releasever
+{% else %}
+# RHEL 7 uses yum as the primary package manager
 cachedir=/var/cache/yum/$basearch/$releasever
 {% endif %}
+
+# Core package manager settings
 keepcache=0
 debuglevel=2
+{% if rhel_version >= 8 %}
+logfile=/var/log/dnf.log
+{% else %}
 logfile=/var/log/yum.log
+{% endif %}
 exactarch=1
 obsoletes=1
 gpgcheck=1
 plugins=1
+{% if rhel_version >= 10 %}
+# RHEL 10+ optimized settings
+installonly_limit=5
+{% else %}
 installonly_limit=3
+{% endif %}
 minrate=1
+{% if rhel_version >= 9 %}
+# Enhanced timeout for RHEL 9+
+timeout=600
+{% else %}
 timeout=300
-#  This is the default, if you make this bigger yum won't see if the metadata
+{% endif %}
+
+# Skip unavailable repositories instead of failing
+skip_if_unavailable=1
+
+# Version-specific optimizations
+{% if rhel_version >= 8 %}
+# DNF configuration options for RHEL 8/9/10
+best=1
+clean_requirements_on_remove=1
+{% if rhel_version >= 9 %}
+# RHEL 9+ features
+zchunk=1
+countme=1
+fastestmirror=1
+{% endif %}
+{% if rhel_version >= 10 %}
+# RHEL 10+ advanced features
+module_hotfixes=1
+protect_running_kernel=1
+{% endif %}
+{% endif %}
+
+# Security settings
+{% if rhel_version >= 8 %}
+# Enhanced GPG checking for modern RHEL
+localpkg_gpgcheck=1
+repo_gpgcheck=0
+{% endif %}
+# Metadata settings
+#  This is the default, if you make this bigger yum/dnf won't see if the metadata
 # is newer on the remote and so you'll "gain" the bandwidth of not having to
-# download the new metadata and "pay" for it by yum not having correct
+# download the new metadata and "pay" for it by yum/dnf not having correct
 # information.
 #  It is esp. important, to have correct metadata, for distributions like
 # Fedora which don't keep old packages around. If you don't like this checking
-# interupting your command line usage, it's much better to have something
-# manually check the metadata once an hour (yum-updatesd will do this).
+# interrupting your command line usage, it's much better to have something
+# manually check the metadata once an hour.
+{% if rhel_version >= 9 %}
+# RHEL 9+ optimized metadata expiration
+# metadata_expire=6h
+{% else %}
+# Standard metadata expiration
 # metadata_expire=90m
+{% endif %}
 
+# Repository configuration
 # PUT YOUR REPOS HERE OR IN separate files named file.repo
-# in /etc/yum.repos.d
+# in /etc/yum.repos.d (RHEL 7) or /etc/dnf/dnf.conf.d (RHEL 8+)
+{% else %}
+# This configuration is only for Red Hat Enterprise Linux systems (RHEL 7, 8, 9, 10)
+# Current system: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+# Supported: Red Hat Enterprise Linux 7.x, 8.x, 9.x, 10.x
+# This template requires RHEL to function properly
+{% endif %}

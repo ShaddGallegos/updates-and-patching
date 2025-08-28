@@ -1,10 +1,40 @@
-## roles/ansible-role-patching/tasks/main.yml
+# tasks/main.yml for ansible-role-patching
+# Comprehensive Linux OS patching
 ---
-- name: Perform Patch
-  include_tasks: perform-patch.yml
-  when: "patch_env is not defined"
 
-- name: Perform Patch (environment defined)
-  include_tasks: perform-patch-environment.yml
-  when: "patch_env is defined"
+- name: Include OS-specific variables
+  ansible.builtin.include_vars: "{{ item }}"
+  with_first_found:
+    - "{{ ansible_facts['distribution'] }}-{{ ansible_facts['distribution_major_version'] }}.yml"
+    - "{{ ansible_facts['distribution'] }}.yml"
+    - "{{ ansible_facts['os_family'] }}.yml"
+    - "default.yml"
+  tags: [patch, variables]
+
+- name: Pre-patching validation
+  ansible.builtin.include_tasks: pre_patch_validation.yml
+  when: patch_validate_before
+  tags: [patch, validation]
+
+- name: Pre-patching tasks
+  ansible.builtin.include_tasks: pre_patch_tasks.yml
+  tags: [patch, pre-tasks]
+
+- name: Perform system patching
+  ansible.builtin.include_tasks: "perform-patch{{ '-environment' if patch_env is defined and patch_env | length > 0 else '' }}.yml"
+  tags: [patch, update]
+
+- name: Post-patching tasks  
+  ansible.builtin.include_tasks: post_patch_tasks.yml
+  tags: [patch, post-tasks]
+
+- name: Post-patching validation
+  ansible.builtin.include_tasks: post_patch_validation.yml
+  when: patch_validate_after
+  tags: [patch, validation]
+
+- name: Generate patching report
+  ansible.builtin.include_tasks: generate_report.yml
+  when: patch_generate_report
+  tags: [patch, report]
 ...

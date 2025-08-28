@@ -1,1 +1,31 @@
 ---
+# Handlers for ansible-role-yum
+# Supports RHEL 7, 8, 9, and 10
+
+- name: validate yum configuration
+  ansible.builtin.shell: |
+    {% if ansible_facts['distribution_major_version']|int >= 8 %}
+    dnf config-manager --dump-variables >/dev/null
+    {% else %}
+    yum-config-manager --dump-variables >/dev/null
+    {% endif %}
+  listen: validate yum configuration
+  when: yum_validate_config | bool
+
+- name: restart package manager services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: true
+  loop:
+    - "{{ yum_service_name }}"
+  when: 
+    - yum_restart_services_on_change | bool
+    - yum_enable_automatic_updates | bool
+  listen: restart package manager services
+  ignore_errors: true
+
+- name: reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: restart package manager services

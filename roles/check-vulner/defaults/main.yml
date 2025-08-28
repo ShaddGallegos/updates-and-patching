@@ -1,10 +1,81 @@
 ---
+# Modern vulnerability scanning and remediation role defaults
 
-vulner: cve_2019_11135
+# Vulnerability scanning settings
+vulner_scan_enabled: true
+vulner_auto_remediate: false  # Set to true for automatic fixes
+vulner_scan_depth: "comprehensive"  # quick, standard, comprehensive
+vulner_max_vulnerabilities: 10  # Maximum vulnerabilities to process
+vulner_severity_threshold: "medium"  # low, medium, high, critical
 
-vulners:
-  cve_2019_11135: cve-2019-11135--2019-11-12-1735.sh
+# Vulnerability sources
+vulner_use_redhat_oval: true  # Use Red Hat OVAL definitions
+vulner_use_cve_database: true  # Use CVE database lookups
+vulner_use_security_advisories: true  # Use security advisories
+vulner_use_package_auditor: true  # Use package vulnerability auditing
 
-vulner_result:
-  _0: 'no'
-  _1: 'yes'
+# Current high-priority CVEs (updated regularly)
+vulner_priority_cves:
+  - "CVE-2024-6387"    # OpenSSH RCE vulnerability
+  - "CVE-2024-3094"    # XZ backdoor (if applicable)
+  - "CVE-2023-4911"    # glibc buffer overflow
+  - "CVE-2023-38545"   # curl SOCKS5 heap buffer overflow
+  - "CVE-2023-4527"    # glibc getaddrinfo stack overflow
+  - "CVE-2023-32233"   # netfilter use-after-free
+  - "CVE-2023-2283"    # libssh SSH_MSG_KEXDH_REPLY
+  - "CVE-2023-1786"    # cloud-init privilege escalation
+  - "CVE-2022-47939"   # ksmbd use-after-free
+  - "CVE-2022-3643"    # Guests can trigger NIC interface reset
+
+# Package-specific vulnerabilities to check
+vulner_critical_packages:
+  - openssh
+  - openssh-server
+  - glibc
+  - curl
+  - libcurl
+  - kernel
+  - systemd
+  - sudo
+  - polkit
+  - dbus
+
+# Remediation settings
+vulner_remediate_packages: true  # Update vulnerable packages
+vulner_remediate_configs: true   # Fix configuration vulnerabilities
+vulner_remediate_services: true  # Restart affected services
+vulner_create_backups: true      # Backup before remediation
+vulner_test_after_fix: true      # Test system after fixes
+
+# Scanning tools configuration
+vulner_install_tools: true      # Install scanning tools if missing
+vulner_update_definitions: true # Update vulnerability definitions
+vulner_tools_list:
+  - yum-plugin-security  # RHEL 7
+  - dnf-plugin-security  # RHEL 8+
+  - aide                 # File integrity
+  - lynis                # Security auditing
+
+# Reporting settings
+vulner_generate_report: true
+vulner_report_format: "html"    # html, json, csv, text
+vulner_report_path: "/tmp/vulnerability_report_{{ ansible_date_time.epoch }}"
+vulner_include_remediation: true
+vulner_send_notifications: false
+
+# Emergency response settings
+vulner_emergency_mode: false    # Emergency patching mode
+vulner_allow_reboots: false     # Allow system reboots if needed
+vulner_maintenance_window: false # Respect maintenance windows
+vulner_rollback_on_failure: true # Rollback changes on failure
+
+# Compliance and audit settings
+vulner_compliance_mode: false   # Enable compliance scanning
+vulner_audit_logging: true      # Enable detailed audit logging
+vulner_retain_logs_days: 30     # Days to retain vulnerability logs
+
+# Advanced settings
+vulner_parallel_processing: true  # Process vulnerabilities in parallel
+vulner_timeout_seconds: 600      # Timeout for vulnerability operations
+vulner_retry_count: 3            # Number of retries for failed operations
+vulner_skip_running_kernel: false # Skip vulnerabilities requiring reboot

@@ -1,0 +1,101 @@
+---
+# Pre-report preparation tasks
+
+- name: Set timestamp for report generation
+  ansible.builtin.set_fact:
+    report_timestamp: "{{ ansible_date_time.epoch }}"
+    report_date: "{{ ansible_date_time.iso8601[:10] }}"
+    report_time: "{{ ansible_date_time.time }}"
+  run_once: true
+
+- name: Create report output directory
+  ansible.builtin.file:
+    path: "{{ report_output_dir }}"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: true
+
+- name: Debug report configuration
+  ansible.builtin.debug:
+    msg:
+      - "Report Title: {{ report_title }}"
+      - "Output Directory: {{ report_output_dir }}"
+      - "Output Formats: {{ report_output_formats | join(', ') }}"
+      - "Include PDF: {{ report_include_pdf }}"
+  run_once: true
+  when: ansible_verbosity >= 1
+
+- name: Detect RHEL version and package manager
+  ansible.builtin.set_fact:
+    rhel_major_version: "{{ ansible_facts['distribution_major_version'] | int }}"
+    detected_package_manager: >-
+      {%- if ansible_facts['distribution_major_version'] | int >= 8 -%}
+        dnf
+      {%- else -%}
+        yum
+      {%- endif -%}
+
+- name: Set package manager based on detection or override
+  ansible.builtin.set_fact:
+    active_package_manager: >-
+      {%- if report_package_manager == 'auto' -%}
+        {{ detected_package_manager }}
+      {%- else -%}
+        {{ report_package_manager }}
+      {%- endif -%}
+
+- name: Install required packages for report generation
+  ansible.builtin.package:
+    name:
+      - python3
+      - python3-pip
+    state: present
+  become: true
+  when: inventory_hostname == groups['all'][0]
+
+- name: Install wkhtmltopdf for PDF generation (RHEL 8+)
+  ansible.builtin.package:
+    name: wkhtmltopdf
+    state: present
+  become: true
+  when: 
+    - report_include_pdf | bool
+    - rhel_major_version >= 8
+    - inventory_hostname == groups['all'][0]
+  ignore_errors: true
+
+- name: Check if wkhtmltopdf is available for PDF generation
+  ansible.builtin.command: which wkhtmltopdf
+  register: wkhtmltopdf_check
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: Set PDF generation capability
+  ansible.builtin.set_fact:
+    pdf_generation_available: "{{ wkhtmltopdf_check.rc == 0 }}"
+  run_once: true
+
+- name: Clean up old reports if enabled
+  ansible.builtin.find:
+    paths: "/tmp"
+    patterns: "reports_*"
+    file_type: directory
+    age: "{{ report_keep_reports_days }}d"
+  register: old_reports
+  delegate_to: localhost
+  run_once: true
+  when: report_cleanup_old_reports | bool
+
+- name: Remove old report directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ old_reports.files | default([]) }}"
+  delegate_to: localhost
+  run_once: true
+  when: 
+    - report_cleanup_old_reports | bool
+    - old_reports.files is defined

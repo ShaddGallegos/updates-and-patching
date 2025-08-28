@@ -1,0 +1,196 @@
+---
+# Patch management tasks for kpatch operations
+
+- name: Get current patch status
+  ansible.builtin.command: kpatch list
+  register: kpatch_current_status
+  changed_when: false
+  failed_when: false
+
+- name: Parse current patch information
+  ansible.builtin.set_fact:
+    kpatch_installed_patches: "{{ kpatch_current_status.stdout_lines | select('match', '^kpatch-patch.*') | list }}"
+    kpatch_enabled_patches: "{{ kpatch_current_status.stdout_lines | select('search', '\\[enabled\\]') | list }}"
+    kpatch_disabled_patches: "{{ kpatch_current_status.stdout_lines | select('search', '\\[disabled\\]') | list }}"
+
+- name: Display current patch status
+  ansible.builtin.debug:
+    msg:
+      - "=== Current Kpatch Status ==="
+      - "Installed patches: {{ kpatch_installed_patches | length }}"
+      - "Enabled patches: {{ kpatch_enabled_patches | length }}"
+      - "Disabled patches: {{ kpatch_disabled_patches | length }}"
+      - ""
+      - "Enabled patches:"
+      - "{{ kpatch_enabled_patches if kpatch_enabled_patches | length > 0 else ['None'] }}"
+  when: kpatch_verbose_output | bool
+
+# Install patch action
+- name: Install new kpatch patches
+  block:
+    - name: Find available patch modules
+      ansible.builtin.find:
+        paths: /var/lib/kpatch
+        patterns: "*.ko"
+        recurse: true
+      register: available_patch_modules
+
+    - name: Install available patch modules
+      ansible.builtin.command: kpatch install {{ item.path }}
+      loop: "{{ available_patch_modules.files }}"
+      register: kpatch_install_result
+      when: available_patch_modules.files | length > 0
+      changed_when: "'already installed' not in kpatch_install_result.stdout"
+      failed_when: 
+        - kpatch_install_result.rc != 0
+        - "'already installed' not in kpatch_install_result.stdout"
+
+    - name: Display installation results
+      ansible.builtin.debug:
+        msg: "Patch installation completed: {{ item.item.path | basename }}"
+      loop: "{{ kpatch_install_result.results | default([]) }}"
+      when: 
+        - kpatch_verbose_output | bool
+        - item.changed | default(false)
+
+  when: kpatch_action == 'install'
+
+# Enable patch action
+- name: Enable kpatch patches
+  block:
+    - name: Get list of installed but disabled patches
+      ansible.builtin.set_fact:
+        patches_to_enable: "{{ kpatch_disabled_patches | map('regex_replace', '\\s*\\[disabled\\].*', '') | map('strip') | list }}"
+
+    - name: Enable disabled patches
+      ansible.builtin.command: kpatch load {{ item }}
+      loop: "{{ patches_to_enable }}"
+      register: kpatch_enable_result
+      when: patches_to_enable | length > 0
+      changed_when: kpatch_enable_result.rc == 0
+      failed_when: kpatch_enable_result.rc != 0
+
+    - name: Display enable results
+      ansible.builtin.debug:
+        msg: "Enabled patch: {{ item.item }}"
+      loop: "{{ kpatch_enable_result.results | default([]) }}"
+      when:
+        - kpatch_verbose_output | bool
+        - item.changed | default(false)
+
+  when: kpatch_action == 'enable'
+
+# Disable patch action
+- name: Disable kpatch patches
+  block:
+    - name: Get list of enabled patches
+      ansible.builtin.set_fact:
+        patches_to_disable: "{{ kpatch_enabled_patches | map('regex_replace', '\\s*\\[enabled\\].*', '') | map('strip') | list }}"
+
+    - name: Disable enabled patches
+      ansible.builtin.command: kpatch unload {{ item }}
+      loop: "{{ patches_to_disable }}"
+      register: kpatch_disable_result
+      when: 
+        - patches_to_disable | length > 0
+        - not kpatch_emergency_disable | bool  # Normal disable
+      changed_when: kpatch_disable_result.rc == 0
+      failed_when: kpatch_disable_result.rc != 0
+
+    - name: Emergency disable all patches
+      ansible.builtin.shell: |
+        for patch in $(kpatch list | grep '\[enabled\]' | awk '{print $1}'); do
+          kpatch unload "$patch" || echo "Failed to disable $patch"
+        done
+      when: kpatch_emergency_disable | bool
+      changed_when: true
+
+    - name: Display disable results
+      ansible.builtin.debug:
+        msg: "Disabled patch: {{ item.item }}"
+      loop: "{{ kpatch_disable_result.results | default([]) }}"
+      when:
+        - kpatch_verbose_output | bool
+        - item.changed | default(false)
+        - not kpatch_emergency_disable | bool
+
+  when: kpatch_action in ['disable'] or kpatch_emergency_disable | bool
+
+# List patches action
+- name: List all kpatch patches
+  block:
+    - name: Get detailed patch information
+      ansible.builtin.shell: |
+        echo "=== Kpatch Status Report ==="
+        echo "Kernel Version: $(uname -r)"
+        echo "Kpatch Version: $(kpatch --version)"
+        echo ""
+        echo "=== Installed Patches ==="
+        kpatch list || echo "No patches found"
+        echo ""
+        echo "=== Available Patch Files ==="
+        find /var/lib/kpatch -name "*.ko" 2>/dev/null || echo "No patch files found"
+        echo ""
+        echo "=== System Information ==="
+        echo "Architecture: $(uname -m)"
+        echo "Boot Time: $(uptime -s 2>/dev/null || echo 'Unknown')"
+      register: kpatch_detailed_status
+      changed_when: false
+
+    - name: Display detailed patch information
+      ansible.builtin.debug:
+        msg: "{{ kpatch_detailed_status.stdout }}"
+
+  when: kpatch_action == 'list'
+
+# Remove patches action
+- name: Remove kpatch patches
+  block:
+    - name: Unload all enabled patches before removal
+      ansible.builtin.command: kpatch unload {{ item }}
+      loop: "{{ patches_to_disable | default([]) }}"
+      when: kpatch_enabled_patches | length > 0
+      failed_when: false  # Continue even if some patches can't be unloaded
+
+    - name: Remove patch packages
+      ansible.builtin.package:
+        name: "{{ item }}"
+        state: absent
+      loop: "{{ kpatch_patch_list if kpatch_patch_list | length > 0 else kpatch_patches_available }}"
+      register: kpatch_removal_result
+      when: kpatch_action == 'remove'
+
+    - name: Display removal results
+      ansible.builtin.debug:
+        msg: "Removed patch package: {{ item.item }}"
+      loop: "{{ kpatch_removal_result.results | default([]) }}"
+      when:
+        - kpatch_verbose_output | bool
+        - item.changed | default(false)
+
+  when: kpatch_action == 'remove'
+
+# Set facts about current patch status
+- name: Update patch status facts
+  ansible.builtin.command: kpatch list
+  register: kpatch_final_status
+  changed_when: false
+  failed_when: false
+
+- name: Set final patch facts
+  ansible.builtin.set_fact:
+    kpatch_final_enabled_count: "{{ (kpatch_final_status.stdout | regex_findall('\\[enabled\\]')) | length }}"
+    kpatch_final_disabled_count: "{{ (kpatch_final_status.stdout | regex_findall('\\[disabled\\]')) | length }}"
+    kpatch_operation_completed: true
+  when: kpatch_set_facts | bool
+
+- name: Display operation summary
+  ansible.builtin.debug:
+    msg:
+      - "=== Kpatch Operation Summary ==="
+      - "Action Performed: {{ kpatch_action }}"
+      - "Final Status:"
+      - "  • Enabled patches: {{ kpatch_final_enabled_count | default(0) }}"
+      - "  • Disabled patches: {{ kpatch_final_disabled_count | default(0) }}"
+      - "  • Operation completed successfully"
+  when: kpatch_verbose_output | bool

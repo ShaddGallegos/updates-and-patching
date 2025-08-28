@@ -1,8 +1,73 @@
 ---
-- name: Configures yum repositories
-  template:
-    src: yum.conf.j2
-    dest: /etc/yum.conf
-    mode: 0644
+# Main tasks for ansible-role-yum
+# Supports RHEL 7, 8, 9, and 10
+
+- name: Verify RHEL system compatibility
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['os_family'] == 'RedHat'
+      - ansible_facts['distribution'] in ['RedHat', 'Red Hat Enterprise Linux']
+      - ansible_facts['distribution_major_version'] in yum_rhel_supported_versions
+    fail_msg: |
+      This role only supports Red Hat Enterprise Linux versions {{ yum_rhel_supported_versions | join(', ') }}.
+      Current system: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+  tags: [yum, validation]
+
+- name: Set package manager facts
+  ansible.builtin.set_fact:
+    yum_package_manager: "{{ 'dnf' if ansible_facts['distribution_major_version']|int >= 8 else 'yum' }}"
+    yum_service_name: "{{ 'dnf-automatic.timer' if ansible_facts['distribution_major_version']|int >= 8 else 'yum-cron' }}"
+  tags: [yum, facts]
+
+- name: Display package manager information
+  ansible.builtin.debug:
+    msg:
+      - "RHEL Version: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}"
+      - "Package Manager: {{ yum_package_manager }}"
+      - "Config File: {{ yum_config_file }}"
+  tags: [yum, debug]
+
+- name: Backup original configuration file
+  ansible.builtin.copy:
+    src: "{{ yum_config_file }}"
+    dest: "{{ yum_config_file }}.backup.{{ ansible_date_time.epoch }}"
+    remote_src: true
     owner: root
     group: root
+    mode: '0644'
+  when: yum_backup_original
+  tags: [yum, backup]
+
+- name: Configure package manager (yum/dnf)
+  ansible.builtin.template:
+    src: yum.conf.j2
+    dest: "{{ yum_config_file }}"
+    mode: '0644'
+    owner: root
+    group: root
+    backup: false  # We handle backup manually above
+  notify: 
+    - validate yum configuration
+    - restart package manager services
+  tags: [yum, config]
+
+- name: Ensure package manager cache directory exists
+  ansible.builtin.file:
+    path: "{{ '/var/cache/dnf' if ansible_facts['distribution_major_version']|int >= 8 else '/var/cache/yum' }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  tags: [yum, cache]
+
+- name: Clean package manager cache
+  ansible.builtin.shell: |
+    {{ yum_package_manager }} clean all
+  changed_when: true
+  tags: [yum, clean]
+
+- name: Update package manager cache
+  ansible.builtin.shell: |
+    {{ yum_package_manager }} makecache
+  changed_when: true
+  tags: [yum, cache]

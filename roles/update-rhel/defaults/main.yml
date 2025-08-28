@@ -1,11 +1,37 @@
 ---
-# packages to upgrade
+# Package update settings
 update_distro_packages: "*"
-
-# packages to exclude
 update_distro_packages_excludes: []
 
-# reboot if required
-update_reboot_kernel: no
+# Update behavior
+update_rhel_security_only: false
+update_rhel_bugfix: false
+update_rhel_skip_broken: true
+update_rhel_ignore_errors: false
+update_rhel_clean_cache: true
+update_rhel_force_run: false
 
+# RHEL 8+ DNF specific options
+update_rhel_nobest: false
+update_rhel_allow_erasing: false
+
+# Reboot settings
+update_reboot_kernel: false
+update_rhel_force_reboot: false
 reboot_timeout: 600
+
+# Reboot timing controls
+update_rhel_pre_reboot_delay: 10
+update_rhel_post_reboot_delay: 30
+update_rhel_connect_timeout: 10
+update_rhel_test_command: "whoami"
+
+# Display and logging
+update_rhel_verbose: true
+update_rhel_show_updates: false
+
+# Post-reboot validation commands (optional)
+# update_rhel_post_reboot_commands:
+#   - "systemctl status"
+#   - "df -h"
+#   - "free -m"

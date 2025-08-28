@@ -1,0 +1,71 @@
+---
+# Pre-update preparation tasks
+
+- name: Gather package facts before update
+  package_facts:
+  register: update_rhel_packages_pre
+
+- name: Store pre-update package count
+  set_fact:
+    update_rhel_pre_package_count: "{{ update_rhel_packages_pre.ansible_facts.packages.keys() | length }}"
+
+- name: Display pre-update package summary
+  debug:
+    msg: "Pre-update: {{ update_rhel_pre_package_count }} packages installed"
+  when: update_rhel_verbose | default(true)
+
+- name: Install delta RPM package for RHEL 7
+  package:
+    name: deltarpm
+    state: present
+  when: update_rhel_os_info.major_version == 7
+  ignore_errors: true
+
+- name: Install delta RPM package for RHEL 8+
+  package:
+    name: drpm
+    state: present
+  when: update_rhel_os_info.major_version >= 8
+  ignore_errors: true
+
+- name: Clean package manager cache
+  shell: "{{ update_rhel_os_info.package_manager }} clean all"
+  changed_when: true
+  when: update_rhel_clean_cache | default(true)
+
+- name: Check available updates (RHEL 7)
+  yum:
+    list: updates
+  register: update_rhel_available_updates
+  when: update_rhel_os_info.major_version == 7
+
+- name: Check available updates (RHEL 8+)
+  dnf:
+    list: updates
+  register: update_rhel_available_updates
+  when: update_rhel_os_info.major_version >= 8
+
+- name: Set available updates count
+  set_fact:
+    update_rhel_updates_available: "{{ update_rhel_available_updates.results | length }}"
+
+- name: Display available updates summary
+  debug:
+    msg: |
+      Available updates: {{ update_rhel_updates_available }}
+      {% if update_rhel_show_updates | default(false) and update_rhel_updates_available > 0 %}
+      Sample updates (first 10):
+      {% for update in update_rhel_available_updates.results[:10] %}
+      - {{ update.name }}-{{ update.version }}
+      {% endfor %}
+      {% if update_rhel_updates_available > 10 %}
+      ... and {{ update_rhel_updates_available - 10 }} more
+      {% endif %}
+      {% endif %}
+  when: update_rhel_verbose | default(true)
+
+- name: Skip updates if none available
+  meta: end_host
+  when: 
+    - update_rhel_updates_available == 0
+    - not update_rhel_force_run | default(false)
