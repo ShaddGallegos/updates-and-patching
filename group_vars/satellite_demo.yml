@@ -1,0 +1,83 @@
+# Red Hat Satellite Demo Configuration Variables
+# Default credentials and settings for demo environment
+# Username: admin
+# Password: NTY4NjIw
+
+satellite_server_url: "https://satellite.example.com"
+satellite_username: "admin"
+satellite_password: "NTY4NjIw"  # Demo default password
+satellite_organization: "Default Organization"
+satellite_location: "Default Location"
+
+# Alternative vault-based configuration (recommended for production)
+# satellite_password: "{{ vault_satellite_password | default('NTY4NjIw') }}"
+
+# Demo-specific settings
+demo_mode: true
+dry_run: false
+debug_mode: true
+verbose_output: true
+
+# Quick demo configuration
+quick_demo:
+  enable_basic_repos: true
+  create_simple_content_view: true
+  register_demo_hosts: true
+  apply_security_updates: true
+
+# Report configuration for demo
+reports_directory: "./demo_reports"
+generate_demo_reports: true
+email_demo_reports: false
+
+# Demo environment lifecycle
+demo_environments:
+  - name: "Demo_Development"
+    description: "Satellite Demo Development Environment"
+  - name: "Demo_Production" 
+    description: "Satellite Demo Production Environment"
+
+# Demo activation keys
+demo_activation_keys:
+  - name: "Demo_RHEL9_Key"
+    lifecycle_environment: "Demo_Production"
+    auto_attach: true
+
+# Security settings for demo
+demo_security:
+  allow_insecure_connections: true  # Demo only - DO NOT use in production
+  skip_ssl_verification: false
+  use_self_signed_certs: true
+
+# Demo host collections
+demo_host_collections:
+  - name: "Demo_Servers"
+    description: "Demo server collection for testing"
+  - name: "Demo_Workstations"
+    description: "Demo workstation collection"
+
+# Package update settings for demo
+demo_updates:
+  install_security_updates: true
+  install_bugfix_updates: false
+  install_enhancement_updates: false
+  reboot_after_kernel_updates: false
+
+# Demo reporting
+demo_reporting:
+  generate_html_reports: true
+  generate_json_reports: true
+  save_to_satellite_logs: true
+  
+# Notes for demo users
+demo_notes: |
+  Default Satellite Demo Credentials:
+  - Username: admin
+  - Password: NTY4NjIw
+  
+  This configuration is for DEMO purposes only.
+  For production environments:
+  1. Use vault_satellite_password in Ansible Vault
+  2. Enable proper SSL/TLS verification
+  3. Use organization-specific credentials
+  4. Follow enterprise security practices

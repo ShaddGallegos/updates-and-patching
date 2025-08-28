@@ -8,7 +8,7 @@
 # Satellite server configuration
 satellite_server_url: "{{ ansible_fqdn }}"
 satellite_username: "admin"
-satellite_password: "{{ satellite_admin_password | default('redhat') }}"
+satellite_password: "{{ satellite_admin_password | default('NTY4NjIw') }}"
 satellite_organization: "Red_Hat"
 satellite_location: "Denver"
 

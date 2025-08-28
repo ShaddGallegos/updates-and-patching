@@ -132,7 +132,7 @@ ansible-playbook -i inventory -e @group_vars/satellite.yml \
 # Satellite Server Configuration
 satellite_server_url: "https://satellite.example.com"
 satellite_username: "admin"
-satellite_password: "{{ vault_satellite_password }}"
+satellite_password: "{{ vault_satellite_password | default('NTY4NjIw') }}"
 satellite_organization: "Default Organization"
 satellite_location: "Default Location"
 
