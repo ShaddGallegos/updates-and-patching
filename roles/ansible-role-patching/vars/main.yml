@@ -1,39 +1,45 @@
 ---
 patch_pkg_manager_commands:
-yum: yum
-dnf: dnf
-apt: apt-get
-zypper: zypper
-pacman: pacman
-apk: apk
-portage: emerge
+  yum: yum
+  dnf: dnf
+  apt: apt-get
+  zypper: zypper
+  pacman: pacman
+  apk: apk
+  portage: emerge
+
 patch_default_critical_services:
-RedHat:
-Debian:
-Suse:
-Arch:
+  RedHat: []
+  Debian: []
+  Suse: []
+  Arch: []
+
 patch_default_exclusions:
-RedHat:
-Debian: []
-Suse:
-Arch: []
+  RedHat: []
+  Debian: []
+  Suse: []
+  Arch: []
+
 patch_reboot_indicators:
-yum:
-dnf:
-apt:
-zypper:
-pacman:
+  yum: []
+  dnf: []
+  apt: []
+  zypper: []
+  pacman: []
+
 patch_security_commands:
-yum: yum update -y --security
-dnf: dnf update -y --security
-apt: unattended-upgrade -v
-zypper: zypper patch --category security -y
+  yum: "yum update -y --security"
+  dnf: "dnf update -y --security"
+  apt: "unattended-upgrade -v"
+  zypper: "zypper patch --category security -y"
+
 patch_mgr_options:
-yum: null
-clean_cmd: pacman -Sc --noconfirm
-check_cmd: pacman -Dk
-history_cmd: grep $(date +%Y-%m-%d) /var/log/pacman.log
-dnf: null
-apt: null
-zypper: null
-pacman: null
+  yum: null
+  dnf: null
+  apt: null
+  zypper: null
+  pacman: null
+
+clean_cmd: "pacman -Sc --noconfirm"
+check_cmd: "pacman -Dk"
+history_cmd: "grep $(date +%Y-%m-%d) /var/log/pacman.log"

@@ -1,8 +1,9 @@
 ---
 - name: Red Hat Network Registration and Subscription Management
-- hosts: all
+  hosts: all
   gather_facts: true
   become: true
+
   vars:
     # Registration configuration
     rhn_username: "{{ vault_rhn_username | default(lookup('env', 'RHN_USERNAME')) }}"
@@ -19,177 +20,177 @@
     disable_all_repos_first: true
     update_packages_after_registration: false
 
-    pre_tasks:
-- name: Verify Red Hat Enterprise Linux system
-  ansible.builtin.fail:
-  msg: "This playbook is designed for Red Hat Enterprise Linux systems only"
-  when: ansible_facts['os_family'] != 'RedHat' or ansible_facts['distribution'] != 'RedHat'
+  pre_tasks:
+    - name: Verify Red Hat Enterprise Linux system
+      ansible.builtin.fail:
+        msg: "This playbook is designed for Red Hat Enterprise Linux systems only"
+      when: ansible_facts['os_family'] != 'RedHat' or ansible_facts['distribution'] != 'RedHat'
 
-- name: Set default repository channels for RHEL 7.x
-  ansible.builtin.set_fact:
-  repo_channels:
-  - rhel-7-server-rpms
-  - rhel-7-server-rh-common-rpms
-  - rhel-7-server-extras-rpms
-  - rhel-7-server-optional-rpms
-  - rhel-7-server-supplementary-rpms
-  - rhel-7-server-ansible-2.9-rpms
-  when:
-  - ansible_facts['os_family'] == 'RedHat'
-  - ansible_facts['distribution_major_version'] | int == 7
+    - name: Set default repository channels for RHEL 7.x
+      ansible.builtin.set_fact:
+        repo_channels:
+          - rhel-7-server-rpms
+          - rhel-7-server-rh-common-rpms
+          - rhel-7-server-extras-rpms
+          - rhel-7-server-optional-rpms
+          - rhel-7-server-supplementary-rpms
+          - rhel-7-server-ansible-2.9-rpms
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] | int == 7
 
-- name: Set default repository channels for RHEL 8.x
-  ansible.builtin.set_fact:
-  repo_channels:
-  - rhel-8-for-x86_64-baseos-rpms
-  - rhel-8-for-x86_64-appstream-rpms
-  - rhel-8-for-x86_64-supplementary-rpms
-  - rhel-8-for-x86_64-highavailability-rpms
-  - ansible-2.9-for-rhel-8-x86_64-rpms
-  when:
-  - ansible_facts['os_family'] == 'RedHat'
-  - ansible_facts['distribution_major_version'] | int == 8
+    - name: Set default repository channels for RHEL 8.x
+      ansible.builtin.set_fact:
+        repo_channels:
+          - rhel-8-for-x86_64-baseos-rpms
+          - rhel-8-for-x86_64-appstream-rpms
+          - rhel-8-for-x86_64-supplementary-rpms
+          - rhel-8-for-x86_64-highavailability-rpms
+          - ansible-2.9-for-rhel-8-x86_64-rpms
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] | int == 8
 
-- name: Set default repository channels for RHEL 9.x
-  ansible.builtin.set_fact:
-  repo_channels:
-  - rhel-9-for-x86_64-baseos-rpms
-  - rhel-9-for-x86_64-appstream-rpms
-  - rhel-9-for-x86_64-supplementary-rpms
-  - rhel-9-for-x86_64-highavailability-rpms
-  - ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms
-  when:
-  - ansible_facts['os_family'] == 'RedHat'
-  - ansible_facts['distribution_major_version'] | int == 9
+    - name: Set default repository channels for RHEL 9.x
+      ansible.builtin.set_fact:
+        repo_channels:
+          - rhel-9-for-x86_64-baseos-rpms
+          - rhel-9-for-x86_64-appstream-rpms
+          - rhel-9-for-x86_64-supplementary-rpms
+          - rhel-9-for-x86_64-highavailability-rpms
+          - ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms
+      when:
+        - ansible_facts['os_family'] == 'RedHat'
+        - ansible_facts['distribution_major_version'] | int == 9
 
-- name: Check current subscription status
-  ansible.builtin.command: subscription-manager status
-  register: current_subscription_status
-  failed_when: false
-  changed_when: false
+    - name: Check current subscription status
+      ansible.builtin.command: subscription-manager status
+      register: current_subscription_status
+      failed_when: false
+      changed_when: false
 
-- name: Display current subscription status
-  ansible.builtin.debug:
-  msg:
-  - "Current subscription status: {{ 'Active' if current_subscription_status.rc == 0 else 'Inactive/Unregistered' }}"
-  - "Return code: {{ current_subscription_status.rc }}"
+    - name: Display current subscription status
+      ansible.builtin.debug:
+        msg:
+          - "Current subscription status: {{ 'Active' if current_subscription_status.rc == 0 else 'Inactive/Unregistered' }}"
+          - "Return code: {{ current_subscription_status.rc }}"
 
   tasks:
-- name: Red Hat Network Registration Process
-  block:
-- name: Unregister system if force registration is enabled
-  community.general.redhat_subscription:
-  state: absent
-  when: force_register | bool
-  ignore_errors: true
+    - name: Red Hat Network Registration Process
+      block:
+        - name: Unregister system if force registration is enabled
+          community.general.redhat_subscription:
+            state: absent
+          when: force_register | bool
+          ignore_errors: true
 
-- name: Register system with Red Hat Network
-  community.general.redhat_subscription:
-  state: present
-  username: "{{ rhn_username }}"
-  password: "{{ rhn_password }}"
-  org_id: "{{ rhn_org_id | default(omit) }}"
-  pool_ids: "{{ [rhn_pool_id] if rhn_pool_id is defined else omit }}"
-  auto_attach: "{{ auto_attach }}"
-  register: registration_result
+        - name: Register system with Red Hat Network
+          community.general.redhat_subscription:
+            state: present
+            username: "{{ rhn_username }}"
+            password: "{{ rhn_password }}"
+            org_id: "{{ rhn_org_id | default(omit) }}"
+            pool_ids: "{{ [rhn_pool_id] if rhn_pool_id is defined else omit }}"
+            auto_attach: "{{ auto_attach }}"
+          register: registration_result
 
-- name: Display registration results
-  ansible.builtin.debug:
-  msg:
-  - "Registration successful"
-  - "System UUID: {{ registration_result.uuid | default('Not available') }}"
-  - "Pool IDs attached: {{ registration_result.pool_ids | default(['Auto-attached']) }}"
+        - name: Display registration results
+          ansible.builtin.debug:
+            msg:
+              - "Registration successful"
+              - "System UUID: {{ registration_result.uuid | default('Not available') }}"
+              - "Pool IDs attached: {{ registration_result.pool_ids | default(['Auto-attached']) }}"
 
-- name: Disable all repositories first (if configured)
-  ansible.builtin.command: subscription-manager repos --disable="*"
-  when:
-  - disable_all_repos_first | bool
-  - enable_repos | bool
-  changed_when: true
+        - name: Disable all repositories first (if configured)
+          ansible.builtin.command: subscription-manager repos --disable="*"
+          when:
+            - disable_all_repos_first | bool
+            - enable_repos | bool
+          changed_when: true
 
-- name: Enable required repositories
-  community.general.rhsm_repository:
-- name: "{{ repo_channels }}"
-  state: enabled
-  when:
-  - enable_repos | bool
-  - repo_channels is defined
-  - repo_channels | length > 0
-  register: repos_enabled
+        - name: Enable required repositories
+          community.general.rhsm_repository:
+            name: "{{ repo_channels }}"
+            state: enabled
+          when:
+            - enable_repos | bool
+            - repo_channels is defined
+            - repo_channels | length > 0
+          register: repos_enabled
 
-- name: Display enabled repositories
-  ansible.builtin.debug:
-  msg:
-  - "Enabled repositories:"
-  - "{{ repo_channels }}"
-  when: repos_enabled is succeeded
+        - name: Display enabled repositories
+          ansible.builtin.debug:
+            msg:
+              - "Enabled repositories:"
+              - "{{ repo_channels }}"
+          when: repos_enabled is succeeded
 
-- name: Update package cache after registration
-  ansible.builtin.dnf:
-  update_cache: true
-  when:
-  - registration_result is succeeded
-  - enable_repos | bool
+        - name: Update package cache after registration
+          ansible.builtin.dnf:
+            update_cache: true
+          when:
+            - registration_result is succeeded
+            - enable_repos | bool
 
-- name: Verify subscription status after registration
-  ansible.builtin.command: subscription-manager status
-  register: post_registration_status
-  changed_when: false
+        - name: Verify subscription status after registration
+          ansible.builtin.command: subscription-manager status
+          register: post_registration_status
+          changed_when: false
 
-- name: Display final subscription status
-  ansible.builtin.debug:
-  msg:
-  - "Final subscription status: {{ 'Active' if post_registration_status.rc == 0 else 'Issues detected' }}"
-  - "System is ready for package updates"
+        - name: Display final subscription status
+          ansible.builtin.debug:
+            msg:
+              - "Final subscription status: {{ 'Active' if post_registration_status.rc == 0 else 'Issues detected' }}"
+              - "System is ready for package updates"
 
-- name: Update critical system packages (optional)
-  ansible.builtin.dnf:
-- name:
-  - subscription-manager
-  - ca-certificates
-  - curl
-  - wget
-  state: latest
-  when: update_packages_after_registration | bool
+        - name: Update critical system packages (optional)
+          ansible.builtin.dnf:
+            name:
+              - subscription-manager
+              - ca-certificates
+              - curl
+              - wget
+            state: latest
+          when: update_packages_after_registration | bool
 
-  rescue:
-- name: Registration failed - attempting cleanup
-  ansible.builtin.debug:
-  msg:
-  - "Registration process failed"
-  - "Attempting to clean up and retry with unregister first"
+      rescue:
+        - name: Registration failed - attempting cleanup
+          ansible.builtin.debug:
+            msg:
+              - "Registration process failed"
+              - "Attempting to clean up and retry with unregister first"
 
-- name: Force unregister system on failure
-  community.general.redhat_subscription:
-  state: absent
-  ignore_errors: true
+        - name: Force unregister system on failure
+          community.general.redhat_subscription:
+            state: absent
+          ignore_errors: true
 
-- name: Clean subscription-manager data
-  ansible.builtin.file:
-  path: "{{ item }}"
-  state: absent
-  loop:
-  - /etc/pki/consumer/cert.pem
-  - /etc/pki/consumer/key.pem
-  - /etc/rhsm/rhsm.conf.kat-backup
-  ignore_errors: true
+        - name: Clean subscription-manager data
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /etc/pki/consumer/cert.pem
+            - /etc/pki/consumer/key.pem
+            - /etc/rhsm/rhsm.conf.kat-backup
+          ignore_errors: true
 
-- name: Re-attempt registration after cleanup
-  community.general.redhat_subscription:
-  state: present
-  username: "{{ rhn_username }}"
-  password: "{{ rhn_password }}"
-  org_id: "{{ rhn_org_id | default(omit) }}"
-  pool_ids: "{{ [rhn_pool_id] if rhn_pool_id is defined else omit }}"
-  auto_attach: "{{ auto_attach }}"
-  force_register: true
-  register: retry_registration_result
+        - name: Re-attempt registration after cleanup
+          community.general.redhat_subscription:
+            state: present
+            username: "{{ rhn_username }}"
+            password: "{{ rhn_password }}"
+            org_id: "{{ rhn_org_id | default(omit) }}"
+            pool_ids: "{{ [rhn_pool_id] if rhn_pool_id is defined else omit }}"
+            auto_attach: "{{ auto_attach }}"
+            force_register: true
+          register: retry_registration_result
 
-- name: Display retry registration results
-  ansible.builtin.debug:
-  msg:
-  - "Retry registration: {{ 'Successful' if retry_registration_result is succeeded else 'Failed' }}"
-  - "System UUID: {{ retry_registration_result.uuid | default('Not available') }}"
+        - name: Display retry registration results
+          ansible.builtin.debug:
+            msg:
+              - "Retry registration: {{ 'Successful' if retry_registration_result is succeeded else 'Failed' }}"
+              - "System UUID: {{ retry_registration_result.uuid | default('Not available') }}"
 
   post_tasks:
     - name: Generate registration report
@@ -201,56 +202,47 @@
           - **Hostname**: {{ ansible_facts['hostname'] }}
           - **FQDN**: {{ ansible_facts['fqdn'] }}
           - **Distribution**: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
+          - **Kernel**: {{ ansible_facts['kernel'] }}
           - **Architecture**: {{ ansible_facts['architecture'] }}
-          - **Registration Date**: {{ ansible_date_time.iso8601 }}- FQDN: {{ ansible_facts['fqdn'] }}
-    content: |
-      # Red Hat Network Registration Report
+          - **Registration Date**: {{ ansible_date_time.iso8601 }}
 
-      ## System Information
-      - **Hostname**: {{ ansible_facts['hostname'] }}
-      - **FQDN**: {{ ansible_facts['fqdn'] }}
-      - **Distribution**: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_version'] }}
-      - **Kernel**: {{ ansible_facts['kernel'] }}
-      - **Architecture**: {{ ansible_facts['architecture'] }}
-      - **Registration Date**: {{ ansible_date_time.iso8601 }}
+          ## Registration Status
+          - **Initial Status**: {{ 'Registered' if current_subscription_status.rc == 0 else 'Unregistered' }}
+          - **Final Status**: {{ 'Successfully Registered' if registration_result is succeeded else 'Registration Issues' }}
+          - **System UUID**: {{ registration_result.uuid | default('Not available') }}
+          - **Force Registration**: {{ 'Yes' if force_register else 'No' }}
 
-      ## Registration Status
-      - **Initial Status**: {{ 'Registered' if current_subscription_status.rc == 0 else 'Unregistered' }}
-      - **Final Status**: {{ 'Successfully Registered' if registration_result is succeeded else 'Registration Issues' }}
-      - **System UUID**: {{ registration_result.uuid | default('Not available') }}
-      - **Force Registration**: {{ 'Yes' if force_register else 'No' }}
+          ## Repository Configuration
+          - **Repositories Enabled**: {{ 'Yes' if enable_repos else 'No' }}
+          - **Auto-attach**: {{ 'Yes' if auto_attach else 'No' }}
 
-      ## Repository Configuration
-      - **Repositories Enabled**: {{ 'Yes' if enable_repos else 'No' }}
-      - **Auto-attach**: {{ 'Yes' if auto_attach else 'No' }}
+          ### Enabled Repositories:
+          {% if repo_channels is defined and repo_channels|length > 0 %}
+          {% for repo in repo_channels %}
+          - {{ repo }}
+          {% endfor %}
+          {% else %}
+          - No specific repositories configured
+          {% endif %}
 
-      ### Enabled Repositories:
-      {% if repo_channels is defined and repo_channels|length > 0 %}
-      {% for repo in repo_channels %}
-      - {{ repo }}
-      {% endfor %}
-      {% else %}
-      - No specific repositories configured
-      {% endif %}
+          ## Configuration
+          - **RHEL Version**: {{ ansible_facts['distribution_major_version'] }}
+          - **Architecture**: {{ ansible_facts['architecture'] }}
+          - **Package Updates**: {{ 'Enabled' if update_packages_after_registration else 'Disabled' }}
 
-      ## Configuration
-      - **RHEL Version**: {{ ansible_facts['distribution_major_version'] }}
-      - **Architecture**: {{ ansible_facts['architecture'] }}
-      - **Package Updates**: {{ 'Enabled' if update_packages_after_registration else 'Disabled' }}
+          ## Next Steps
+          1. Verify subscription status: `subscription-manager status`
+          2. List available repositories: `subscription-manager repos --list`
+          3. Check for system updates: `dnf check-update`
+          # Report generated by Ansible RHN Registration Playbook v2.0.0
+        dest: "/var/log/rhn-registration-report-{{ ansible_date_time.epoch }}.md"
+        mode: '0644'
 
-      ## Next Steps
-      1. Verify subscription status: `subscription-manager status`
-      2. List available repositories: `subscription-manager repos --list`
-      3. Check for system updates: `dnf check-update`
-      # Report generated by Ansible RHN Registration Playbook v2.0.0
-    dest: "/var/log/rhn-registration-report-{{ ansible_date_time.epoch }}.md"
-    mode: '0644'
-
-- name: Display completion summary
-  ansible.builtin.debug:
-    msg:
-      - "RHN registration process completed"
-      - "System: {{ ansible_facts['hostname'] }}"
-      - "Status: {{ 'Successfully registered' if registration_result is succeeded else 'Registration issues - check logs' }}"
-      - "Repositories enabled: {{ repo_channels | length if repo_channels is defined else 0 }}"
-      - "Report saved: /var/log/rhn-registration-report-{{ ansible_date_time.epoch }}.md"
+    - name: Display completion summary
+      ansible.builtin.debug:
+        msg:
+          - "RHN registration process completed"
+          - "System: {{ ansible_facts['hostname'] }}"
+          - "Status: {{ 'Successfully registered' if registration_result is succeeded else 'Registration issues - check logs' }}"
+          - "Repositories enabled: {{ repo_channels | length if repo_channels is defined else 0 }}"
+          - "Report saved: /var/log/rhn-registration-report-{{ ansible_date_time.epoch }}.md"
