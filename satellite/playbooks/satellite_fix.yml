@@ -1,0 +1,134 @@
+---
+- name: Repair Capsule and configure Satellite content
+  hosts: {{ satellite_ansible_hostname }}
+  become: yes
+  collections:
+    - redhat.satellite
+
+  vars:
+    satellite_ansible_hostname: "{{ inventory_hostname }}"
+    satellite_url: "https://{{ satellite_ansible_hostname }}"
+    satellite_username: "admin"
+    satellite_password: "your_password"
+    capsule_hostname: "malprodcapsule01.mava.micron.com"
+    organization: "Default Organization"
+    certs:
+      cacert: "/etc/pki/katello/certs/katello-server-ca.crt"
+      cert: "/etc/foreman/client_cert.pem"
+      key: "/etc/foreman/client_key.pem"
+    rhel_versions:
+      - "8.5"
+      - "9.1"
+      - "9.4"
+      - "9.6"
+    repo_types:
+      - baseos
+      - appstream
+      - kickstart
+
+  tasks:
+
+    - name: Restart pulpcore services on Satellite
+      systemd:
+        name: "{{ item }}"
+        state: restarted
+      loop:
+        - pulpcore-api
+        - pulpcore-worker@1
+        - pulpcore-worker@2
+        - pulpcore-content
+
+    - name: Restart pulpcore services on Capsule
+      ansible.builtin.shell: systemctl restart pulpcore*
+      delegate_to: "{{ capsule_hostname }}"
+
+    - name: Clean up old Capsule sync tasks
+      ansible.builtin.command: >
+        foreman-rake foreman_tasks:cleanup
+        TASK_SEARCH='label = Actions::Katello::CapsuleContent::Sync and result = pending'
+        STATES='running,stopped'
+        VERBOSE=true
+
+    - name: Run Pulp repair on Capsule
+      ansible.builtin.shell: |
+        curl -s --cacert {{ certs.cacert }} \
+             --cert {{ certs.cert }} \
+             --key {{ certs.key }} \
+             -X POST https://{{ capsule_hostname }}/pulp/api/v3/repair/ | awk -F'"' '{print $4}'
+      register: repair_task
+
+    - name: Monitor Pulp repair task
+      ansible.builtin.shell: |
+        curl --cacert {{ certs.cacert }} \
+             --cert {{ certs.cert }} \
+             --key {{ certs.key }} \
+             -X GET https://{{ capsule_hostname }}{{ repair_task.stdout }} | json_reformat
+      register: repair_status
+      until: "{{ '\"state\": \"completed\"' in repair_status.stdout }}"
+      retries: 20
+      delay: 30
+
+    - name: Enable and sync repositories
+      block:
+        - name: Enable repository
+          redhat.satellite.repository_set:
+            server_url: "{{ satellite_url }}"
+            username: "{{ satellite_username }}"
+            password: "{{ satellite_password }}"
+            product: "Red Hat Enterprise Linux for x86_64"
+            label: "rhel-{{ version }}/{{ repo }}/x86_64/{{ 'kickstart' if repo == 'kickstart' else 'os' }}"
+            enabled: true
+
+        - name: Sync repository
+          redhat.satellite.repository_sync:
+            server_url: "{{ satellite_url }}"
+            username: "{{ satellite_username }}"
+            password: "{{ satellite_password }}"
+            label: "rhel-{{ version }}/{{ repo }}/x86_64/{{ 'kickstart' if repo == 'kickstart' else 'os' }}"
+      loop: "{{ rhel_versions | product(repo_types) | list }}"
+      loop_control:
+        loop_var: repo_pair
+      vars:
+        version: "{{ repo_pair.0 }}"
+        repo: "{{ repo_pair.1 }}"
+
+    - name: Create content views
+      redhat.satellite.content_view:
+        server_url: "{{ satellite_url }}"
+        username: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        name: "RHEL_{{ item }}_CV"
+        description: "Content View for RHEL {{ item }}"
+        organization: "{{ organization }}"
+      loop: "{{ rhel_versions }}"
+
+    - name: Add repositories to content views
+      redhat.satellite.content_view_repository:
+        server_url: "{{ satellite_url }}"
+        username: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        content_view: "RHEL_{{ version }}_CV"
+        repository: "Red Hat Enterprise Linux {{ version }} {{ repo | title }} RPMs"
+        organization: "{{ organization }}"
+      loop: "{{ rhel_versions | product(repo_types) | list }}"
+      loop_control:
+        loop_var: repo_pair
+      vars:
+        version: "{{ repo_pair.0 }}"
+        repo: "{{ repo_pair.1 }}"
+
+    - name: Publish content views
+      redhat.satellite.content_view_version:
+        server_url: "{{ satellite_url }}"
+        username: "{{ satellite_username }}"
+        password: "{{ satellite_password }}"
+        content_view: "RHEL_{{ item }}_CV"
+        organization: "{{ organization }}"
+        description: "Initial publish for RHEL {{ item }}"
+      loop: "{{ rhel_versions }}"
+
+    - name: Notify user to perform Complete Sync via WebUI
+      ansible.builtin.debug:
+        msg: |
+          Pulp repair completed. Please log into Satellite WebUI:
+          → Infrastructure → Capsules → {{ capsule_hostname }} → Synchronize → Complete Sync

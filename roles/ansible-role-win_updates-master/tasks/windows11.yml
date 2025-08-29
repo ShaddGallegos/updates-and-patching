@@ -4,16 +4,16 @@
 
 - name: "Check Windows 11 version and edition"
   win_shell: |
-  $version = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-  $edition = (Get-CimInstance -ClassName Win32_OperatingSystem).OperatingSystemSKU
+    $version = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+    $edition = (Get-CimInstance -ClassName Win32_OperatingSystem).OperatingSystemSKU
 
     @{
-    'DisplayVersion' = $version.DisplayVersion
-    'ReleaseId' = $version.ReleaseId
-    'CurrentBuild' = $version.CurrentBuild
-    'UBR' = $version.UBR
-    'Edition' = $edition
-    'EditionName' = (Get-CimInstance -ClassName Win32_OperatingSystem).Caption
+      'DisplayVersion' = $version.DisplayVersion
+      'ReleaseId' = $version.ReleaseId
+      'CurrentBuild' = $version.CurrentBuild
+      'UBR' = $version.UBR
+      'Edition' = $edition
+      'EditionName' = (Get-CimInstance -ClassName Win32_OperatingSystem).Caption
     } | ConvertTo-Json
   register: win11_version_info
   changed_when: false
@@ -24,63 +24,63 @@
 
 - name: "Enable Windows 11 Smart App Control"
   win_regedit:
-  path: 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Features'
-- name: 'SmartAppControlState'
-  data: 1
-  type: dword
+    path: 'HKLM:\SOFTWARE\Microsoft\Windows Defender\Features'
+    name: 'SmartAppControlState'
+    data: 1
+    type: dword
   when: win11_settings.configure_smart_app_control | bool
 
 - name: "Configure Windows 11 Enhanced Phishing Protection"
   win_regedit:
-  path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
-- name: 'EnableEnhancedPhishingProtection'
-  data: 1
-  type: dword
+    path: 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    name: 'EnableEnhancedPhishingProtection'
+    data: 1
+    type: dword
   when: win11_settings.enable_enhanced_phishing_protection | bool
 
 - name: "Update Microsoft Store apps in Windows 11"
   win_shell: |
-  try {
-  # Check if running as admin
-  $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-  $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-  $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    try {
+      # Check if running as admin
+      $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+      $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+      $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-    if ($isAdmin) {
-    # Force Store app updates
-    Get-CimInstance -Namespace Root/cimv2/mdm/dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01 |
-    Invoke-CimMethod -MethodName UpdateScanMethod
+      if ($isAdmin) {
+        # Force Store app updates
+        Get-CimInstance -Namespace Root/cimv2/mdm/dmmap -ClassName MDM_EnterpriseModernAppManagement_AppManagement01 |
+          Invoke-CimMethod -MethodName UpdateScanMethod
 
-    # Check for app updates via PowerShell (if available)
-    if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
-    $apps = Get-AppxPackage | Where-Object {$_.PackageFullName -like "*Store*"}
-    $updateCount = $apps.Count
-    } else {
-    $updateCount = 0
-    }
+        # Check for app updates via PowerShell (if available)
+        if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
+          $apps = Get-AppxPackage | Where-Object {$_.PackageFullName -like "*Store*"}
+          $updateCount = $apps.Count
+        } else {
+          $updateCount = 0
+        }
 
-    @{
-    'Status' = 'Success'
-    'Method' = 'MDM API'
-    'AppsChecked' = $updateCount
-    'IsAdmin' = $isAdmin
-    } | ConvertTo-Json
-    } else {
-    @{
-    'Status' = 'Limited'
-    'Method' = 'User Context'
-    'AppsChecked' = 0
-    'IsAdmin' = $isAdmin
-    'Message' = 'Admin rights required for enterprise app management'
-    } | ConvertTo-Json
-    }
+        @{
+          'Status' = 'Success'
+          'Method' = 'MDM API'
+          'AppsChecked' = $updateCount
+          'IsAdmin' = $isAdmin
+        } | ConvertTo-Json
+      } else {
+        @{
+          'Status' = 'Limited'
+          'Method' = 'User Context'
+          'AppsChecked' = 0
+          'IsAdmin' = $isAdmin
+          'Message' = 'Admin rights required for enterprise app management'
+        } | ConvertTo-Json
+      }
     }
     catch {
-    @{
-    'Status' = 'Error'
-    'Error' = $_.Exception.Message
-    'IsAdmin' = $false
-    } | ConvertTo-Json
+      @{
+        'Status' = 'Error'
+        'Error' = $_.Exception.Message
+        'IsAdmin' = $false
+      } | ConvertTo-Json
     }
   register: win11_store_updates
   changed_when: false
@@ -88,61 +88,51 @@
 
 - name: "Configure Windows 11 Update for Business settings"
   win_regedit:
-  path: "{{ item.path }}"
-- name: "{{ item.name }}"
-  data: "{{ item.value }}"
-  type: dword
+    path: "{{ item.path }}"
+    name: "{{ item.name }}"
+    data: "{{ item.value }}"
+    type: dword
   loop:
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'DeferFeatureUpdates'
-  value: "{{ win_feature_updates.defer_days }}"
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'DeferFeatureUpdatesPeriodInDays'
-  value: "{{ win_feature_updates.defer_days }}"
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'ConfigureDeadlineForFeatureUpdates'
-  value: 1
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'ConfigureDeadlineForQualityUpdates'
-  value: 1
-  - path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
-- name: 'ConfigureDeadlineGracePeriod'
-  value: 2
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'DeferFeatureUpdates', value: "{{ win_feature_updates.defer_days }}" }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'DeferFeatureUpdatesPeriodInDays', value: "{{ win_feature_updates.defer_days }}" }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'ConfigureDeadlineForFeatureUpdates', value: 1 }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'ConfigureDeadlineForQualityUpdates', value: 1 }
+    - { path: 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate', name: 'ConfigureDeadlineGracePeriod', value: 2 }
   when: win_feature_updates.enabled | bool
 
 - name: "Configure Controlled Folder Access for Windows 11"
   win_shell: |
-  try {
-  # Enable Controlled Folder Access via PowerShell
-  Set-MpPreference -EnableControlledFolderAccess Enabled -Force
+    try {
+      # Enable Controlled Folder Access via PowerShell
+      Set-MpPreference -EnableControlledFolderAccess Enabled -Force
 
-    # Add common protected folders
-    $protectedFolders = @(
-  "$env:USERPROFILE\Documents",
-  "$env:USERPROFILE\Desktop",
-  "$env:USERPROFILE\Pictures",
-  "$env:USERPROFILE\Videos",
-  "$env:USERPROFILE\Music"
-    )
+      # Add common protected folders
+      $protectedFolders = @(
+        "$env:USERPROFILE\Documents",
+        "$env:USERPROFILE\Desktop",
+        "$env:USERPROFILE\Pictures",
+        "$env:USERPROFILE\Videos",
+        "$env:USERPROFILE\Music"
+      )
 
-    foreach ($folder in $protectedFolders) {
-    if (Test-Path $folder) {
-    Add-MpPreference -ControlledFolderAccessProtectedFolders $folder -Force
-    }
-    }
+      foreach ($folder in $protectedFolders) {
+        if (Test-Path $folder) {
+          Add-MpPreference -ControlledFolderAccessProtectedFolders $folder -Force
+        }
+      }
 
-    $status = Get-MpPreference | Select-Object -ExpandProperty EnableControlledFolderAccess
-    @{
-    'Status' = 'Success'
-    'ControlledFolderAccess' = $status.ToString()
-    'ProtectedFolders' = $protectedFolders.Count
-    } | ConvertTo-Json
+      $status = Get-MpPreference | Select-Object -ExpandProperty EnableControlledFolderAccess
+      @{
+        'Status' = 'Success'
+        'ControlledFolderAccess' = $status.ToString()
+        'ProtectedFolders' = $protectedFolders.Count
+      } | ConvertTo-Json
     }
     catch {
-    @{
-    'Status' = 'Error'
-    'Error' = $_.Exception.Message
-    } | ConvertTo-Json
+      @{
+        'Status' = 'Error'
+        'Error' = $_.Exception.Message
+      } | ConvertTo-Json
     }
   register: win11_folder_protection
   when: win11_settings.enable_controlled_folder_access | bool
@@ -150,31 +140,31 @@
 
 - name: "Update Windows Security app and definitions"
   win_shell: |
-  try {
-  # Update Windows Security
-  if (Get-Command Update-MpSignature -ErrorAction SilentlyContinue) {
-  Update-MpSignature -UpdateSource MicrosoftUpdateServer
-  $defStatus = Get-MpComputerStatus
+    try {
+      # Update Windows Security
+      if (Get-Command Update-MpSignature -ErrorAction SilentlyContinue) {
+        Update-MpSignature -UpdateSource MicrosoftUpdateServer
+        $defStatus = Get-MpComputerStatus
 
-    @{
-    'Status' = 'Success'
-    'AntivirusSignatureAge' = $defStatus.AntivirusSignatureAge
-    'AntispywareSignatureAge' = $defStatus.AntispywareSignatureAge
-    'LastFullScanDateTime' = $defStatus.FullScanAge
-    'RealTimeProtectionEnabled' = $defStatus.RealTimeProtectionEnabled
-    } | ConvertTo-Json
-    } else {
-    @{
-    'Status' = 'NotAvailable'
-    'Message' = 'Windows Defender cmdlets not available'
-    } | ConvertTo-Json
-    }
+        @{
+          'Status' = 'Success'
+          'AntivirusSignatureAge' = $defStatus.AntivirusSignatureAge
+          'AntispywareSignatureAge' = $defStatus.AntispywareSignatureAge
+          'LastFullScanDateTime' = $defStatus.FullScanAge
+          'RealTimeProtectionEnabled' = $defStatus.RealTimeProtectionEnabled
+        } | ConvertTo-Json
+      } else {
+        @{
+          'Status' = 'NotAvailable'
+          'Message' = 'Windows Defender cmdlets not available'
+        } | ConvertTo-Json
+      }
     }
     catch {
-    @{
-    'Status' = 'Error'
-    'Error' = $_.Exception.Message
-    } | ConvertTo-Json
+      @{
+        'Status' = 'Error'
+        'Error' = $_.Exception.Message
+      } | ConvertTo-Json
     }
   register: win11_security_update
   when: win11_settings.update_windows_security | bool

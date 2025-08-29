@@ -3,36 +3,36 @@
 # Supports Windows 11, Windows Server 2022, and Windows 10 22H2
 
 - name: "Modern Windows Updates Management Demo"
-- hosts: windows
+  hosts: windows
   gather_facts: yes
   vars:
     # Configure update behavior
     win_updates_category_names:
-    - SecurityUpdates
-    - CriticalUpdates
-    - UpdateRollups
-    - DefinitionUpdates
+      - SecurityUpdates
+      - CriticalUpdates
+      - UpdateRollups
+      - DefinitionUpdates
 
-      # Enable advanced features
-      win_updates_generate_report: true
-      win_updates_cleanup_enabled: true
-      win_updates_optimize_settings: true
+    # Enable advanced features
+    win_updates_generate_report: true
+    win_updates_cleanup_enabled: true
+    win_updates_optimize_settings: true
 
-      # Distribution-specific handling
-      win_updates_auto_detect_distribution: true
+    # Distribution-specific handling
+    win_updates_auto_detect_distribution: true
 
-      # Security options
-      win_updates_include_security_only: false
-      win_updates_include_optional: false
+    # Security options
+    win_updates_include_security_only: false
+    win_updates_include_optional: false
 
-      # Reboot control
-      win_updates_reboot: false
-      win_updates_reboot_timeout: 1200
+    # Reboot control
+    win_updates_reboot: false
+    win_updates_reboot_timeout: 1200
 
-      # Filtering options
-      win_updates_state: installed
-      win_updates_accept_list: []
-      win_updates_reject_list: []
+    # Filtering options
+    win_updates_state: installed
+    win_updates_accept_list: []
+    win_updates_reject_list: []
 
   tasks:
 - name: "Display demo information"
@@ -93,48 +93,48 @@
 
 - name: "Save demo results to file"
   win_shell: |
-  $demoResults = @{
-  'DemoTimestamp' = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
-  'Hostname' = $env:COMPUTERNAME
-  'RoleName' = 'ansible-role-win_updates-master'
-  'RoleVersion' = '2.0.0'
-  'WindowsVersion' = (Get-CimInstance Win32_OperatingSystem).Version
-  'WindowsBuild' = (Get-CimInstance Win32_OperatingSystem).BuildNumber
-  'PowerShellVersion' = $PSVersionTable.PSVersion.ToString()
-  'DemoFeatures' = @(
-  'Distribution-specific handling',
-  'Enhanced security features',
-  'Comprehensive reporting',
-  'Automated cleanup',
-  'Professional error handling',
-  'Enterprise integration ready'
-  )
-  'UpdatesSession' = @{
-  'Found' = '{{ win_updates_completion_status.updates_found | default("N/A") }}'
-  'Installed' = '{{ win_updates_completion_status.updates_installed | default("N/A") }}'
-  'Failed' = '{{ win_updates_completion_status.updates_failed | default("N/A") }}'
-  'RebootRequired' = '{{ win_updates_completion_status.reboot_required | default("N/A") }}'
-  }
-  'SystemInfo' = @{
-  'FreeSpaceGB' = '{{ win_updates_completion_status.free_space_gb | default("N/A") }}'
-  'CompletionTime' = '{{ win_updates_completion_status.completion_time | default("N/A") }}'
-  }
-  'SupportedDistributions' = @(
-  'Windows 11 (Build 22000+)',
-  'Windows Server 2022 (Build 20348+)',
-  'Windows 10 22H2 (Build 19041+)'
-  )
-  }
+    $demoResults = @{
+      'DemoTimestamp' = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+      'Hostname' = $env:COMPUTERNAME
+      'RoleName' = 'ansible-role-win_updates-master'
+      'RoleVersion' = '2.0.0'
+      'WindowsVersion' = (Get-CimInstance Win32_OperatingSystem).Version
+      'WindowsBuild' = (Get-CimInstance Win32_OperatingSystem).BuildNumber
+      'PowerShellVersion' = $PSVersionTable.PSVersion.ToString()
+      'DemoFeatures' = @(
+        'Distribution-specific handling',
+        'Enhanced security features',
+        'Comprehensive reporting',
+        'Automated cleanup',
+        'Professional error handling',
+        'Enterprise integration ready'
+      )
+      'UpdatesSession' = @{
+        'Found' = '{{ win_updates_completion_status.updates_found | default("N/A") }}'
+        'Installed' = '{{ win_updates_completion_status.updates_installed | default("N/A") }}'
+        'Failed' = '{{ win_updates_completion_status.updates_failed | default("N/A") }}'
+        'RebootRequired' = '{{ win_updates_completion_status.reboot_required | default("N/A") }}'
+      }
+      'SystemInfo' = @{
+        'FreeSpaceGB' = '{{ win_updates_completion_status.free_space_gb | default("N/A") }}'
+        'CompletionTime' = '{{ win_updates_completion_status.completion_time | default("N/A") }}'
+      }
+      'SupportedDistributions' = @(
+        'Windows 11 (Build 22000+)',
+        'Windows Server 2022 (Build 20348+)',
+        'Windows 10 22H2 (Build 19041+)'
+      )
+    }
 
     $jsonOutput = $demoResults | ConvertTo-Json -Depth 4
     $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-  $outputPath = "$env:TEMP\windows_updates_demo_$timestamp.json"
+    $outputPath = "$env:TEMP\windows_updates_demo_$timestamp.json"
     $jsonOutput | Out-File -FilePath $outputPath -Encoding UTF8
 
     @{
-    'DemoResultsPath' = $outputPath
-    'Status' = 'Success'
-    'Message' = 'Demo results saved successfully'
+      'DemoResultsPath' = $outputPath
+      'Status' = 'Success'
+      'Message' = 'Demo results saved successfully'
     } | ConvertTo-Json
   register: demo_results
   changed_when: true

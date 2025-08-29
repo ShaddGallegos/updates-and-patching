@@ -163,11 +163,11 @@
       ╔══════════════════════════════════════════════════════════════════════════════╗
       ║                    Satellite Management Completed                           ║
       ╠══════════════════════════════════════════════════════════════════════════════╣
-      ║  ✅ Repository Management: {{ 'Enabled' if satellite_manage_repositories | default(true) else 'Disabled' }}
-      ║  ✅ Content Lifecycle: {{ 'Enabled' if satellite_manage_lifecycle | default(true) else 'Disabled' }}
-      ║  ✅ Host Management: {{ 'Enabled' if satellite_manage_hosts | default(true) else 'Disabled' }}
-      ║  ✅ Security Updates: {{ 'Enabled' if satellite_manage_updates | default(true) else 'Disabled' }}
-      ║  ✅ Compliance Integration: {{ 'Enabled' if satellite_enable_insights | default(true) else 'Disabled' }}
+      ║  [+] Repository Management: {{ 'Enabled' if satellite_manage_repositories | default(true) else 'Disabled' }}
+      ║  [+] Content Lifecycle: {{ 'Enabled' if satellite_manage_lifecycle | default(true) else 'Disabled' }}
+      ║  [+] Host Management: {{ 'Enabled' if satellite_manage_hosts | default(true) else 'Disabled' }}
+      ║  [+] Security Updates: {{ 'Enabled' if satellite_manage_updates | default(true) else 'Disabled' }}
+      ║  [+] Compliance Integration: {{ 'Enabled' if satellite_enable_insights | default(true) else 'Disabled' }}
       ║
       ║  Organization: {{ satellite_organization }}
       ║  Server: {{ satellite_server_url }}

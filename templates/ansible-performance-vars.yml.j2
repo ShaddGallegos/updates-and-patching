@@ -1,0 +1,238 @@
+# High-Performance Ansible Configuration Variables
+# Template variables for ansible.cfg.j2 optimization
+# Version: 3.0.0
+# Updated: {{ ansible_date_time.date }}
+
+# =============================================================================
+# CORE PERFORMANCE SETTINGS
+# =============================================================================
+
+# Connection and execution performance
+ansible_forks: 50                          # Increased from default 5
+poll_interval: 0.5                         # Faster polling
+connection_timeout: 60                     # Balanced timeout
+gather_timeout: 30                         # Faster fact gathering
+
+# Caching performance (requires Redis for optimal performance)
+fact_cache_timeout: 86400                  # 24 hours
+inventory_cache_timeout: 7200              # 2 hours
+cache_timeout: 3600                        # 1 hour
+
+# Redis connection settings (install redis for best performance)
+redis_host: "127.0.0.1:6379:0"            # Redis for fact caching
+cache_connection: "127.0.0.1:6379:1"      # Redis for general caching
+inventory_cache_connection: "127.0.0.1:6379:2"  # Redis for inventory caching
+
+# =============================================================================
+# STRATEGY AND EXECUTION OPTIMIZATION
+# =============================================================================
+
+# Execution strategy (mitogen provides significant performance boost)
+ansible_strategy: "mitogen_linear"         # Use mitogen if installed, fallback to "linear"
+# Alternative strategies:
+# - "linear" (default, safe)
+# - "free" (parallel execution)
+# - "mitogen_linear" (fastest, requires mitogen plugin)
+
+# Output optimization for performance
+stdout_callback: "default"                 # Faster than yaml/json
+display_skipped_hosts: "False"             # Reduces output
+display_ok_hosts: "False"                  # Reduces output for large inventories
+show_custom_stats: "True"                  # Keep useful stats
+
+# =============================================================================
+# CONNECTION OPTIMIZATIONS
+# =============================================================================
+
+# SSH performance settings
+ssh_pipelining: "True"                     # Significant performance boost
+ssh_usetty: "False"                        # Faster execution
+sftp_batch_mode: "True"                    # Faster file transfers
+ssh_retries: 5                             # Resilience
+transfer_method: "smart"                   # Optimal transfer method
+
+# SSH connection multiplexing (keeps connections alive)
+ssh_connection_args: "-C -o ControlMaster=auto -o ControlPersist=300s -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=publickey"
+
+# Control path optimization
+ssh_control_path: "/tmp/ansible-ssh-%%h-%%p-%%r"
+ssh_control_path_dir: "/tmp/.ansible-cp"
+
+# =============================================================================
+# FACT GATHERING OPTIMIZATION
+# =============================================================================
+
+# Optimized fact gathering (gather only what you need)
+setup_gather_timeout: 60
+setup_gather_subset: "!all,!min,network,hardware,virtual,ohai,facter"
+gather_facts_parallel: "True"
+
+# Custom fact gathering subsets for different scenarios:
+# - Minimal: "!all,!min"
+# - Network only: "!all,!min,network" 
+# - Hardware only: "!all,!min,hardware"
+# - Full (slow): "all"
+
+# =============================================================================
+# INVENTORY AND PLUGIN OPTIMIZATION
+# =============================================================================
+
+# Enhanced inventory plugins
+inventory_plugins: "auto, host_list, script, yaml, ini, constructed, advanced_host_list"
+inventory_cache_enabled: "True"
+inventory_cache_plugin: "redis"            # Use redis if available
+host_pattern_mismatch: "warning"
+unparsed_is_failed: "False"
+
+# Plugin path optimization
+ansible_lookup_plugins: "/usr/share/ansible/plugins/lookup:~/.ansible/plugins/lookup"
+ansible_library: "/usr/share/ansible/plugins/modules:~/.ansible/plugins/modules"
+ansible_action_plugins: "/usr/share/ansible/plugins/action:~/.ansible/plugins/action"
+ansible_callback_plugins: "/usr/share/ansible/plugins/callback:~/.ansible/plugins/callback"
+ansible_connection_plugins: "/usr/share/ansible/plugins/connection:~/.ansible/plugins/connection"
+ansible_filter_plugins: "/usr/share/ansible/plugins/filter:~/.ansible/plugins/filter"
+ansible_strategy_plugins: "/usr/share/ansible/plugins/strategy:~/.ansible/plugins/strategy"
+ansible_vars_plugins: "/usr/share/ansible/plugins/vars:~/.ansible/plugins/vars"
+
+# =============================================================================
+# MODULE-SPECIFIC OPTIMIZATIONS
+# =============================================================================
+
+# Package management optimization
+yum_update_cache: "False"                  # Don't update cache unless needed
+dnf_update_cache: "False"                  # Don't update cache unless needed
+apt_update_cache: "False"                  # Don't update cache unless needed
+apt_cache_valid_time: 3600                 # 1 hour cache validity
+
+# Network module optimization
+network_cli_command_timeout: 60
+network_cli_connect_timeout: 60
+
+# Container optimization
+docker_container_timeout: 300
+
+# Cloud optimization
+ec2_wait_timeout: 600
+
+# =============================================================================
+# CALLBACK AND MONITORING OPTIMIZATION
+# =============================================================================
+
+# Enhanced callbacks for performance monitoring
+callbacks_enabled: "timer, profile_tasks, cgroup_perf_recap"
+profile_tasks_output_limit: 20
+profile_tasks_sort_order: "descending"
+timer_format: "Playbook run took %s days, %s hours, %s minutes, %s seconds"
+
+# =============================================================================
+# SECURITY AND RELIABILITY SETTINGS
+# =============================================================================
+
+# Error handling
+error_on_undefined_vars: "True"
+any_errors_fatal: "False"
+max_diff_size: 1048576                     # 1MB max diff size
+
+# Retry settings
+retry_files_enabled: "True"
+retry_files_path: "./retries"
+
+# =============================================================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# =============================================================================
+
+# Development environment (faster, less secure)
+development_overrides:
+  ansible_forks: 20
+  fact_cache_timeout: 1800                 # 30 minutes
+  connection_timeout: 30
+  ssh_connection_args: "-C -o ControlMaster=auto -o ControlPersist=60s -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+# Production environment (balanced performance and reliability)
+production_overrides:
+  ansible_forks: 30
+  fact_cache_timeout: 86400                # 24 hours
+  connection_timeout: 60
+  ssh_retries: 10
+
+# High-load environment (maximum performance)
+high_load_overrides:
+  ansible_forks: 100
+  fact_cache_timeout: 172800               # 48 hours
+  poll_interval: 0.1
+  ansible_strategy: "mitogen_linear"
+
+# =============================================================================
+# PERFORMANCE MONITORING VARIABLES
+# =============================================================================
+
+# Enable performance monitoring
+enable_performance_monitoring: true
+performance_log_path: "./performance.log"
+enable_resource_monitoring: true
+
+# Callback configuration
+bin_ansible_callbacks: "True"
+
+# =============================================================================
+# CACHE PREFIXES FOR MULTI-ENVIRONMENT SUPPORT
+# =============================================================================
+
+ansible_project_name: "updates_patching"
+cache_prefix: "{{ ansible_project_name }}_cache"
+ansible_facts_prefix: "{{ ansible_project_name }}_facts"
+inventory_cache_prefix: "{{ ansible_project_name }}_inventory"
+
+# =============================================================================
+# LOGGING OPTIMIZATION
+# =============================================================================
+
+ansible_log_path: "./ansible-performance.log"
+persistent_log_messages: "False"           # Reduce logging overhead
+
+# =============================================================================
+# COLLECTION AND ROLE PATH OPTIMIZATION
+# =============================================================================
+
+collections_paths: "~/.ansible/collections:/usr/share/ansible/collections:./collections"
+collections_scan_sys_path: "True"
+collections_version_mismatch: "warning"
+roles_path: "roles:~/.ansible/roles:/usr/share/ansible/roles:./roles"
+
+# =============================================================================
+# ADVANCED PERFORMANCE FEATURES
+# =============================================================================
+
+# Python interpreter optimization
+python_interpreter: "auto_silent"
+
+# Persistent connection optimization
+persistent_command_timeout: 60
+persistent_connect_timeout: 60
+persistent_connect_retry_timeout: 30
+persistent_connect_interval: 1
+persistent_retries: 5
+
+# Connection idle timeout
+idle_timeout: 30
+command_timeout: 30
+connect_timeout: 30
+
+# =============================================================================
+# USAGE EXAMPLES AND RECOMMENDATIONS
+# =============================================================================
+
+# To use these optimizations:
+# 1. Install Redis: yum install redis-server && systemctl start redis
+# 2. Install Mitogen: pip install mitogen
+# 3. Template this file with your specific values
+# 4. Monitor performance with: ansible-playbook playbook.yml --diff --check
+
+# Performance testing command:
+# time ansible all -m setup --tree /tmp/facts
+
+# Expected performance improvements:
+# - 50-80% faster execution with mitogen
+# - 60-90% faster with Redis caching
+# - 30-50% faster with SSH multiplexing
+# - 20-40% faster with optimized fact gathering

@@ -1,0 +1,220 @@
+# Ansible Configuration for Updates and Patching Project
+# High-performance configuration for enterprise-grade automation
+# Version: 3.0.0
+# Updated: {{ ansible_date_time.date }}
+
+[defaults]
+# Basic Configuration
+inventory = {{ ansible_inventory_file | default('inventory') }}
+host_key_checking = False
+gathering = smart
+fact_caching = redis
+fact_caching_connection = {{ redis_host | default('127.0.0.1:6379:0') }}
+fact_caching_timeout = {{ fact_cache_timeout | default('86400') }}
+fact_caching_prefix = {{ ansible_project_name | default('ansible_facts') }}
+
+# Disable deprecation warnings for cleaner output
+deprecation_warnings = False
+
+# High-Performance Settings
+forks = {{ ansible_forks | default('50') }}
+poll_interval = {{ poll_interval | default('0.5') }}
+timeout = {{ connection_timeout | default('60') }}
+gather_timeout = {{ gather_timeout | default('30') }}
+ansible_managed = Ansible managed: {file} modified on %Y-%m-%d %H:%M:%S by {uid} on {host}
+
+# Logging and Output - Optimized for performance
+log_path = {{ ansible_log_path | default('./ansible.log') }}
+display_skipped_hosts = {{ display_skipped_hosts | default('False') }}
+display_ok_hosts = {{ display_ok_hosts | default('False') }}
+stdout_callback = {{ stdout_callback | default('default') }}
+show_custom_stats = {{ show_custom_stats | default('True') }}
+callbacks_enabled = {{ callbacks_enabled | default('timer, profile_tasks, cgroup_perf_recap') }}
+bin_ansible_callbacks = {{ bin_ansible_callbacks | default('True') }}
+
+# Security Settings
+allow_world_readable_tmpfiles = False
+command_warnings = False
+inject_facts_as_vars = False
+
+# Advanced Performance Settings
+strategy = {{ ansible_strategy | default('mitogen_linear') }}
+strategy_plugins = {{ strategy_plugins_path | default('/usr/share/ansible/plugins/strategy') }}
+mitogen_cpu_count = {{ ansible_processor_vcpus | default('auto') }}
+
+# Connection Multiplexing
+persistent_connection_idle_timeout = {{ idle_timeout | default('30') }}
+persistent_command_timeout = {{ command_timeout | default('30') }}
+persistent_connect_timeout = {{ connect_timeout | default('30') }}
+
+# Plugin Settings - Optimized paths
+lookup_plugins = {{ ansible_lookup_plugins | default('/usr/share/ansible/plugins/lookup:~/.ansible/plugins/lookup') }}
+library = {{ ansible_library | default('/usr/share/ansible/plugins/modules:~/.ansible/plugins/modules') }}
+action_plugins = {{ ansible_action_plugins | default('/usr/share/ansible/plugins/action:~/.ansible/plugins/action') }}
+callback_plugins = {{ ansible_callback_plugins | default('/usr/share/ansible/plugins/callback:~/.ansible/plugins/callback') }}
+connection_plugins = {{ ansible_connection_plugins | default('/usr/share/ansible/plugins/connection:~/.ansible/plugins/connection') }}
+filter_plugins = {{ ansible_filter_plugins | default('/usr/share/ansible/plugins/filter:~/.ansible/plugins/filter') }}
+strategy_plugins = {{ ansible_strategy_plugins | default('/usr/share/ansible/plugins/strategy:~/.ansible/plugins/strategy') }}
+vars_plugins = {{ ansible_vars_plugins | default('/usr/share/ansible/plugins/vars:~/.ansible/plugins/vars') }}
+
+# Retry and Error Handling - Enhanced
+retry_files_enabled = {{ retry_files_enabled | default('True') }}
+retry_files_save_path = {{ retry_files_path | default('./retries') }}
+error_on_undefined_vars = {{ error_on_undefined_vars | default('True') }}
+any_errors_fatal = {{ any_errors_fatal | default('False') }}
+max_diff_size = {{ max_diff_size | default('1048576') }}
+
+# Collection Settings - Performance optimized
+collections_paths = {{ collections_paths | default('~/.ansible/collections:/usr/share/ansible/collections:./collections') }}
+collections_scan_sys_path = {{ collections_scan_sys_path | default('True') }}
+collections_on_ansible_version_mismatch = {{ collections_version_mismatch | default('warning') }}
+
+# Role Settings - Enhanced
+roles_path = {{ roles_path | default('roles:~/.ansible/roles:/usr/share/ansible/roles:./roles') }}
+ansible_python_interpreter = {{ python_interpreter | default('auto_silent') }}
+
+# Cache Settings for better performance
+cache_plugin = {{ cache_plugin | default('redis') }}
+cache_timeout = {{ cache_timeout | default('3600') }}
+cache_connection = {{ cache_connection | default('127.0.0.1:6379:1') }}
+cache_prefix = {{ cache_prefix | default('ansible_cache') }}
+
+[inventory]
+# Inventory plugin settings - High performance
+enable_plugins = {{ inventory_plugins | default('auto, host_list, script, yaml, ini, constructed, advanced_host_list') }}
+cache = {{ inventory_cache_enabled | default('True') }}
+cache_plugin = {{ inventory_cache_plugin | default('redis') }}
+cache_timeout = {{ inventory_cache_timeout | default('7200') }}
+cache_connection = {{ inventory_cache_connection | default('127.0.0.1:6379:2') }}
+cache_prefix = {{ inventory_cache_prefix | default('ansible_inventory') }}
+host_pattern_mismatch = {{ host_pattern_mismatch | default('warning') }}
+unparsed_is_failed = {{ unparsed_is_failed | default('False') }}
+
+[privilege_escalation]
+# Optimized become settings
+become = {{ become_enabled | default('False') }}
+become_method = {{ become_method | default('sudo') }}
+become_user = {{ become_user | default('root') }}
+become_ask_pass = {{ become_ask_pass | default('False') }}
+become_password_file = {{ become_password_file | default('') }}
+become_flags = {{ become_flags | default('') }}
+
+[paramiko_connection]
+# Paramiko-specific settings - Performance optimized
+record_host_keys = False
+pty = False
+look_for_keys = {{ paramiko_look_for_keys | default('True') }}
+host_key_auto_add = {{ paramiko_host_key_auto_add | default('True') }}
+ssh_args = {{ paramiko_ssh_args | default('-o ControlMaster=auto -o ControlPersist=300s -o ServerAliveInterval=30') }}
+control_path_dir = {{ paramiko_control_path_dir | default('/tmp/.ansible-cp') }}
+banner_timeout = {{ paramiko_banner_timeout | default('30') }}
+
+[ssh_connection]
+# High-performance SSH connection settings
+ssh_args = {{ ssh_connection_args | default('-C -o ControlMaster=auto -o ControlPersist=300s -o ServerAliveInterval=30 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=publickey') }}
+control_path = {{ ssh_control_path | default('/tmp/ansible-ssh-%%h-%%p-%%r') }}
+control_path_dir = {{ ssh_control_path_dir | default('/tmp/.ansible-cp') }}
+pipelining = {{ ssh_pipelining | default('True') }}
+scp_if_ssh = {{ scp_if_ssh | default('smart') }}
+transfer_method = {{ transfer_method | default('smart') }}
+sftp_batch_mode = {{ sftp_batch_mode | default('True') }}
+usetty = {{ ssh_usetty | default('False') }}
+retries = {{ ssh_retries | default('5') }}
+ssh_executable = {{ ssh_executable | default('ssh') }}
+ssh_common_args = {{ ssh_common_args | default('-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null') }}
+
+# Performance optimizations
+host_key_checking = False
+record_host_keys = False
+
+[winrm]
+# High-performance Windows Remote Management settings
+connection_timeout = {{ winrm_connection_timeout | default('60') }}
+read_timeout = {{ winrm_read_timeout | default('70') }}
+operation_timeout = {{ winrm_operation_timeout | default('60') }}
+path = {{ winrm_path | default('/wsman') }}
+transport = {{ winrm_transport | default('ssl,plaintext') }}
+server_cert_validation = {{ winrm_server_cert_validation | default('validate') }}
+ca_trust_path = {{ winrm_ca_trust_path | default('') }}
+kerberos_delegation = {{ winrm_kerberos_delegation | default('false') }}
+kerberos_hostname_override = {{ winrm_kerberos_hostname_override | default('') }}
+message_encryption = {{ winrm_message_encryption | default('auto') }}
+
+[persistent_connection]
+# Optimized persistent connection settings for network devices
+command_timeout = {{ persistent_command_timeout | default('60') }}
+connect_timeout = {{ persistent_connect_timeout | default('60') }}
+connect_retry_timeout = {{ persistent_connect_retry_timeout | default('30') }}
+connect_interval = {{ persistent_connect_interval | default('1') }}
+retries = {{ persistent_retries | default('5') }}
+persistent_log_messages = {{ persistent_log_messages | default('False') }}
+
+[colors]
+# Optimized color settings for better readability
+highlight = {{ color_highlight | default('white') }}
+verbose = {{ color_verbose | default('blue') }}
+warn = {{ color_warn | default('bright purple') }}
+error = {{ color_error | default('red') }}
+debug = {{ color_debug | default('dark gray') }}
+deprecate = {{ color_deprecate | default('purple') }}
+skip = {{ color_skip | default('cyan') }}
+unreachable = {{ color_unreachable | default('red') }}
+ok = {{ color_ok | default('green') }}
+changed = {{ color_changed | default('yellow') }}
+diff_add = {{ color_diff_add | default('green') }}
+diff_remove = {{ color_diff_remove | default('red') }}
+diff_lines = {{ color_diff_lines | default('cyan') }}
+
+[diff]
+# Enhanced diff settings
+always = {{ diff_always | default('False') }}
+context = {{ diff_context | default('3') }}
+
+# High-performance gather facts configuration
+[module_defaults]
+ansible.builtin.setup:
+  gather_timeout: {{ setup_gather_timeout | default('60') }}
+  gather_subset: {{ setup_gather_subset | default('!all,!min,network,hardware,virtual,ohai,facter') }}
+  fact_path: {{ setup_fact_path | default('/etc/ansible/facts.d') }}
+  filter: {{ setup_filter | default('') }}
+
+ansible.builtin.gather_facts:
+  gather_timeout: {{ gather_facts_timeout | default('60') }}
+  parallel: {{ gather_facts_parallel | default('True') }}
+
+# Performance optimizations for common modules
+ansible.builtin.yum:
+  update_cache: {{ yum_update_cache | default('False') }}
+  validate_certs: {{ yum_validate_certs | default('True') }}
+
+ansible.builtin.dnf:
+  update_cache: {{ dnf_update_cache | default('False') }}
+  validate_certs: {{ dnf_validate_certs | default('True') }}
+
+ansible.builtin.apt:
+  update_cache: {{ apt_update_cache | default('False') }}
+  cache_valid_time: {{ apt_cache_valid_time | default('3600') }}
+
+ansible.builtin.package:
+  use: {{ package_use | default('auto') }}
+
+# Network module optimizations
+ansible.netcommon.network_cli:
+  persistent_command_timeout: {{ network_cli_command_timeout | default('60') }}
+  persistent_connect_timeout: {{ network_cli_connect_timeout | default('60') }}
+
+# Container optimizations
+community.docker.docker_container:
+  timeout: {{ docker_container_timeout | default('300') }}
+
+# Cloud optimizations
+amazon.aws.ec2_instance:
+  wait_timeout: {{ ec2_wait_timeout | default('600') }}
+
+# Callback optimizations
+[callback_profile_tasks]
+output_limit = {{ profile_tasks_output_limit | default('20') }}
+sort_order = {{ profile_tasks_sort_order | default('descending') }}
+
+[callback_timer]
+format = {{ timer_format | default('Playbook run took %s days, %s hours, %s minutes, %s seconds') }}
