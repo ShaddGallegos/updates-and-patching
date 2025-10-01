@@ -2,7 +2,7 @@
 # automation-wrapper.sh
 # Comprehensive automation wrapper for all patching and reporting tools
 # Master script to orchestrate enterprise-grade system management
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2024-08-27
 

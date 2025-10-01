@@ -1,0 +1,32 @@
+---
+# Vault file for sensitive credentials
+# This is a template - replace with actual values and encrypt with ansible-vault
+
+# General credentials
+vault_admin_password: "r3dh4t7!"
+
+# Red Hat credentials
+vault_redhat_username: "your_redhat_username"
+vault_redhat_password: "your_redhat_password"
+vault_redhat_pool_id: "your_redhat_pool_id"
+vault_redhat_token: "your_redhat_token"
+vault_rh_credentials_token: "your_rh_token"
+
+# Satellite credentials
+vault_satellite_admin_password: "r3dh4t7!"
+
+# Ansible credentials
+vault_ansible_admin_password: "r3dh4t7!"
+vault_ansible_galaxy_token: "your_ansible_galaxy_token"
+
+# GitHub credentials
+vault_github_token: "your_github_token"
+vault_github_username: "your_github_username"
+
+# Additional secrets
+vault_aws_access_key: "your_aws_access_key"
+vault_aws_secret_key: "your_aws_secret_key"
+vault_azure_client_id: "your_azure_client_id"
+vault_azure_client_secret: "your_azure_client_secret"
+vault_azure_tenant_id: "your_azure_tenant_id"
+vault_azure_subscription_id: "your_azure_subscription_id"

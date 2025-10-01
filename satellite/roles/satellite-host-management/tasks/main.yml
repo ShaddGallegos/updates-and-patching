@@ -114,7 +114,7 @@
   run_once: true
   tags:
     - summary
-  # Author: sgallego
+  # Author: {{ ansible_user }}
   # Version: 2.0.0
   # Date: 2025-08-27
 

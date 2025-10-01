@@ -2,7 +2,7 @@
 # linux-universal-patcher.sh
 # Universal Linux patching script for all major distributions
 # Compatible with: RHEL, CentOS, Ubuntu, Debian, SUSE, Arch, Alpine, Gentoo
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2024-08-27
 

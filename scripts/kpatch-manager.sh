@@ -2,7 +2,7 @@
 # kpatch-manager.sh
 # Live kernel patching management script for RHEL systems
 # Compatible with: RHEL 7, 8, 9, 10 with kpatch support
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2024-08-27
 

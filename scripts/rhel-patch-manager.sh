@@ -2,7 +2,7 @@
 # rhel-patch-manager.sh
 # Enterprise-grade RHEL 7-10 patching script with comprehensive reporting
 # Compatible with: RHEL 7, 8, 9, 10, CentOS, Rocky Linux, AlmaLinux
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2024-08-27
 

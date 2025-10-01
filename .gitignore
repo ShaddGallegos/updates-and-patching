@@ -1,0 +1,132 @@
+# Ansible generated files
+ansible.cfg
+*.retry
+
+# Credentials and secrets
+env.yml
+*.vault
+vault.yml
+vault.yaml
+
+# Backup files
+*backup*/
+*backup*
+*BACKUP*/
+*BACKUP*
+*Backup*/
+*Backup*
+*bak*/
+*bak
+*.bak
+*.BAK
+*~
+*.old
+*.orig
+*.swp
+*.swo
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS specific
+.DS_Store
+Thumbs.db
+.directory
+
+
+# --------------------------------------------------------
+# Standard .gitignore for Ansible projects
+
+# Credentials and secrets
+env.yml
+vault.yml
+.vault_pass.txt
+*.key
+*.pem
+
+# Ansible runtime files
+*.retry
+.ansible/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Temporary files
+.tmp/
+tmp/
+.cache/
+*.bak
+*.swp
+*.tmp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Log files
+*.log
+logs/
+
+# Environment-specific
+.env
+.envrc
+
+# Build artifacts
+/target/
+/out/
+/build/
+
+# Dependency directories
+node_modules/
+jspm_packages/
+bower_components/

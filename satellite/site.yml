@@ -71,11 +71,11 @@
           Location: {{ satellite_location }}
           
           Phases Executed:
-          - Validation: {{ satellite_validation_enabled | ternary('✓', '✗') }}
-          - Repository Management: {{ satellite_repository_enabled | ternary('✓', '✗') }}
-          - Content Lifecycle: {{ satellite_lifecycle_enabled | ternary('✓', '✗') }}
-          - Host Management: {{ satellite_host_management_enabled | ternary('✓', '✗') }}
-          - Reporting: {{ satellite_reporting_enabled | ternary('✓', '✗') }}
+          - Validation: {{ satellite_validation_enabled | ternary('[CHECK]', '✗') }}
+          - Repository Management: {{ satellite_repository_enabled | ternary('[CHECK]', '✗') }}
+          - Content Lifecycle: {{ satellite_lifecycle_enabled | ternary('[CHECK]', '✗') }}
+          - Host Management: {{ satellite_host_management_enabled | ternary('[CHECK]', '✗') }}
+          - Reporting: {{ satellite_reporting_enabled | ternary('[CHECK]', '✗') }}
           
           {% if satellite_generate_reports %}
           Reports generated at: {{ satellite_report_path }}

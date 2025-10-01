@@ -1,6 +1,6 @@
 ---
 # Red Hat Satellite Content Lifecycle Management - Main Tasks
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2025-08-27
 

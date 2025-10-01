@@ -4,6 +4,7 @@
 # Updated: {{ ansible_date_time.date }}
 
 [defaults]
+vault_password_file = ~/.vault_pass.txt
 # Basic Configuration
 inventory = {{ ansible_inventory_file | default('inventory') }}
 host_key_checking = False

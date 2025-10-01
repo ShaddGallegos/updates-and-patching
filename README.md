@@ -1,155 +1,149 @@
-# Updates and Patching
+# Updates and Patching Automation
 
-**Created:** March 2024
+This repository contains Ansible roles and playbooks for automating system updates, security patching, and maintenance across your infrastructure.
 
-## Synopsis
+## Overview
 
-A comprehensive system update and patch management automation framework using Ansible for enterprise-scale patching operations across Red Hat Enterprise Linux and satellite-managed environments.
+The Updates and Patching framework provides a standardized, automated approach to system maintenance with:
 
-## Supported Operating Systems
-
-- Red Hat Enterprise Linux 7/8/9
-- CentOS 7/8 Stream
-- Rocky Linux 8/9
-- AlmaLinux 8/9
-- Fedora (limited support)
-
-## Quick Usage
-
-### Basic Update Operations
-
-```bash
-# Register systems with RHN/Satellite
-ansible-playbook rhel_register_rhn.yml
-
-# Run general updating procedures
-cd General_Updating/
-ansible-playbook update_systems.yml
-
-# Use with inventory
-ansible-playbook -i inventory update_playbook.yml
-```
-
-### Satellite Integration
-
-```bash
-# Navigate to satellite management
-cd satellite/
-
-# Run satellite-specific update operations
-ansible-playbook satellite_patch_management.yml
-```
-
-### Demo and Testing
-
-```bash
-# Use demo inventory for testing
-ansible-playbook -i inventory_demo test_updates.yml
-```
-
-## Features and Capabilities
-
-### Core Features
-
-- Enterprise-scale patch management automation
-- Red Hat Satellite integration
-- System registration and subscription management
-- Automated update deployment and scheduling
+- Consistent patching procedures across environments
 - Pre and post-update validation
-- Rollback capabilities for failed updates
+- Scheduled or on-demand execution options
+- Detailed reporting and logging
+- Support for different operating systems
 
-### Update Management
+## Roles
 
-- Package update automation
-- Security patch prioritization
-- Maintenance window scheduling
-- Update status monitoring and reporting
-- Dependency resolution and conflict management
-- Custom package exclusion and inclusion
+### system_assessment
 
-### Satellite Integration
+Evaluates systems before patching to determine update requirements and potential risks.
 
-- Centralized patch management through Satellite
-- Content view and lifecycle management
-- Host group-based update policies
-- Errata management and application
-- Compliance reporting and tracking
-- Automated host registration
+**Key tasks:**
 
-### Enterprise Features
+- Package update availability check
+- Disk space verification
+- Service dependency mapping
+- Security vulnerability scanning
 
-- Multi-environment update orchestration
-- Staged rollout procedures
-- Change management integration
-- Approval workflow automation
-- Impact assessment and planning
-- Performance monitoring during updates
+### update_packages
 
-### Validation and Testing
+Handles the core package update process across different operating systems.
 
-- Pre-update system health checks
-- Post-update validation procedures
-- Service availability monitoring
-- Configuration drift detection
-- Automated testing framework integration
-- Rollback procedures and validation
+**Key tasks:**
 
-## Directory Structure
+- Repository refresh
+- Package updates (security or all)
+- Package cleanup
+- Update logging
 
-- **General_Updating/** - Standard system update procedures
-- **satellite/** - Red Hat Satellite specific operations
-- **roles/** - Reusable Ansible roles for update operations
-- **group_vars/** - Environment and group-specific variables
-- **scripts/** - Utility scripts and helpers
-- **templates/** - Configuration templates
+### reboot_management
 
-## Limitations
+Controls system restart procedures with proper notifications and verification.
 
-- Requires Red Hat subscription for RHEL systems
-- Satellite integration requires Red Hat Satellite infrastructure
-- Network connectivity required for repository access
-- May require system reboots and maintenance windows
-- Resource-intensive operations may impact system performance
-- Some updates may require manual intervention
+**Key tasks:**
 
-## Getting Help
+- Pre-reboot notifications
+- Coordinated reboot sequencing
+- Post-reboot availability monitoring
+- Service recovery automation
 
-### Documentation
+### verification
 
-- Check individual role documentation in roles/ directory
-- Review group_vars/ for configuration examples
-- Examine scripts/ directory for utility tools
-- Review templates/ for configuration file examples
+Validates system health and functionality after updates.
 
-### Support Resources
+**Key tasks:**
 
-- Red Hat documentation for patch management best practices
-- Ansible documentation for playbook development
-- Red Hat Satellite documentation for integration details
-- Use ansible-playbook --check for dry-run validation
+- Service status verification
+- Application health checks
+- Performance baseline comparison
+- Monitoring system reintegration
 
-### Common Issues
+### reporting
 
-- Subscription management: Ensure valid Red Hat subscriptions
-- Network connectivity: Verify access to update repositories
-- Dependency conflicts: Review package dependencies before updates
-- Service disruption: Plan maintenance windows appropriately
-- Storage space: Ensure sufficient disk space for updates
-- Rollback planning: Test rollback procedures before production updates
+Generates comprehensive reports on patching activities.
 
-### Best Practices
+**Key tasks:**
 
-- Always test updates in development environments first
-- Schedule updates during appropriate maintenance windows
-- Monitor system performance during update operations
-- Maintain current backups before major updates
-- Document all update procedures and results
-- Validate system functionality after updates
+- Update summary creation
+- Failed update identification
+- Compliance status reporting
+- Report distribution
 
-## Legal Disclaimer
+## Playbooks
 
-This software is provided "as is" without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.
+### security_patching.yml
 
-Use this software at your own risk. No warranty is implied or provided.
+Applies security updates only, minimizing service disruption.
 
-**By Shadd**
+**Usage:** `ansible-playbook security_patching.yml -i inventory`
+
+### full_system_update.yml
+
+Comprehensive system update including all available package updates.
+
+**Usage:** `ansible-playbook full_system_update.yml -i inventory`
+
+### emergency_patch.yml
+
+Targeted patching for specific CVEs or vulnerabilities with minimal delay.
+
+**Usage:** `ansible-playbook emergency_patch.yml -i inventory -e "cve=CVE-2023-12345"`
+
+### maintenance_window.yml
+
+Orchestrates complete maintenance activities including updates, reboots, and verification within defined maintenance windows.
+
+**Usage:** `ansible-playbook maintenance_window.yml -i inventory -e "maintenance_window=true"`
+
+## Configuration
+
+The framework can be configured through variables in:
+
+- `group_vars/all.yml` - Global default settings
+- `group_vars/<group>.yml` - Environment-specific configurations
+- `host_vars/<hostname>.yml` - Host-specific overrides
+
+### Key Variables
+
+```yaml
+# Update scope
+security_only: true                # Only apply security updates
+update_kernel: true                # Include kernel updates
+
+# Reboot behavior
+reboot_if_needed: true             # Automatically reboot when required
+reboot_timeout: 1800               # Max time to wait for reboot completion
+
+# Notifications
+notify_start: true                 # Send notification before starting
+notification_email: "ops@example.com"
+
+# Prerequisites
+- Ansible 2.12 or newer
+- SSH access to target systems
+- Appropriate sudo/privilege escalation
+- Package manager access on targets
+- Getting Started
+- Clone this repository
+- Configure your inventory
+- Review and modify default variables
+- Run the desired playbook
+
+## Example:
+# Test connectivity
+ansible -i inventory all -m ping
+
+# Run security patching with custom notification
+"ansible-playbook -i inventory security_patching.yml -e "notification_email=admin@example.com""
+
+Contributing
+Contributions welcome! Please submit pull requests with:
+
+Clear descriptions of changes
+Test results from staging environments
+Updates to documentation as needed EOF
+Test results from staging environments
+Updates to documentation as needed EOF
+
+
+````

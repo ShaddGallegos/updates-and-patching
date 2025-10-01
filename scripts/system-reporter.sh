@@ -2,7 +2,7 @@
 # system-reporter.sh
 # Professional system reporting script for Linux environments
 # Compatible with all major Linux distributions
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2024-08-27
 

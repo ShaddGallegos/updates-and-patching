@@ -1,0 +1,32 @@
+---
+# Main playbook for updates-and-patching
+
+- name: Apply updates-and-patching configuration
+  hosts: all
+  become: true
+  
+  # Include variables from env.yml if available
+  pre_tasks:
+    - name: Include environment variables
+      include_vars: "env.yml"
+      ignore_errors: yes
+      tags: always
+  
+  # Apply roles
+  roles:
+    - role: ansible-role-patching
+    - role: ansible-role-win_updates-master
+    - role: ansible-role-yum-master
+    - role: check-vulner
+    - role: generate-update-report-rhel
+    - role: kpatch-rhel
+    - role: register_rhel
+    - role: simple_report
+    - role: unregister_rhel
+    - role: update-rhel
+  
+  # Post-tasks
+  post_tasks:
+    - name: Verify deployment
+      debug:
+        msg: "updates-and-patching configuration applied successfully"

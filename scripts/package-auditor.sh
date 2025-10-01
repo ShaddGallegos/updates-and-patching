@@ -2,7 +2,7 @@
 # package-auditor.sh
 # Professional package management and security auditing script
 # Compatible with all major Linux distributions
-# Author: sgallego
+# Author: {{ ansible_user }}
 # Version: 2.0.0
 # Date: 2024-08-27
 
