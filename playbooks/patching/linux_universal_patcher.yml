@@ -1,0 +1,208 @@
+---
+# Linux Universal Patcher Playbook
+# Cross-distribution patching for all major Linux distributions
+# Converted from: scripts/linux-universal-patcher.sh
+
+- name: Linux Universal Patcher
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    security_only: "{{ security_only | default(false) }}"
+    allow_reboot: "{{ allow_reboot | default(false) }}"
+    dry_run: "{{ dry_run | default(false) }}"
+    report_dir: "{{ report_dir | default('/tmp/universal_patch_reports') }}"
+  
+  pre_tasks:
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Display system information
+      debug:
+        msg: |
+          Patching {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Family: {{ ansible_os_family }}
+  
+  tasks:
+    # RHEL/CentOS/Rocky/AlmaLinux
+    - name: Patch RHEL-based systems
+      block:
+        - name: Update cache (RHEL 8+)
+          dnf:
+            update_cache: true
+          when: ansible_distribution_major_version | int >= 8
+        
+        - name: Update cache (RHEL 7)
+          yum:
+            update_cache: true
+          when: ansible_distribution_major_version | int == 7
+        
+        - name: Apply security updates (RHEL)
+          dnf:
+            name: '*'
+            state: latest
+            security: true
+          when:
+            - security_only | bool
+            - ansible_distribution_major_version | int >= 8
+            - not dry_run | bool
+          register: rhel_security_updates
+        
+        - name: Apply all updates (RHEL)
+          dnf:
+            name: '*'
+            state: latest
+          when:
+            - not security_only | bool
+            - ansible_distribution_major_version | int >= 8
+            - not dry_run | bool
+          register: rhel_all_updates
+      when: ansible_os_family == 'RedHat'
+    
+    # Debian/Ubuntu
+    - name: Patch Debian-based systems
+      block:
+        - name: Update apt cache
+          apt:
+            update_cache: true
+            cache_valid_time: 3600
+        
+        - name: Apply security updates (Debian)
+          apt:
+            upgrade: safe
+            default_release: "{{ ansible_distribution_release }}-security"
+          when:
+            - security_only | bool
+            - not dry_run | bool
+          register: debian_security_updates
+        
+        - name: Apply all updates (Debian)
+          apt:
+            upgrade: dist
+          when:
+            - not security_only | bool
+            - not dry_run | bool
+          register: debian_all_updates
+      when: ansible_os_family == 'Debian'
+    
+    # SUSE
+    - name: Patch SUSE-based systems
+      block:
+        - name: Refresh repositories
+          zypper_repository:
+            repo: '*'
+            runrefresh: true
+        
+        - name: Apply security updates (SUSE)
+          zypper:
+            name: '*'
+            state: latest
+            type: patch
+            category: security
+          when:
+            - security_only | bool
+            - not dry_run | bool
+          register: suse_security_updates
+        
+        - name: Apply all updates (SUSE)
+          zypper:
+            name: '*'
+            state: latest
+          when:
+            - not security_only | bool
+            - not dry_run | bool
+          register: suse_all_updates
+      when: ansible_os_family == 'Suse'
+    
+    # Check for reboot requirement
+    - name: Check if reboot is required (RHEL)
+      shell: needs-restarting -r
+      register: rhel_needs_reboot
+      changed_when: false
+      failed_when: false
+      when: ansible_os_family == 'RedHat'
+    
+    - name: Check if reboot is required (Debian)
+      stat:
+        path: /var/run/reboot-required
+      register: debian_reboot_file
+      when: ansible_os_family == 'Debian'
+    
+    - name: Reboot if needed and allowed
+      reboot:
+        reboot_timeout: 600
+        post_reboot_delay: 30
+      when:
+        - allow_reboot | bool
+        - >
+          (ansible_os_family == 'RedHat' and rhel_needs_reboot.rc != 0) or
+          (ansible_os_family == 'Debian' and debian_reboot_file.stat.exists | default(false))
+  
+  post_tasks:
+    - name: Generate patch report
+      copy:
+        content: |
+          Universal Patch Report
+          ======================
+          Hostname: {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          OS Family: {{ ansible_os_family }}
+          Security Only: {{ security_only }}
+          Dry Run: {{ dry_run }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          {% if ansible_os_family == 'RedHat' %}
+          RHEL-based System
+          -----------------
+          {% if rhel_security_updates is defined and rhel_security_updates.changed %}
+          Security Updates Applied: Yes
+          {% elif rhel_all_updates is defined and rhel_all_updates.changed %}
+          All Updates Applied: Yes
+          {% else %}
+          Updates Applied: No changes
+          {% endif %}
+          Reboot Required: {{ rhel_needs_reboot.rc != 0 if rhel_needs_reboot.rc is defined else 'Unknown' }}
+          {% endif %}
+          
+          {% if ansible_os_family == 'Debian' %}
+          Debian-based System
+          -------------------
+          {% if debian_security_updates is defined and debian_security_updates.changed %}
+          Security Updates Applied: Yes
+          {% elif debian_all_updates is defined and debian_all_updates.changed %}
+          All Updates Applied: Yes
+          {% else %}
+          Updates Applied: No changes
+          {% endif %}
+          Reboot Required: {{ debian_reboot_file.stat.exists | default(false) }}
+          {% endif %}
+          
+          {% if ansible_os_family == 'Suse' %}
+          SUSE-based System
+          -----------------
+          {% if suse_security_updates is defined and suse_security_updates.changed %}
+          Security Updates Applied: Yes
+          {% elif suse_all_updates is defined and suse_all_updates.changed %}
+          All Updates Applied: Yes
+          {% else %}
+          Updates Applied: No changes
+          {% endif %}
+          {% endif %}
+        dest: "{{ report_dir }}/patch_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.txt"
+      delegate_to: localhost
+    
+    - name: Display patch summary
+      debug:
+        msg: |
+          Patching Complete for {{ inventory_hostname }}
+          ==============================================
+          OS Family: {{ ansible_os_family }}
+          Security Only: {{ security_only }}
+          Updates Applied: {% if rhel_security_updates is defined or rhel_all_updates is defined or debian_security_updates is defined or debian_all_updates is defined or suse_security_updates is defined or suse_all_updates is defined %}Yes{% else %}No changes{% endif %}

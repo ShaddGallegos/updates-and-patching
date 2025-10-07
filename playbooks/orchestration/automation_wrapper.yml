@@ -1,0 +1,172 @@
+---
+# Automation Wrapper Playbook
+# Master orchestration for system management automation
+# Converted from: scripts/automation-wrapper.sh
+
+- name: Automation Wrapper - Orchestration
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    workflow: "{{ workflow | default('standard') }}"  # standard, security, performance, comprehensive
+    report_dir: "{{ report_dir | default('/tmp/automation_reports') }}"
+    dry_run: "{{ dry_run | default(false) }}"
+    email_report: "{{ email_report | default(false) }}"
+    email_address: "{{ email_address | default('') }}"
+  
+  pre_tasks:
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Display workflow information
+      debug:
+        msg: |
+          Automation Wrapper Starting
+          ===========================
+          Workflow: {{ workflow }}
+          Target Hosts: {{ target_hosts | default('all') }}
+          Dry Run: {{ dry_run }}
+          Report Directory: {{ report_dir }}
+  
+  tasks:
+    # Standard Workflow
+    - name: Execute standard workflow
+      block:
+        - name: Run system reporter
+          include_tasks: ../reporting/system_reporter.yml
+        
+        - name: Run package auditor
+          include_tasks: ../reporting/package_auditor.yml
+      when: workflow in ['standard', 'comprehensive']
+    
+    # Security Workflow
+    - name: Execute security workflow
+      block:
+        - name: Run vulnerability scanner
+          include_tasks: ../security/vulnerability_scanner.yml
+        
+        - name: Run security patching
+          include_tasks: ../patching/rhel_patch_manager.yml
+          vars:
+            security_only: true
+      when: workflow in ['security', 'comprehensive']
+    
+    # Performance Workflow
+    - name: Execute performance workflow
+      block:
+        - name: Collect performance metrics
+          shell: |
+            echo "=== System Load ==="
+            uptime
+            echo ""
+            echo "=== Top Processes by Memory ==="
+            ps aux --sort=-%mem | head -10
+            echo ""
+            echo "=== Top Processes by CPU ==="
+            ps aux --sort=-%cpu | head -10
+            echo ""
+            echo "=== Disk I/O Statistics ==="
+            iostat -x 1 2 2>/dev/null | tail -n +4 || echo "iostat not available"
+          register: performance_data
+          changed_when: false
+        
+        - name: Save performance report
+          copy:
+            content: |
+              Performance Report
+              ==================
+              Hostname: {{ inventory_hostname }}
+              Timestamp: {{ ansible_date_time.iso8601 }}
+              
+              {{ performance_data.stdout }}
+            dest: "{{ report_dir }}/performance_{{ inventory_hostname }}_{{ ansible_date_time.date }}.txt"
+          delegate_to: localhost
+      when: workflow in ['performance', 'comprehensive']
+    
+    # Maintenance tasks
+    - name: Execute maintenance tasks
+      block:
+        - name: Check for kernel patches
+          include_tasks: ../maintenance/kpatch_manager.yml
+          vars:
+            kpatch_action: list
+        
+        - name: Clean package cache
+          shell: |
+            {% if ansible_distribution_major_version | int >= 8 %}
+            dnf clean all
+            {% else %}
+            yum clean all
+            {% endif %}
+          when: not dry_run | bool
+      when: workflow == 'comprehensive'
+  
+  post_tasks:
+    - name: Generate consolidated report
+      template:
+        src: consolidated_report.j2
+        dest: "{{ report_dir }}/consolidated_report_{{ ansible_date_time.date }}.html"
+      delegate_to: localhost
+      run_once: true
+      vars:
+        workflow_type: "{{ workflow }}"
+        execution_time: "{{ ansible_date_time.iso8601 }}"
+      ignore_errors: true
+    
+    - name: Create JSON summary
+      copy:
+        content: |
+          {
+            "workflow": "{{ workflow }}",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "dry_run": {{ dry_run | to_json }},
+            "report_location": "{{ report_dir }}",
+            "hosts_processed": {{ groups['all'] | length }},
+            "recommendations": [
+              "Review individual tool reports for detailed analysis",
+              "Schedule regular automation runs for proactive maintenance",
+              "Monitor security updates and apply promptly"
+            ]
+          }
+        dest: "{{ report_dir }}/summary_{{ ansible_date_time.date }}.json"
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Email report (if requested)
+      mail:
+        host: "{{ smtp_server | default('localhost') }}"
+        port: "{{ smtp_port | default(25) }}"
+        to: "{{ email_address }}"
+        subject: "Automation Report - {{ workflow }} - {{ ansible_date_time.date }}"
+        body: |
+          Automation Workflow Completed
+          ==============================
+          
+          Workflow: {{ workflow }}
+          Date: {{ ansible_date_time.iso8601 }}
+          Hosts Processed: {{ groups['all'] | length }}
+          Report Location: {{ report_dir }}
+          
+          Please review the detailed reports in {{ report_dir }}
+      when:
+        - email_report | bool
+        - email_address | length > 0
+      delegate_to: localhost
+      run_once: true
+      ignore_errors: true
+    
+    - name: Display completion summary
+      debug:
+        msg: |
+          Automation Wrapper Completed
+          ============================
+          Workflow: {{ workflow }}
+          Hosts Processed: {{ groups['all'] | length }}
+          Reports Location: {{ report_dir }}
+          Dry Run: {{ dry_run }}

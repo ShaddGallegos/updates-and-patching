@@ -11,6 +11,50 @@ The Updates and Patching framework provides a standardized, automated approach t
 - Scheduled or on-demand execution options
 - Detailed reporting and logging
 - Support for different operating systems
+- Event-Driven Ansible (EDA) integration for automated responses
+- ServiceNow integration for ITSM workflows
+- Enterprise-grade orchestration capabilities
+
+## Project Structure
+
+```
+├── playbooks/           # Organized Ansible playbooks (NEW!)
+│   ├── eda-support/    # Event-Driven Ansible support playbooks
+│   ├── maintenance/    # System maintenance playbooks
+│   ├── orchestration/  # Workflow orchestration
+│   ├── patching/       # Patching and updates
+│   ├── reporting/      # System reporting
+│   └── security/       # Security scanning
+├── roles/              # Ansible roles
+├── scripts/            # Shell scripts (DEPRECATED - use playbooks/)
+├── inventory/          # Inventory files
+└── templates/          # Jinja2 templates
+```
+
+**⚠️ Important:** Shell scripts in `scripts/` are deprecated. Use playbooks from `playbooks/` directory instead. See `scripts/DEPRECATED.md` for migration guide.
+
+## Quick Start
+
+### Using Playbooks (Recommended)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/ShaddGallegos/updates-and-patching.git
+cd updates-and-patching
+
+# 2. Configure inventory
+vi inventory/hosts
+
+# 3. Run a playbook
+ansible-playbook playbooks/patching/rhel_patch_manager.yml -i inventory
+
+# 4. For orchestrated workflows
+ansible-playbook playbooks/orchestration/automation_wrapper.yml \
+  -i inventory \
+  -e "workflow=comprehensive"
+```
+
+See `playbooks/README.md` for comprehensive playbook documentation.
 
 ## Roles
 
@@ -71,27 +115,96 @@ Generates comprehensive reports on patching activities.
 
 ## Playbooks
 
-### security_patching.yml
+The framework now includes organized playbooks in the `playbooks/` directory:
 
-Applies security updates only, minimizing service disruption.
+### Patching Playbooks
+
+**`playbooks/patching/rhel_patch_manager.yml`** - Enterprise RHEL 7-10 patching
+```bash
+ansible-playbook playbooks/patching/rhel_patch_manager.yml -i inventory \
+  -e "security_only=true allow_reboot=true"
+```
+
+**`playbooks/patching/linux_universal_patcher.yml`** - Cross-distribution patching
+```bash
+ansible-playbook playbooks/patching/linux_universal_patcher.yml -i inventory
+```
+
+### Security Playbooks
+
+**`playbooks/security/vulnerability_scanner.yml`** - CVE scanning and remediation
+```bash
+ansible-playbook playbooks/security/vulnerability_scanner.yml -i inventory \
+  -e "auto_remediate=true"
+```
+
+### Reporting Playbooks
+
+**`playbooks/reporting/system_reporter.yml`** - Comprehensive system reports
+```bash
+ansible-playbook playbooks/reporting/system_reporter.yml -i inventory \
+  -e "report_format=all"
+```
+
+**`playbooks/reporting/package_auditor.yml`** - Package management auditing
+```bash
+ansible-playbook playbooks/reporting/package_auditor.yml -i inventory
+```
+
+### Orchestration Playbooks
+
+**`playbooks/orchestration/automation_wrapper.yml`** - Master orchestration with workflows
+```bash
+# Standard workflow
+ansible-playbook playbooks/orchestration/automation_wrapper.yml \
+  -i inventory -e "workflow=standard"
+
+# Comprehensive analysis
+ansible-playbook playbooks/orchestration/automation_wrapper.yml \
+  -i inventory -e "workflow=comprehensive"
+```
+
+Available workflows: `standard`, `security`, `performance`, `comprehensive`
+
+### Event-Driven Ansible (EDA)
+
+**`playbooks/eda-support/rulebook_disk_monitoring.yml`** - Automated disk space management
+```bash
+# Set environment variables
+export SPLUNK_HEC_URL="https://splunk.example.com:8088"
+export SPLUNK_HEC_TOKEN="your-token-here"
+
+# Run rulebook
+ansible-rulebook \
+  --rulebook playbooks/eda-support/rulebook_disk_monitoring.yml \
+  --inventory inventory/ \
+  --verbose
+```
+
+**Features:**
+- Automated LVM extension at 90%+ disk usage
+- ServiceNow integration for change management
+- Multi-tier alerting (80%, 85%, 90%, 95%)
+- Nutanix storage capacity checks
+- On-call escalation for failures
+
+See `playbooks/README.md` for complete documentation.
+
+### Legacy Playbooks (Root Level)
+
+**security_patching.yml** - Applies security updates only, minimizing service disruption.
 
 **Usage:** `ansible-playbook security_patching.yml -i inventory`
 
-### full_system_update.yml
-
-Comprehensive system update including all available package updates.
+**full_system_update.yml** - Comprehensive system update including all available package updates.
 
 **Usage:** `ansible-playbook full_system_update.yml -i inventory`
 
-### emergency_patch.yml
-
-Targeted patching for specific CVEs or vulnerabilities with minimal delay.
+**emergency_patch.yml** - Targeted patching for specific CVEs or vulnerabilities with minimal delay.
 
 **Usage:** `ansible-playbook emergency_patch.yml -i inventory -e "cve=CVE-2023-12345"`
 
-### maintenance_window.yml
-
-Orchestrates complete maintenance activities including updates, reboots, and verification within defined maintenance windows.
+**maintenance_window.yml** - Orchestrates complete maintenance activities including updates, reboots, and verification within defined maintenance windows.
 
 **Usage:** `ansible-playbook maintenance_window.yml -i inventory -e "maintenance_window=true"`
 

@@ -1,0 +1,104 @@
+---
+# Add Nutanix Disk Playbook
+# Adds additional disk to VM in Nutanix
+# Used by: EDA Rulebooks for automated storage expansion
+
+- name: Add Nutanix Disk to VM
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    target_host: "{{ target_host | default('unknown') }}"
+    disk_size_gb: "{{ disk_size_gb | default(100) }}"
+    vm_name: "{{ vm_name | default(target_host) }}"
+  
+  tasks:
+    - name: Get VM UUID by name
+      nutanix.ncp.ntnx_vms_info:
+        nutanix_host: "{{ nutanix_host }}"
+        nutanix_username: "{{ nutanix_username }}"
+        nutanix_password: "{{ nutanix_password }}"
+        validate_certs: "{{ nutanix_validate_certs | default(false) }}"
+        filter:
+          vm_name: "{{ vm_name }}"
+      register: vm_info
+      when:
+        - nutanix_host is defined
+        - nutanix_username is defined
+        - nutanix_password is defined
+      ignore_errors: true
+    
+    - name: Extract VM UUID
+      set_fact:
+        vm_uuid: "{{ vm_info.response.entities[0].metadata.uuid }}"
+      when:
+        - vm_info is defined
+        - vm_info.response is defined
+        - vm_info.response.entities is defined
+        - vm_info.response.entities | length > 0
+    
+    - name: Add disk to VM
+      nutanix.ncp.ntnx_vms:
+        nutanix_host: "{{ nutanix_host }}"
+        nutanix_username: "{{ nutanix_username }}"
+        nutanix_password: "{{ nutanix_password }}"
+        validate_certs: "{{ nutanix_validate_certs | default(false) }}"
+        state: present
+        vm_uuid: "{{ vm_uuid }}"
+        disks:
+          - type: "DISK"
+            size_gb: "{{ disk_size_gb }}"
+            bus: "SCSI"
+      register: disk_add_result
+      when:
+        - vm_uuid is defined
+        - nutanix_capacity_available | default(true) | bool
+      ignore_errors: true
+    
+    - name: Wait for disk to be attached
+      pause:
+        seconds: 10
+      when:
+        - disk_add_result is defined
+        - not disk_add_result.failed
+    
+    - name: Verify disk addition
+      nutanix.ncp.ntnx_vms_info:
+        nutanix_host: "{{ nutanix_host }}"
+        nutanix_username: "{{ nutanix_username }}"
+        nutanix_password: "{{ nutanix_password }}"
+        validate_certs: "{{ nutanix_validate_certs | default(false) }}"
+        vm_uuid: "{{ vm_uuid }}"
+      register: updated_vm_info
+      when:
+        - disk_add_result is defined
+        - not disk_add_result.failed
+        - vm_uuid is defined
+      ignore_errors: true
+    
+    - name: Log disk addition result
+      debug:
+        msg: |
+          Nutanix Disk Addition
+          =====================
+          Target Host: {{ target_host }}
+          VM Name: {{ vm_name }}
+          VM UUID: {{ vm_uuid | default('Not found') }}
+          Disk Size: {{ disk_size_gb }} GB
+          {% if disk_add_result is defined and not disk_add_result.failed %}
+          Status: Success
+          Task UUID: {{ disk_add_result.task_uuid | default('N/A') }}
+          {% else %}
+          Status: Failed
+          {% endif %}
+    
+    - name: Set disk addition result fact
+      set_fact:
+        disk_addition_successful: "{{ disk_add_result is defined and not disk_add_result.failed }}"
+        new_disk_size: "{{ disk_size_gb }}"
+        cacheable: yes
+    
+    - name: Notify on failure
+      debug:
+        msg: "FAILED: Unable to add disk to VM {{ vm_name }}"
+      when: disk_add_result is failed or vm_uuid is not defined

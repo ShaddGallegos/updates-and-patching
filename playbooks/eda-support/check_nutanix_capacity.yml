@@ -1,0 +1,81 @@
+---
+# Check Nutanix Storage Capacity Playbook
+# Checks available storage capacity in Nutanix clusters
+# Used by: EDA Rulebooks for determining if additional disks can be added
+
+- name: Check Nutanix Storage Capacity
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    target_host: "{{ target_host | default('unknown') }}"
+    volume_group: "{{ volume_group | default('') }}"
+    cluster_name: "{{ cluster_name | default('') }}"
+  
+  tasks:
+    - name: Get Nutanix cluster information
+      nutanix.ncp.ntnx_clusters_info:
+        nutanix_host: "{{ nutanix_host }}"
+        nutanix_username: "{{ nutanix_username }}"
+        nutanix_password: "{{ nutanix_password }}"
+        validate_certs: "{{ nutanix_validate_certs | default(false) }}"
+      register: cluster_info
+      when:
+        - nutanix_host is defined
+        - nutanix_username is defined
+        - nutanix_password is defined
+      ignore_errors: true
+    
+    - name: Calculate available storage
+      set_fact:
+        nutanix_capacity_available: >-
+          {% if cluster_info is defined and cluster_info.response is defined %}
+          {% set total_storage = cluster_info.response.entities[0].usage_stats.storage.capacity_bytes | default(0) %}
+          {% set used_storage = cluster_info.response.entities[0].usage_stats.storage.usage_bytes | default(0) %}
+          {% set available_storage = total_storage - used_storage %}
+          {% set threshold_bytes = 107374182400 %}
+          {{ available_storage > threshold_bytes }}
+          {% else %}
+          false
+          {% endif %}
+      when: cluster_info is defined and not cluster_info.failed
+    
+    - name: Get storage container details
+      nutanix.ncp.ntnx_storage_containers_info:
+        nutanix_host: "{{ nutanix_host }}"
+        nutanix_username: "{{ nutanix_username }}"
+        nutanix_password: "{{ nutanix_password }}"
+        validate_certs: "{{ nutanix_validate_certs | default(false) }}"
+      register: container_info
+      when:
+        - nutanix_host is defined
+        - nutanix_username is defined
+        - nutanix_password is defined
+      ignore_errors: true
+    
+    - name: Log capacity check results
+      debug:
+        msg: |
+          Nutanix Storage Capacity Check
+          ===============================
+          Target Host: {{ target_host }}
+          Volume Group: {{ volume_group }}
+          Cluster: {{ cluster_name }}
+          {% if cluster_info is defined and cluster_info.response is defined %}
+          Total Capacity: {{ (cluster_info.response.entities[0].usage_stats.storage.capacity_bytes | default(0) / 1073741824) | round(2) }} GB
+          Used Storage: {{ (cluster_info.response.entities[0].usage_stats.storage.usage_bytes | default(0) / 1073741824) | round(2) }} GB
+          Available Storage: {{ ((cluster_info.response.entities[0].usage_stats.storage.capacity_bytes | default(0) - cluster_info.response.entities[0].usage_stats.storage.usage_bytes | default(0)) / 1073741824) | round(2) }} GB
+          Capacity Available: {{ nutanix_capacity_available | default(false) }}
+          {% else %}
+          Status: Unable to retrieve capacity information
+          {% endif %}
+    
+    - name: Set capacity available fact
+      set_fact:
+        nutanix_capacity_available: "{{ nutanix_capacity_available | default(false) }}"
+        cacheable: yes
+    
+    - name: Report insufficient capacity
+      debug:
+        msg: "WARNING: Insufficient Nutanix storage capacity available for expansion"
+      when: not (nutanix_capacity_available | default(false) | bool)

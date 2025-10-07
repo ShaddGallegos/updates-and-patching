@@ -1,0 +1,161 @@
+---
+# RHEL Patch Manager Playbook
+# Enterprise-grade patching for RHEL 7-10 with comprehensive reporting
+# Converted from: scripts/rhel-patch-manager.sh
+
+- name: RHEL Patch Manager
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    security_only: "{{ security_only | default(false) }}"
+    allow_reboot: "{{ allow_reboot | default(false) }}"
+    force_mode: "{{ force_mode | default(false) }}"
+    report_dir: "{{ report_dir | default('/tmp/patch_reports') }}"
+    dry_run: "{{ dry_run | default(false) }}"
+    
+  pre_tasks:
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Detect RHEL version
+      set_fact:
+        rhel_major_version: "{{ ansible_distribution_major_version }}"
+        is_rhel_compatible: "{{ ansible_distribution in ['RedHat', 'CentOS', 'Rocky', 'AlmaLinux'] }}"
+    
+    - name: Verify RHEL compatibility
+      fail:
+        msg: "This playbook requires a RHEL-compatible system"
+      when: not is_rhel_compatible
+    
+    - name: Check disk space
+      shell: df -h / | tail -1 | awk '{print $5}' | sed 's/%//'
+      register: disk_usage
+      changed_when: false
+    
+    - name: Warn about low disk space
+      debug:
+        msg: "WARNING: Disk space is {{ disk_usage.stdout }}% - consider freeing space before patching"
+      when: disk_usage.stdout | int > 85
+  
+  tasks:
+    - name: Refresh repository metadata
+      dnf:
+        update_cache: true
+      when: ansible_distribution_major_version | int >= 8
+    
+    - name: Refresh repository metadata (RHEL 7)
+      yum:
+        update_cache: true
+      when: ansible_distribution_major_version | int == 7
+    
+    - name: Check for available updates
+      dnf:
+        list: updates
+      register: available_updates
+      when: ansible_distribution_major_version | int >= 8
+      changed_when: false
+    
+    - name: Check for available updates (RHEL 7)
+      yum:
+        list: updates
+      register: available_updates
+      when: ansible_distribution_major_version | int == 7
+      changed_when: false
+    
+    - name: Apply security updates only
+      dnf:
+        name: '*'
+        state: latest
+        security: true
+      when:
+        - security_only | bool
+        - ansible_distribution_major_version | int >= 8
+        - not dry_run | bool
+      register: security_update_result
+    
+    - name: Apply security updates only (RHEL 7)
+      yum:
+        name: '*'
+        state: latest
+        security: true
+      when:
+        - security_only | bool
+        - ansible_distribution_major_version | int == 7
+        - not dry_run | bool
+      register: security_update_result
+    
+    - name: Apply all updates
+      dnf:
+        name: '*'
+        state: latest
+      when:
+        - not security_only | bool
+        - ansible_distribution_major_version | int >= 8
+        - not dry_run | bool
+      register: full_update_result
+    
+    - name: Apply all updates (RHEL 7)
+      yum:
+        name: '*'
+        state: latest
+      when:
+        - not security_only | bool
+        - ansible_distribution_major_version | int == 7
+        - not dry_run | bool
+      register: full_update_result
+    
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+    
+    - name: Check for kernel update requiring reboot
+      shell: |
+        needs-restarting -r
+      register: needs_restart
+      changed_when: false
+      failed_when: false
+      when: ansible_distribution_major_version | int >= 7
+    
+    - name: Reboot if needed and allowed
+      reboot:
+        reboot_timeout: 600
+        post_reboot_delay: 30
+      when:
+        - allow_reboot | bool
+        - needs_restart.rc is defined
+        - needs_restart.rc != 0
+  
+  post_tasks:
+    - name: Generate patch report
+      template:
+        src: patch_report.j2
+        dest: "{{ report_dir }}/patch_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.html"
+      delegate_to: localhost
+      vars:
+        report_data:
+          hostname: "{{ inventory_hostname }}"
+          rhel_version: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+          security_only: "{{ security_only }}"
+          updates_applied: "{{ (security_update_result.results | default([]) | length) + (full_update_result.results | default([]) | length) }}"
+          reboot_required: "{{ needs_restart.rc != 0 if needs_restart.rc is defined else false }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+      ignore_errors: true
+    
+    - name: Display patch summary
+      debug:
+        msg: |
+          Patching Summary for {{ inventory_hostname }}
+          ============================================
+          RHEL Version: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Security Only: {{ security_only }}
+          Updates Applied: {{ (security_update_result.results | default([]) | length) + (full_update_result.results | default([]) | length) }}
+          Reboot Required: {{ needs_restart.rc != 0 if needs_restart.rc is defined else 'Unknown' }}
+          Dry Run: {{ dry_run }}

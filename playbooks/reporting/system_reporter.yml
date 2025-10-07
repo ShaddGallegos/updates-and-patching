@@ -1,0 +1,182 @@
+---
+# System Reporter Playbook
+# Professional system reporting for Linux environments
+# Converted from: scripts/system-reporter.sh
+
+- name: System Reporter
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    report_dir: "{{ report_dir | default('/tmp/system_reports') }}"
+    report_format: "{{ report_format | default('all') }}"
+    collect_performance: "{{ collect_performance | default(false) }}"
+    collect_security: "{{ collect_security | default(false) }}"
+  
+  pre_tasks:
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+  
+  tasks:
+    - name: Gather system information
+      setup:
+        gather_subset:
+          - all
+    
+    - name: Collect installed packages
+      package_facts:
+        manager: auto
+    
+    - name: Get disk usage
+      shell: df -h
+      register: disk_usage
+      changed_when: false
+    
+    - name: Get memory usage
+      shell: free -h
+      register: memory_usage
+      changed_when: false
+    
+    - name: Get CPU information
+      shell: lscpu
+      register: cpu_info
+      changed_when: false
+    
+    - name: Get running services
+      systemd:
+        name: "{{ item }}"
+      register: service_status
+      loop:
+        - sshd
+        - firewalld
+        - chronyd
+      ignore_errors: true
+      changed_when: false
+    
+    - name: Get network information
+      shell: ip addr show
+      register: network_info
+      changed_when: false
+    
+    - name: Collect performance metrics (if requested)
+      block:
+        - name: Get system load
+          shell: uptime
+          register: system_load
+          changed_when: false
+        
+        - name: Get top processes
+          shell: ps aux --sort=-%mem | head -20
+          register: top_processes
+          changed_when: false
+        
+        - name: Get I/O statistics
+          shell: iostat -x 1 2 | tail -n +4
+          register: io_stats
+          changed_when: false
+          ignore_errors: true
+      when: collect_performance | bool
+    
+    - name: Collect security information (if requested)
+      block:
+        - name: Check for security updates
+          shell: |
+            {% if ansible_distribution_major_version | int >= 8 %}
+            dnf updateinfo list security --available 2>/dev/null | wc -l
+            {% else %}
+            yum updateinfo list security --available 2>/dev/null | wc -l
+            {% endif %}
+          register: security_updates_count
+          changed_when: false
+          failed_when: false
+        
+        - name: Check firewall status
+          systemd:
+            name: firewalld
+          register: firewall_status
+          ignore_errors: true
+        
+        - name: Check SELinux status
+          command: getenforce
+          register: selinux_status
+          changed_when: false
+          failed_when: false
+      when: collect_security | bool
+  
+  post_tasks:
+    - name: Build report data structure
+      set_fact:
+        system_report:
+          hostname: "{{ inventory_hostname }}"
+          os: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+          kernel: "{{ ansible_kernel }}"
+          uptime: "{{ ansible_uptime_seconds | int // 86400 }} days"
+          architecture: "{{ ansible_architecture }}"
+          processor_cores: "{{ ansible_processor_cores }}"
+          memory_total: "{{ ansible_memtotal_mb }} MB"
+          disk_usage: "{{ disk_usage.stdout }}"
+          packages_installed: "{{ ansible_facts.packages | length }}"
+          timestamp: "{{ ansible_date_time.iso8601 }}"
+    
+    - name: Generate HTML report
+      template:
+        src: system_report.html.j2
+        dest: "{{ report_dir }}/system_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.html"
+      delegate_to: localhost
+      vars:
+        report_data: "{{ system_report }}"
+      when: report_format in ['html', 'all']
+      ignore_errors: true
+    
+    - name: Generate JSON report
+      copy:
+        content: "{{ system_report | to_nice_json }}"
+        dest: "{{ report_dir }}/system_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.json"
+      delegate_to: localhost
+      when: report_format in ['json', 'all']
+    
+    - name: Generate YAML report
+      copy:
+        content: "{{ system_report | to_nice_yaml }}"
+        dest: "{{ report_dir }}/system_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.yml"
+      delegate_to: localhost
+      when: report_format in ['yaml', 'all']
+    
+    - name: Generate text report
+      copy:
+        content: |
+          System Report for {{ inventory_hostname }}
+          ==========================================
+          
+          Operating System: {{ system_report.os }}
+          Kernel: {{ system_report.kernel }}
+          Uptime: {{ system_report.uptime }}
+          Architecture: {{ system_report.architecture }}
+          CPU Cores: {{ system_report.processor_cores }}
+          Memory: {{ system_report.memory_total }}
+          Packages: {{ system_report.packages_installed }}
+          
+          Disk Usage:
+          {{ disk_usage.stdout }}
+          
+          Memory Usage:
+          {{ memory_usage.stdout }}
+          
+          Generated: {{ system_report.timestamp }}
+        dest: "{{ report_dir }}/system_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.txt"
+      delegate_to: localhost
+      when: report_format in ['text', 'all']
+    
+    - name: Display report summary
+      debug:
+        msg: |
+          System Report Generated for {{ inventory_hostname }}
+          ===================================================
+          Reports saved to: {{ report_dir }}
+          Format: {{ report_format }}

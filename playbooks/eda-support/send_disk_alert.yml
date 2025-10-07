@@ -1,0 +1,83 @@
+---
+# Send Disk Space Alert Playbook
+# Sends disk space alerts with different severity levels
+# Used by: EDA Rulebooks for disk space monitoring
+
+- name: Send Disk Space Alert
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    target_host: "{{ target_host | default('unknown') }}"
+    mount_point: "{{ mount_point | default('/') }}"
+    usage_percent: "{{ usage_percent | default(0) }}"
+    severity: "{{ severity | default('warning') }}"
+    alert_type: "{{ alert_type | default('info') }}"
+    message: "{{ message | default('Disk space alert') }}"
+  
+  tasks:
+    - name: Send disk alert via role
+      include_role:
+        name: disk_usage_alerting
+      vars:
+        alert_severity: "{{ severity }}"
+        alert_message: "{{ message }}"
+        affected_host: "{{ target_host }}"
+        affected_mount: "{{ mount_point }}"
+        current_usage: "{{ usage_percent }}"
+      when: "'disk_usage_alerting' in ansible_play_role_names | default([])"
+      ignore_errors: true
+    
+    - name: Determine alert color based on severity
+      set_fact:
+        alert_color: >-
+          {%- if severity == 'critical' or severity == 'emergency' -%}
+          danger
+          {%- elif severity == 'high' or severity == 'warning' -%}
+          warning
+          {%- else -%}
+          good
+          {%- endif -%}
+    
+    - name: Log disk alert
+      debug:
+        msg: |
+          DISK SPACE ALERT
+          ================
+          Severity: {{ severity }}
+          Type: {{ alert_type }}
+          Host: {{ target_host }}
+          Mount Point: {{ mount_point }}
+          Usage: {{ usage_percent }}%
+          Message: {{ message }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+    
+    - name: Send email alert
+      mail:
+        host: "{{ smtp_server | default('localhost') }}"
+        port: "{{ smtp_port | default(25) }}"
+        to: "{{ alert_email | default('ops@example.com') }}"
+        subject: "[{{ severity | upper }}] Disk Space Alert - {{ target_host }}"
+        body: |
+          DISK SPACE ALERT
+          ================
+          
+          Severity: {{ severity | upper }}
+          Alert Type: {{ alert_type }}
+          Host: {{ target_host }}
+          Mount Point: {{ mount_point }}
+          Current Usage: {{ usage_percent }}%
+          Message: {{ message }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          {% if usage_percent | int >= 95 %}
+          IMMEDIATE ACTION REQUIRED!
+          Disk space critically low.
+          {% elif usage_percent | int >= 90 %}
+          Action required soon.
+          Consider automated extension or manual intervention.
+          {% else %}
+          Monitor the situation.
+          {% endif %}
+      when: alert_email is defined
+      ignore_errors: true

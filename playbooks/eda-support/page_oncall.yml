@@ -1,0 +1,94 @@
+---
+# Page On-Call Engineer Playbook
+# Pages on-call engineers via PagerDuty or similar systems
+# Used by: EDA Rulebooks for critical escalations
+
+- name: Page On-Call Engineer
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    severity: "{{ severity | default('high') }}"
+    message: "{{ message | default('Critical situation requires immediate attention') }}"
+    incident_key: "{{ incident_key | default('ansible-automation-' ~ ansible_date_time.epoch) }}"
+    details: "{{ details | default({}) }}"
+  
+  tasks:
+    - name: Determine PagerDuty severity
+      set_fact:
+        pd_severity: >-
+          {%- if severity in ['critical', 'emergency'] -%}
+          critical
+          {%- elif severity == 'high' -%}
+          error
+          {%- elif severity == 'medium' -%}
+          warning
+          {%- else -%}
+          info
+          {%- endif -%}
+    
+    - name: Send PagerDuty alert
+      uri:
+        url: https://events.pagerduty.com/v2/enqueue
+        method: POST
+        body_format: json
+        headers:
+          Content-Type: "application/json"
+        body:
+          routing_key: "{{ pagerduty_routing_key }}"
+          event_action: trigger
+          dedup_key: "{{ incident_key }}"
+          payload:
+            summary: "{{ message }}"
+            severity: "{{ pd_severity }}"
+            source: "Ansible Automation Platform"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
+            custom_details: "{{ details }}"
+        status_code: [200, 202]
+      register: pagerduty_result
+      when: pagerduty_routing_key is defined
+      ignore_errors: true
+    
+    - name: Send Opsgenie alert (alternative)
+      uri:
+        url: https://api.opsgenie.com/v2/alerts
+        method: POST
+        body_format: json
+        headers:
+          Content-Type: "application/json"
+          Authorization: "GenieKey {{ opsgenie_api_key }}"
+        body:
+          message: "{{ message }}"
+          alias: "{{ incident_key }}"
+          description: "{{ message }}"
+          priority: "P1"
+          details: "{{ details }}"
+          source: "Ansible Automation"
+        status_code: [200, 201, 202]
+      register: opsgenie_result
+      when:
+        - pagerduty_result is skipped or pagerduty_result is failed
+        - opsgenie_api_key is defined
+      ignore_errors: true
+    
+    - name: Log page attempt
+      debug:
+        msg: |
+          On-Call Page Sent
+          =================
+          Severity: {{ severity }}
+          Message: {{ message }}
+          Incident Key: {{ incident_key }}
+          {% if pagerduty_result is defined and pagerduty_result.status is defined %}
+          PagerDuty Status: {{ pagerduty_result.status }}
+          {% endif %}
+          {% if opsgenie_result is defined and opsgenie_result.status is defined %}
+          Opsgenie Status: {{ opsgenie_result.status }}
+          {% endif %}
+    
+    - name: Fallback notification
+      debug:
+        msg: "WARNING: Unable to page on-call. PagerDuty/Opsgenie not configured."
+      when:
+        - (pagerduty_result is skipped or pagerduty_result is failed)
+        - (opsgenie_result is skipped or opsgenie_result is failed)

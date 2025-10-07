@@ -1,0 +1,198 @@
+---
+# Ansible Performance Setup Playbook
+# Configures Ansible for high performance
+# Converted from: scripts/ansible-performance-setup.sh
+
+- name: Ansible Performance Setup
+  hosts: localhost
+  become: true
+  gather_facts: true
+  
+  vars:
+    ansible_config_path: "{{ ansible_config_path | default('~/.ansible.cfg') }}"
+    ssh_config_path: "{{ ssh_config_path | default('~/.ssh/config') }}"
+  
+  tasks:
+    - name: Install performance monitoring tools
+      package:
+        name:
+          - htop
+          - iotop
+          - nethogs
+          - sysstat
+        state: present
+      when: ansible_os_family == 'RedHat'
+    
+    - name: Configure system limits for high performance
+      blockinfile:
+        path: /etc/security/limits.conf
+        block: |
+          # Ansible Performance Optimizations
+          * soft nofile 65536
+          * hard nofile 65536
+          * soft nproc 32768
+          * hard nproc 32768
+        marker: "# {mark} ANSIBLE PERFORMANCE OPTIMIZATIONS"
+        backup: true
+    
+    - name: Create optimized ansible.cfg
+      copy:
+        content: |
+          [defaults]
+          # Performance optimizations
+          forks = 50
+          host_key_checking = False
+          gathering = smart
+          fact_caching = jsonfile
+          fact_caching_connection = /tmp/ansible_facts
+          fact_caching_timeout = 86400
+          
+          # SSH optimizations
+          transport = ssh
+          ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o PreferredAuthentications=publickey
+          pipelining = True
+          
+          # Callback plugins for performance monitoring
+          callback_whitelist = profile_tasks, timer
+          
+          # Output optimization
+          stdout_callback = yaml
+          bin_ansible_callbacks = True
+          
+          [ssh_connection]
+          pipelining = True
+          ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o ForwardAgent=yes
+          control_path = %(directory)s/%%h-%%r
+        dest: "{{ ansible_config_path | expanduser }}"
+        mode: '0644'
+        backup: true
+    
+    - name: Create SSH control path directory
+      file:
+        path: ~/.ssh/controlmasters
+        state: directory
+        mode: '0700'
+    
+    - name: Configure optimized SSH settings
+      blockinfile:
+        path: "{{ ssh_config_path | expanduser }}"
+        create: true
+        mode: '0600'
+        block: |
+          # Ansible Performance Optimizations
+          Host *
+            ControlMaster auto
+            ControlPath ~/.ssh/controlmasters/%r@%h:%p
+            ControlPersist 600
+            ServerAliveInterval 60
+            ServerAliveCountMax 3
+            TCPKeepAlive yes
+            Compression yes
+        marker: "# {mark} ANSIBLE PERFORMANCE OPTIMIZATIONS"
+        backup: true
+    
+    - name: Create fact caching directory
+      file:
+        path: /tmp/ansible_facts
+        state: directory
+        mode: '0755'
+    
+    - name: Create performance test playbook
+      copy:
+        content: |
+          ---
+          # Ansible Performance Test Playbook
+          - name: Performance Test
+            hosts: all
+            gather_facts: yes
+            
+            tasks:
+              - name: Test connection speed
+                ping:
+              
+              - name: Gather system facts
+                setup:
+                  gather_subset:
+                    - hardware
+                    - network
+                    - virtual
+              
+              - name: Test parallel execution
+                command: echo "Host {{ '{{' }} inventory_hostname {{ '}}' }} ready"
+              
+              - name: Display performance stats
+                debug:
+                  msg: |
+                    Performance test completed for {{ '{{' }} inventory_hostname {{ '}}' }}
+                    Ansible version: {{ '{{' }} ansible_version.full {{ '}}' }}
+                    Python version: {{ '{{' }} ansible_python.version.major {{ '}}' }}.{{ '{{' }} ansible_python.version.minor {{ '}}' }}
+        dest: "{{ playbook_dir }}/ansible-performance-test.yml"
+        mode: '0644'
+    
+    - name: Create performance benchmark script
+      copy:
+        content: |
+          #!/bin/bash
+          # Ansible Performance Benchmark Script
+          
+          echo "=== Ansible Performance Benchmark ==="
+          echo "Timestamp: $(date)"
+          echo "User: $(whoami)"
+          echo "Host: $(hostname)"
+          echo ""
+          
+          # Test 1: Connection speed
+          echo "1. Testing connection speed..."
+          time ansible all -m ping > /dev/null 2>&1
+          echo ""
+          
+          # Test 2: Fact gathering speed
+          echo "2. Testing fact gathering speed..."
+          time ansible all -m setup > /dev/null 2>&1
+          echo ""
+          
+          # Test 3: Parallel execution
+          echo "3. Testing parallel execution (10 commands)..."
+          time ansible all -m command -a "echo test" -f 10 > /dev/null 2>&1
+          echo ""
+          
+          # Test 4: File operations
+          echo "4. Testing file operations..."
+          time ansible all -m copy -a "content='test' dest=/tmp/ansible-test" > /dev/null 2>&1
+          time ansible all -m file -a "path=/tmp/ansible-test state=absent" > /dev/null 2>&1
+          echo ""
+          
+          echo "=== Benchmark Complete ==="
+          echo "For detailed performance analysis, run with Ansible callbacks enabled:"
+          echo "ANSIBLE_STDOUT_CALLBACK=profile_tasks ansible-playbook your-playbook.yml"
+        dest: /tmp/ansible-benchmark.sh
+        mode: '0755'
+    
+    - name: Display optimization summary
+      debug:
+        msg: |
+          Ansible Performance Optimization Complete
+          ==========================================
+          
+          Configurations Created:
+          - {{ ansible_config_path | expanduser }}
+          - {{ ssh_config_path | expanduser }}
+          
+          Performance Features Enabled:
+          ✓ SSH connection multiplexing
+          ✓ Pipelining for reduced SSH connections
+          ✓ Fact caching (24 hour timeout)
+          ✓ Increased forks to 50
+          ✓ Profile tasks callback
+          ✓ System resource limits optimized
+          
+          Test Your Setup:
+          1. Run: ansible-playbook ansible-performance-test.yml
+          2. Run: /tmp/ansible-benchmark.sh
+          3. Monitor: ANSIBLE_STDOUT_CALLBACK=profile_tasks ansible-playbook <playbook>
+          
+          Performance Tips:
+          - Use --forks for more parallelism
+          - Enable fact caching for repeated runs
+          - Use async tasks for long-running operations
+          - Minimize fact gathering with gather_subset

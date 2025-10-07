@@ -23,7 +23,16 @@ help:
 	@echo "  encrypt      Encrypt vault files"
 	@echo "  decrypt      Decrypt vault files"
 	@echo "  clean        Clean temporary files"
-	@echo "  help         Show this help message"
+	@echo ""
+	@echo "Playbook Targets:"
+	@echo "  patch-rhel       Run RHEL patch manager"
+	@echo "  patch-universal  Run universal patcher (all distros)"
+	@echo "  scan-vulns       Run vulnerability scanner"
+	@echo "  report-system    Generate system reports"
+	@echo "  audit-packages   Run package auditor"
+	@echo "  orchestrate      Run automation wrapper"
+	@echo ""
+	@echo "  help             Show this help message"
 
 # Setup project environment
 .PHONY: setup
@@ -107,3 +116,39 @@ clean:
 	@find . -name "*.pyc" -type f -delete
 	@find . -name "__pycache__" -type d -exec rm -rf {} +
 	@find . -name ".pytest_cache" -type d -exec rm -rf {} +
+
+# Playbook targets
+.PHONY: patch-rhel
+patch-rhel:
+	@echo "Running RHEL Patch Manager..."
+	$(ANSIBLE_PLAYBOOK) playbooks/patching/rhel_patch_manager.yml -i inventory
+
+.PHONY: patch-universal
+patch-universal:
+	@echo "Running Universal Patcher..."
+	$(ANSIBLE_PLAYBOOK) playbooks/patching/linux_universal_patcher.yml -i inventory
+
+.PHONY: scan-vulns
+scan-vulns:
+	@echo "Running Vulnerability Scanner..."
+	$(ANSIBLE_PLAYBOOK) playbooks/security/vulnerability_scanner.yml -i inventory
+
+.PHONY: report-system
+report-system:
+	@echo "Generating System Reports..."
+	$(ANSIBLE_PLAYBOOK) playbooks/reporting/system_reporter.yml -i inventory -e "report_format=all"
+
+.PHONY: audit-packages
+audit-packages:
+	@echo "Running Package Auditor..."
+	$(ANSIBLE_PLAYBOOK) playbooks/reporting/package_auditor.yml -i inventory
+
+.PHONY: orchestrate
+orchestrate:
+	@echo "Running Automation Wrapper (standard workflow)..."
+	$(ANSIBLE_PLAYBOOK) playbooks/orchestration/automation_wrapper.yml -i inventory -e "workflow=standard"
+
+.PHONY: orchestrate-comprehensive
+orchestrate-comprehensive:
+	@echo "Running Automation Wrapper (comprehensive workflow)..."
+	$(ANSIBLE_PLAYBOOK) playbooks/orchestration/automation_wrapper.yml -i inventory -e "workflow=comprehensive"
