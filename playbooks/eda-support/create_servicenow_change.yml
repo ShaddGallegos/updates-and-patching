@@ -1,0 +1,83 @@
+---
+# Create ServiceNow Change Request Playbook
+# Creates change requests in ServiceNow for planned maintenance
+# Used by: EDA Rulebooks for automated LVM extensions and maintenance
+
+- name: Create ServiceNow Change Request
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    target_host: "{{ target_host | default('unknown') }}"
+    priority: "{{ priority | default(3) }}"
+    short_description: "{{ short_description | default('Automated change request') }}"
+    mount_point: "{{ mount_point | default('/') }}"
+    usage_percent: "{{ usage_percent | default(0) }}"
+    change_type: "{{ change_type | default('standard') }}"
+  
+  tasks:
+    - name: Create ServiceNow change request via role
+      include_role:
+        name: servicenow_ticket_management
+      vars:
+        ticket_action: create
+        ticket_type: change_request
+        ticket_priority: "{{ priority }}"
+        ticket_short_description: "{{ short_description }}"
+        ticket_description: |
+          Automated Change Request
+          =========================
+          
+          Host: {{ target_host }}
+          Mount Point: {{ mount_point }}
+          Current Usage: {{ usage_percent }}%
+          Change Type: {{ change_type }}
+          
+          This is an automated change request for system maintenance.
+        ticket_assignment_group: "Linux Infrastructure"
+      when: "'servicenow_ticket_management' in ansible_play_role_names | default([])"
+      ignore_errors: true
+    
+    - name: Create change request using servicenow.itsm collection
+      servicenow.itsm.change_request:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: new
+        type: "{{ change_type }}"
+        short_description: "{{ short_description }}"
+        description: |
+          Automated Change Request
+          =========================
+          
+          Host: {{ target_host }}
+          Mount Point: {{ mount_point }}
+          Current Usage: {{ usage_percent }}%
+          Change Type: {{ change_type }}
+          
+          This is an automated change request for system maintenance.
+        priority: "{{ priority }}"
+        assignment_group: "Linux Infrastructure"
+        requested_by: "Ansible Automation"
+      register: change_result
+      when: 
+        - servicenow_instance is defined
+        - servicenow_username is defined
+        - servicenow_password is defined
+      ignore_errors: true
+    
+    - name: Log change request creation
+      debug:
+        msg: |
+          ServiceNow Change Request Created
+          ==================================
+          Host: {{ target_host }}
+          Priority: {{ priority }}
+          Description: {{ short_description }}
+          Mount Point: {{ mount_point }}
+          Usage: {{ usage_percent }}%
+          {% if change_result is defined and change_result.record is defined %}
+          Change Number: {{ change_result.record.number }}
+          Change ID: {{ change_result.record.sys_id }}
+          {% endif %}

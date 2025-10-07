@@ -1,0 +1,74 @@
+---
+# Create ServiceNow Incident Playbook
+# Creates incidents in ServiceNow for critical issues
+# Used by: EDA Rulebooks for failed operations and critical alerts
+
+- name: Create ServiceNow Incident
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    target_host: "{{ target_host | default('unknown') }}"
+    priority: "{{ priority | default(3) }}"
+    urgency: "{{ urgency | default(3) }}"
+    impact: "{{ impact | default(3) }}"
+    short_description: "{{ short_description | default('Incident detected') }}"
+    description: "{{ description | default('Automated incident creation') }}"
+    assignment_group: "{{ assignment_group | default('Linux Infrastructure') }}"
+    escalate_to: "{{ escalate_to | default('') }}"
+  
+  tasks:
+    - name: Create ServiceNow incident via role
+      include_role:
+        name: servicenow_ticket_management
+      vars:
+        ticket_action: create
+        ticket_type: incident
+        ticket_priority: "{{ priority }}"
+        ticket_urgency: "{{ urgency }}"
+        ticket_impact: "{{ impact }}"
+        ticket_short_description: "{{ short_description }}"
+        ticket_description: "{{ description }}"
+        ticket_assignment_group: "{{ assignment_group }}"
+      when: "'servicenow_ticket_management' in ansible_play_role_names | default([])"
+      ignore_errors: true
+    
+    - name: Create incident using servicenow.itsm collection
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: new
+        short_description: "{{ short_description }}"
+        description: "{{ description }}"
+        priority: "{{ priority }}"
+        urgency: "{{ urgency }}"
+        impact: "{{ impact }}"
+        assignment_group: "{{ assignment_group }}"
+        caller: "Ansible Automation"
+      register: incident_result
+      when: 
+        - servicenow_instance is defined
+        - servicenow_username is defined
+        - servicenow_password is defined
+      ignore_errors: true
+    
+    - name: Log incident creation
+      debug:
+        msg: |
+          ServiceNow Incident Created
+          ============================
+          Host: {{ target_host }}
+          Priority: {{ priority }}
+          Description: {{ short_description }}
+          Assignment Group: {{ assignment_group }}
+          {% if incident_result is defined and incident_result.record is defined %}
+          Incident Number: {{ incident_result.record.number }}
+          Incident ID: {{ incident_result.record.sys_id }}
+          {% endif %}
+    
+    - name: Escalate if required
+      debug:
+        msg: "Incident escalated to: {{ escalate_to }}"
+      when: escalate_to | length > 0

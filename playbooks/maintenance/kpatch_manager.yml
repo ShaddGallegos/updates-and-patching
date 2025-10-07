@@ -1,0 +1,154 @@
+---
+# KPatch Manager Playbook
+# Live kernel patching for RHEL systems
+# Converted from: scripts/kpatch-manager.sh
+
+- name: KPatch Manager
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    kpatch_action: "{{ kpatch_action | default('install') }}"  # install, list, load, unload
+    report_dir: "{{ report_dir | default('/tmp/kpatch_reports') }}"
+  
+  pre_tasks:
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+    
+    - name: Verify RHEL compatibility
+      fail:
+        msg: "KPatch is only supported on RHEL 7+"
+      when:
+        - ansible_distribution not in ['RedHat', 'CentOS', 'Rocky', 'AlmaLinux']
+        - ansible_distribution_major_version | int < 7
+    
+    - name: Check if kpatch is installed
+      command: which kpatch
+      register: kpatch_installed
+      changed_when: false
+      failed_when: false
+  
+  tasks:
+    - name: Install kpatch and dependencies
+      block:
+        - name: Enable required repositories
+          rhsm_repository:
+            name: "rhel-{{ ansible_distribution_major_version }}-server-extras-rpms"
+            state: enabled
+          when: ansible_distribution == 'RedHat'
+          ignore_errors: true
+        
+        - name: Install kpatch
+          package:
+            name:
+              - kpatch
+              - kpatch-runtime
+            state: present
+        
+        - name: Start and enable kpatch service
+          systemd:
+            name: kpatch
+            state: started
+            enabled: true
+      when:
+        - kpatch_action == 'install'
+        - kpatch_installed.rc != 0
+    
+    - name: List available kernel patches
+      shell: kpatch list
+      register: kpatch_list
+      changed_when: false
+      when: kpatch_action in ['list', 'status']
+    
+    - name: Check for available kpatch updates
+      shell: |
+        {% if ansible_distribution_major_version | int >= 8 %}
+        dnf list available | grep kpatch-patch
+        {% else %}
+        yum list available | grep kpatch-patch
+        {% endif %}
+      register: available_kpatches
+      changed_when: false
+      failed_when: false
+    
+    - name: Install available kpatches
+      shell: |
+        {% if ansible_distribution_major_version | int >= 8 %}
+        dnf install -y kpatch-patch-*
+        {% else %}
+        yum install -y kpatch-patch-*
+        {% endif %}
+      register: kpatch_install_result
+      when:
+        - kpatch_action == 'install'
+        - available_kpatches.stdout_lines | length > 0
+      changed_when: "'Complete!' in kpatch_install_result.stdout"
+    
+    - name: Load kpatches
+      shell: kpatch load --all
+      register: kpatch_load_result
+      when: kpatch_action == 'load'
+      changed_when: "'loaded' in kpatch_load_result.stdout"
+    
+    - name: Get currently loaded kpatches
+      shell: kpatch list
+      register: loaded_kpatches
+      changed_when: false
+    
+    - name: Unload specific kpatch
+      shell: kpatch unload {{ kpatch_module }}
+      when:
+        - kpatch_action == 'unload'
+        - kpatch_module is defined
+      register: kpatch_unload_result
+  
+  post_tasks:
+    - name: Generate kpatch report
+      copy:
+        content: |
+          KPatch Manager Report
+          =====================
+          Hostname: {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Kernel: {{ ansible_kernel }}
+          Action: {{ kpatch_action }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          Currently Loaded Patches
+          ------------------------
+          {{ loaded_kpatches.stdout if loaded_kpatches.stdout | length > 0 else 'No patches loaded' }}
+          
+          Available Patches
+          -----------------
+          {{ available_kpatches.stdout if available_kpatches.stdout | length > 0 else 'No patches available' }}
+          
+          {% if kpatch_install_result is defined and kpatch_install_result.changed %}
+          Installation Result
+          -------------------
+          Patches installed successfully
+          {% endif %}
+          
+          {% if kpatch_load_result is defined %}
+          Load Result
+          -----------
+          {{ kpatch_load_result.stdout }}
+          {% endif %}
+        dest: "{{ report_dir }}/kpatch_report_{{ inventory_hostname }}_{{ ansible_date_time.date }}.txt"
+      delegate_to: localhost
+    
+    - name: Display kpatch summary
+      debug:
+        msg: |
+          KPatch Summary for {{ inventory_hostname }}
+          ===========================================
+          Action: {{ kpatch_action }}
+          Loaded Patches: {{ loaded_kpatches.stdout_lines | length }}
+          {% if kpatch_install_result is defined and kpatch_install_result.changed %}
+          New Patches Installed: Yes
+          {% endif %}

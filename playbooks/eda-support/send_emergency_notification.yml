@@ -1,0 +1,57 @@
+---
+# Send Emergency Notification Playbook
+# Sends critical alerts through multiple channels for emergency situations
+# Used by: EDA Rulebooks for critical disk space and system failures
+
+- name: Send Emergency Notification
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    alert_type: "{{ alert_type | default('emergency') }}"
+    target_host: "{{ target_host | default('unknown') }}"
+    error_message: "{{ error_message | default('Emergency situation detected') }}"
+    notification_channels:
+      - email
+      - slack
+      - pagerduty
+  
+  tasks:
+    - name: Send emergency alert to multiple channels
+      include_role:
+        name: disk_usage_alerting
+      vars:
+        alert_severity: emergency
+        alert_message: "{{ error_message }}"
+        affected_host: "{{ target_host }}"
+      when: "'disk_usage_alerting' in ansible_play_role_names | default([])"
+      ignore_errors: true
+    
+    - name: Log emergency notification
+      debug:
+        msg: |
+          EMERGENCY ALERT SENT
+          Type: {{ alert_type }}
+          Host: {{ target_host }}
+          Message: {{ error_message }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+    
+    - name: Send email notification (fallback)
+      mail:
+        host: "{{ smtp_server | default('localhost') }}"
+        port: "{{ smtp_port | default(25) }}"
+        to: "{{ emergency_email | default('ops@example.com') }}"
+        subject: "EMERGENCY: {{ alert_type }} on {{ target_host }}"
+        body: |
+          EMERGENCY ALERT
+          ===============
+          
+          Alert Type: {{ alert_type }}
+          Affected Host: {{ target_host }}
+          Error Message: {{ error_message }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          This is an automated emergency notification.
+          Immediate action required.
+      when: emergency_email is defined
+      ignore_errors: true

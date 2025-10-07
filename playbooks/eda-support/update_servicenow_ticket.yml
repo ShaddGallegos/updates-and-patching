@@ -1,0 +1,96 @@
+---
+# Update ServiceNow Ticket Playbook
+# Updates existing ServiceNow tickets with resolution information
+# Used by: EDA Rulebooks for closing tickets after successful operations
+
+- name: Update ServiceNow Ticket
+  hosts: localhost
+  gather_facts: false
+  
+  vars:
+    target_host: "{{ target_host | default('unknown') }}"
+    ticket_number: "{{ ticket_number | default('') }}"
+    ticket_state: "{{ ticket_state | default('work_in_progress') }}"
+    resolution_notes: "{{ resolution_notes | default('Ticket updated by automation') }}"
+    work_notes: "{{ work_notes | default('') }}"
+  
+  tasks:
+    - name: Update ServiceNow ticket via role
+      include_role:
+        name: servicenow_ticket_management
+      vars:
+        ticket_action: update
+        ticket_id: "{{ ticket_number }}"
+        ticket_state: "{{ ticket_state }}"
+        ticket_resolution_notes: "{{ resolution_notes }}"
+        ticket_work_notes: "{{ work_notes }}"
+      when: "'servicenow_ticket_management' in ansible_play_role_names | default([])"
+      ignore_errors: true
+    
+    - name: Determine ServiceNow state code
+      set_fact:
+        snow_state: >-
+          {%- if ticket_state == 'resolved' -%}
+          6
+          {%- elif ticket_state == 'closed' -%}
+          7
+          {%- elif ticket_state == 'work_in_progress' -%}
+          2
+          {%- elif ticket_state == 'pending' -%}
+          3
+          {%- else -%}
+          2
+          {%- endif -%}
+    
+    - name: Update incident using servicenow.itsm collection
+      servicenow.itsm.incident:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: "{{ ticket_state }}"
+        number: "{{ ticket_number }}"
+        close_notes: "{{ resolution_notes if ticket_state in ['resolved', 'closed'] else omit }}"
+        work_notes: "{{ work_notes if work_notes | length > 0 else omit }}"
+      register: update_result
+      when:
+        - servicenow_instance is defined
+        - servicenow_username is defined
+        - servicenow_password is defined
+        - ticket_number | length > 0
+      ignore_errors: true
+    
+    - name: Update change request if ticket is a change
+      servicenow.itsm.change_request:
+        instance:
+          host: "{{ servicenow_instance }}"
+          username: "{{ servicenow_username }}"
+          password: "{{ servicenow_password }}"
+        state: "{{ ticket_state }}"
+        number: "{{ ticket_number }}"
+        close_notes: "{{ resolution_notes if ticket_state in ['resolved', 'closed'] else omit }}"
+        work_notes: "{{ work_notes if work_notes | length > 0 else omit }}"
+      register: change_update_result
+      when:
+        - update_result is skipped or update_result is failed
+        - servicenow_instance is defined
+        - servicenow_username is defined
+        - servicenow_password is defined
+        - ticket_number | length > 0
+      ignore_errors: true
+    
+    - name: Log ticket update
+      debug:
+        msg: |
+          ServiceNow Ticket Updated
+          =========================
+          Ticket Number: {{ ticket_number }}
+          Host: {{ target_host }}
+          New State: {{ ticket_state }}
+          Resolution Notes: {{ resolution_notes }}
+          {% if update_result is defined and update_result.record is defined %}
+          Updated Incident: {{ update_result.record.number }}
+          {% endif %}
+          {% if change_update_result is defined and change_update_result.record is defined %}
+          Updated Change: {{ change_update_result.record.number }}
+          {% endif %}

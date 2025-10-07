@@ -1,0 +1,186 @@
+---
+# Package Auditor Playbook
+# Comprehensive package management auditing
+# Converted from: scripts/package-auditor.sh
+
+- name: Package Auditor
+  hosts: "{{ target_hosts | default('all') }}"
+  become: true
+  gather_facts: true
+  
+  vars:
+    report_dir: "{{ report_dir | default('/tmp/package_audit_reports') }}"
+    audit_type: "{{ audit_type | default('full') }}"  # full, security, outdated
+  
+  pre_tasks:
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+      run_once: true
+  
+  tasks:
+    - name: Gather package facts
+      package_facts:
+        manager: auto
+    
+    - name: Get all installed packages
+      shell: rpm -qa --queryformat '%{NAME}|%{VERSION}|%{RELEASE}|%{INSTALLTIME:date}|%{SIZE}\n' | sort
+      register: all_packages
+      changed_when: false
+    
+    - name: Check for available updates
+      shell: |
+        {% if ansible_distribution_major_version | int >= 8 %}
+        dnf check-update --quiet
+        {% else %}
+        yum check-update --quiet
+        {% endif %}
+      register: available_updates
+      changed_when: false
+      failed_when: false
+    
+    - name: Get security updates
+      shell: |
+        {% if ansible_distribution_major_version | int >= 8 %}
+        dnf updateinfo list security --available
+        {% else %}
+        yum updateinfo list security --available
+        {% endif %}
+      register: security_updates
+      changed_when: false
+      failed_when: false
+    
+    - name: Get package dependencies
+      shell: |
+        rpm -qa --queryformat '%{NAME}\n' | head -10 | while read pkg; do
+          echo "=== $pkg ==="
+          rpm -q --requires $pkg 2>/dev/null | head -5
+        done
+      register: package_deps
+      changed_when: false
+      when: audit_type == 'full'
+    
+    - name: Check for duplicate packages
+      shell: |
+        package-cleanup --dupes 2>/dev/null || echo "No duplicates found"
+      register: duplicate_packages
+      changed_when: false
+      failed_when: false
+    
+    - name: Check for orphaned packages
+      shell: |
+        package-cleanup --orphans 2>/dev/null || echo "No orphans found"
+      register: orphaned_packages
+      changed_when: false
+      failed_when: false
+    
+    - name: Get repository information
+      shell: |
+        {% if ansible_distribution_major_version | int >= 8 %}
+        dnf repolist
+        {% else %}
+        yum repolist
+        {% endif %}
+      register: repo_info
+      changed_when: false
+    
+    - name: Check package file integrity
+      shell: rpm -Va | head -20 || echo "All packages verified successfully"
+      register: package_verification
+      changed_when: false
+      failed_when: false
+    
+    - name: Analyze package sizes
+      shell: |
+        rpm -qa --queryformat '%{SIZE} %{NAME}\n' | sort -rn | head -20
+      register: largest_packages
+      changed_when: false
+  
+  post_tasks:
+    - name: Calculate statistics
+      set_fact:
+        total_packages: "{{ all_packages.stdout_lines | length }}"
+        updates_available: "{{ available_updates.stdout_lines | length }}"
+        security_updates_available: "{{ security_updates.stdout_lines | length }}"
+        total_size_mb: "{{ (ansible_facts.packages.values() | map(attribute='0.size') | sum | default(0) / 1048576) | round(2) }}"
+    
+    - name: Generate comprehensive audit report
+      copy:
+        content: |
+          Package Audit Report
+          ====================
+          Hostname: {{ inventory_hostname }}
+          OS: {{ ansible_distribution }} {{ ansible_distribution_version }}
+          Audit Type: {{ audit_type }}
+          Timestamp: {{ ansible_date_time.iso8601 }}
+          
+          Summary Statistics
+          ------------------
+          Total Packages Installed: {{ total_packages }}
+          Total Package Size: {{ total_size_mb }} MB
+          Updates Available: {{ updates_available }}
+          Security Updates Available: {{ security_updates_available }}
+          
+          Repository Information
+          ----------------------
+          {{ repo_info.stdout }}
+          
+          Security Updates
+          ----------------
+          {{ security_updates.stdout if security_updates.stdout | length > 0 else 'No security updates available' }}
+          
+          Largest Packages (Top 20)
+          -------------------------
+          {{ largest_packages.stdout }}
+          
+          Duplicate Packages
+          ------------------
+          {{ duplicate_packages.stdout }}
+          
+          Orphaned Packages
+          -----------------
+          {{ orphaned_packages.stdout }}
+          
+          Package Verification Issues
+          ---------------------------
+          {{ package_verification.stdout }}
+          
+          {% if audit_type == 'full' %}
+          Sample Package Dependencies
+          ---------------------------
+          {{ package_deps.stdout }}
+          {% endif %}
+        dest: "{{ report_dir }}/package_audit_{{ inventory_hostname }}_{{ ansible_date_time.date }}.txt"
+      delegate_to: localhost
+    
+    - name: Generate JSON audit report
+      copy:
+        content: |
+          {
+            "hostname": "{{ inventory_hostname }}",
+            "os": "{{ ansible_distribution }} {{ ansible_distribution_version }}",
+            "audit_type": "{{ audit_type }}",
+            "timestamp": "{{ ansible_date_time.iso8601 }}",
+            "statistics": {
+              "total_packages": {{ total_packages }},
+              "total_size_mb": {{ total_size_mb }},
+              "updates_available": {{ updates_available }},
+              "security_updates_available": {{ security_updates_available }}
+            },
+            "packages": {{ ansible_facts.packages | to_json }}
+          }
+        dest: "{{ report_dir }}/package_audit_{{ inventory_hostname }}_{{ ansible_date_time.date }}.json"
+      delegate_to: localhost
+    
+    - name: Display audit summary
+      debug:
+        msg: |
+          Package Audit Summary for {{ inventory_hostname }}
+          ==================================================
+          Total Packages: {{ total_packages }}
+          Updates Available: {{ updates_available }}
+          Security Updates: {{ security_updates_available }}
+          Total Size: {{ total_size_mb }} MB

@@ -1,0 +1,362 @@
+---
+# Event-Driven Ansible Rulebook for Disk Space Monitoring
+# Monitors disk usage and triggers automated LVM extensions
+# Integrates with ServiceNow, Splunk, and AAP
+
+- name: Disk Space Management Automation
+  hosts: all
+  sources:
+    # Splunk source for critical alerts
+    - name: splunk_critical
+      splunk.eda.splunk:
+        host: "{{ lookup('env', 'SPLUNK_HEC_URL') }}"
+        token: "{{ lookup('env', 'SPLUNK_HEC_TOKEN') }}"
+        search: 'index=linux sourcetype=disk_usage usage_percent>=95'
+        poll_interval: 300  # 5 minutes
+    
+    # Splunk source for high priority
+    - name: splunk_high
+      splunk.eda.splunk:
+        host: "{{ lookup('env', 'SPLUNK_HEC_URL') }}"
+        token: "{{ lookup('env', 'SPLUNK_HEC_TOKEN') }}"
+        search: 'index=linux sourcetype=disk_usage usage_percent>=90 usage_percent<95'
+        poll_interval: 600  # 10 minutes
+    
+    # Splunk source for warnings
+    - name: splunk_warning
+      splunk.eda.splunk:
+        host: "{{ lookup('env', 'SPLUNK_HEC_URL') }}"
+        token: "{{ lookup('env', 'SPLUNK_HEC_TOKEN') }}"
+        search: 'index=linux sourcetype=disk_usage usage_percent>=80 usage_percent<90'
+        poll_interval: 1800  # 30 minutes
+  
+  rules:
+    # -------------------------------------------------------------------------
+    # Rule 1: Emergency Disk Space (95%+ usage)
+    # -------------------------------------------------------------------------
+    - name: Emergency Disk Space Critical
+      condition: >
+        event.result.usage_percent >= 95 and
+        event.result.severity == "emergency"
+      
+      throttle:
+        once_within: 300 seconds  # 5 minutes
+        group_by_attributes:
+          - event.result.host
+          - event.result.mount_point
+      
+      actions:
+        - debug:
+            msg: |
+              EMERGENCY: Critical disk space on {{ event.result.host }}
+              Mount: {{ event.result.mount_point }}
+              Usage: {{ event.result.usage_percent }}%
+              Automated extension will be triggered immediately!
+        
+        # Send emergency notification
+        - run_playbook:
+            name: playbooks/eda-support/send_emergency_notification.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              alert_type: "critical_disk_space"
+              error_message: "Disk usage at {{ event.result.usage_percent }}% on {{ event.result.mount_point }}"
+        
+        # Create incident immediately
+        - run_playbook:
+            name: playbooks/eda-support/create_servicenow_incident.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              priority: 1
+              urgency: 1
+              short_description: "EMERGENCY: Disk Space Critical - {{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              usage_percent: "{{ event.result.usage_percent }}"
+        
+        # Execute immediate automated extension
+        - run_job_template:
+            name: "03 - Auto-Extend LVM"
+            organization: "Default"
+            job_extra_vars:
+              target_hosts: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              extend_percent: 30
+              emergency_mode: true
+    
+    # -------------------------------------------------------------------------
+    # Rule 2: Critical Disk Space (90-94% usage)
+    # -------------------------------------------------------------------------
+    - name: Critical Disk Space Alert
+      condition: >
+        event.result.usage_percent >= 90 and
+        event.result.usage_percent < 95 and
+        event.result.severity == "critical"
+      
+      throttle:
+        once_within: 600 seconds  # 10 minutes
+        group_by_attributes:
+          - event.result.host
+          - event.result.mount_point
+      
+      actions:
+        - debug:
+            msg: |
+              CRITICAL: Disk space critical on {{ event.result.host }}
+              Mount: {{ event.result.mount_point }}
+              Usage: {{ event.result.usage_percent }}%
+        
+        # Send critical alert
+        - run_playbook:
+            name: playbooks/eda-support/send_disk_alert.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              usage_percent: "{{ event.result.usage_percent }}"
+              severity: "critical"
+              alert_type: "critical"
+        
+        # Create ServiceNow change request
+        - run_playbook:
+            name: playbooks/eda-support/create_servicenow_change.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              priority: 2
+              short_description: "Automated LVM Extension - {{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              usage_percent: "{{ event.result.usage_percent }}"
+        
+        # Execute automated extension
+        - run_job_template:
+            name: "03 - Auto-Extend LVM"
+            organization: "Default"
+            job_extra_vars:
+              target_hosts: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              extend_percent: 25
+              create_ticket: true
+    
+    # -------------------------------------------------------------------------
+    # Rule 3: High Disk Space Warning (85-89% usage)
+    # -------------------------------------------------------------------------
+    - name: High Disk Space Warning
+      condition: >
+        event.result.usage_percent >= 85 and
+        event.result.usage_percent < 90 and
+        event.result.severity == "high"
+      
+      throttle:
+        once_within: 900 seconds  # 15 minutes
+        group_by_attributes:
+          - event.result.host
+          - event.result.mount_point
+      
+      actions:
+        - debug:
+            msg: |
+              HIGH: Disk space warning on {{ event.result.host }}
+              Mount: {{ event.result.mount_point }}
+              Usage: {{ event.result.usage_percent }}%
+        
+        # Send notification
+        - run_playbook:
+            name: playbooks/eda-support/send_disk_alert.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              usage_percent: "{{ event.result.usage_percent }}"
+              severity: "high"
+              alert_type: "warning"
+        
+        # Execute extension with validation
+        - run_job_template:
+            name: "03 - Auto-Extend LVM"
+            organization: "Default"
+            job_extra_vars:
+              target_hosts: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              extend_percent: 20
+              validate_before_extend: true
+    
+    # -------------------------------------------------------------------------
+    # Rule 4: Warning Level (80-84% usage)
+    # -------------------------------------------------------------------------
+    - name: Disk Space Warning Notification
+      condition: >
+        event.result.usage_percent >= 80 and
+        event.result.usage_percent < 85 and
+        event.result.severity == "warning"
+      
+      throttle:
+        once_within: 1800 seconds  # 30 minutes
+        group_by_attributes:
+          - event.result.host
+          - event.result.mount_point
+      
+      actions:
+        - debug:
+            msg: |
+              WARNING: Disk space elevated on {{ event.result.host }}
+              Mount: {{ event.result.mount_point }}
+              Usage: {{ event.result.usage_percent }}%
+        
+        # Send notification only
+        - run_playbook:
+            name: playbooks/eda-support/send_disk_alert.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              usage_percent: "{{ event.result.usage_percent }}"
+              severity: "warning"
+              alert_type: "info"
+        
+        # Schedule extension for maintenance window
+        - run_playbook:
+            name: playbooks/eda-support/schedule_maintenance.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              mount_point: "{{ event.result.mount_point }}"
+              operation: "lvm_extend"
+              window: "next_available"
+    
+    # -------------------------------------------------------------------------
+    # Rule 5: Extension Failure Response
+    # -------------------------------------------------------------------------
+    - name: LVM Extension Failure Alert
+      condition: >
+        event.result.action == "extend_failed"
+      
+      actions:
+        - debug:
+            msg: |
+              ERROR: LVM extension failed on {{ event.result.host }}
+              Mount: {{ event.result.mount_point }}
+              Error: {{ event.result.error_message }}
+        
+        # Create incident for failed extension
+        - run_playbook:
+            name: playbooks/eda-support/create_servicenow_incident.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              priority: 2
+              urgency: 2
+              short_description: "LVM Extension Failed - {{ event.result.host }}"
+              description: |
+                Automated LVM extension failed.
+                
+                Host: {{ event.result.host }}
+                Mount Point: {{ event.result.mount_point }}
+                Error: {{ event.result.error_message }}
+                
+                Manual intervention required.
+              assignment_group: "Linux Infrastructure"
+        
+        # Send escalation notification
+        - run_playbook:
+            name: playbooks/eda-support/send_emergency_notification.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              alert_type: "extension_failed"
+              error_message: "{{ event.result.error_message }}"
+    
+    # -------------------------------------------------------------------------
+    # Rule 6: Extension Success Notification
+    # -------------------------------------------------------------------------
+    - name: LVM Extension Success
+      condition: >
+        event.result.action == "extend_completed"
+      
+      actions:
+        - debug:
+            msg: |
+              SUCCESS: LVM extension completed on {{ event.result.host }}
+              Mount: {{ event.result.mount_point }}
+              New Size: {{ event.result.new_size_gb }} GB
+        
+        # Update ServiceNow ticket
+        - run_playbook:
+            name: playbooks/eda-support/update_servicenow_ticket.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              ticket_state: "resolved"
+              resolution_notes: |
+                LVM extension completed successfully.
+                
+                Host: {{ event.result.host }}
+                Mount Point: {{ event.result.mount_point }}
+                Previous Size: {{ event.result.old_size_gb }} GB
+                New Size: {{ event.result.new_size_gb }} GB
+                Extended By: {{ event.result.extended_by_gb }} GB
+        
+        # Send success notification
+        - run_playbook:
+            name: playbooks/eda-support/send_disk_alert.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              alert_type: "success"
+              message: "LVM extension completed successfully"
+    
+    # -------------------------------------------------------------------------
+    # Rule 7: Multiple Failures - Escalation
+    # -------------------------------------------------------------------------
+    - name: Multiple Extension Failures Escalation
+      condition: >
+        events.multiple_failures | length >= 3
+      
+      actions:
+        - debug:
+            msg: "ESCALATION: Multiple LVM extension failures detected"
+        
+        # Create major incident
+        - run_playbook:
+            name: playbooks/eda-support/create_servicenow_incident.yml
+            extra_vars:
+              priority: 1
+              urgency: 1
+              impact: 2
+              short_description: "ESCALATION: Multiple LVM Extension Failures"
+              description: |
+                Multiple LVM extension failures detected across infrastructure.
+                
+                Failed Hosts: {{ events.multiple_failures | map(attribute='host') | join(', ') }}
+                
+                Immediate investigation required.
+              assignment_group: "Linux Infrastructure"
+              escalate_to: "Infrastructure Manager"
+        
+        # Page on-call engineer
+        - run_playbook:
+            name: playbooks/eda-support/page_oncall.yml
+            extra_vars:
+              severity: "high"
+              message: "Multiple LVM extension failures"
+    
+    # -------------------------------------------------------------------------
+    # Rule 8: Nutanix Storage Capacity Check
+    # -------------------------------------------------------------------------
+    - name: Check Nutanix Storage Capacity
+      condition: >
+        event.result.usage_percent >= 85 and
+        event.result.volume_group is defined
+      
+      throttle:
+        once_within: 3600 seconds  # 1 hour
+        group_by_attributes:
+          - event.result.host
+      
+      actions:
+        - debug:
+            msg: "Checking Nutanix storage capacity for {{ event.result.host }}"
+        
+        # Check if additional disks can be added
+        - run_playbook:
+            name: playbooks/eda-support/check_nutanix_capacity.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              volume_group: "{{ event.result.volume_group }}"
+        
+        # If capacity available, add disk
+        - run_playbook:
+            name: playbooks/eda-support/add_nutanix_disk.yml
+            extra_vars:
+              target_host: "{{ event.result.host }}"
+              disk_size_gb: 100
+            when: nutanix_capacity_available
