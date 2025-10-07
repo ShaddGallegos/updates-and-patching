@@ -130,3 +130,23 @@ logs/
 node_modules/
 jspm_packages/
 bower_components/
+
+# Report directories
+/tmp/reports*/
+/tmp/automation_reports*/
+/tmp/system_reports*/
+/tmp/vulnerability_reports*/
+/tmp/package_audit_reports*/
+/tmp/patch_reports*/
+/tmp/kpatch_reports*/
+/var/log/ansible-reports/
+
+# Ansible facts cache
+/tmp/ansible_facts/
+
+# Inventory production files (keep examples only)
+inventory/production
+inventory/staging
+inventory/hosts
+!inventory/example.ini
+
