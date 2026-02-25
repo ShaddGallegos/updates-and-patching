@@ -397,9 +397,9 @@ echo "Monitoring cron job installed"
         
     def header(self, title):
         self.cls()
-        print(f"{C.C}╔═════════════════════════════════════════╗{C.N}")
-        print(f"{C.C}║  {title:^39}║{C.N}")
-        print(f"{C.C}╚═════════════════════════════════════════╝{C.N}\n")
+        print(f"{C.C}+=========================================+{C.N}")
+        print(f"{C.C}|  {title:^39}|{C.N}")
+        print(f"{C.C}+=========================================+{C.N}\n")
         
     def create_role(self, name):
         """Create role structure"""
@@ -446,21 +446,21 @@ Handles {name.replace('_',' ')}.
         """Create playbook file"""
         pb_path = self.root / "playbooks" / name
         if pb_path.exists():
-            print(f"  {C.Y}⚠{C.N} {name} already exists, skipping")
+            print(f"  {C.Y}[!]{C.N} {name} already exists, skipping")
             return False
         pb_path.write_text(content)
-        print(f"  {C.G}✓{C.N} Created {name}")
+        print(f"  {C.G}[+]{C.N} Created {name}")
         return True
 
     def create_script(self, name, content):
         """Create script file"""
         script_path = self.root / name
         if script_path.exists():
-            print(f"  {C.Y}⚠{C.N} {name} already exists, skipping")
+            print(f"  {C.Y}[!]{C.N} {name} already exists, skipping")
             return False
         script_path.write_text(content)
         script_path.chmod(0o755)
-        print(f"  {C.G}✓{C.N} Created {name} (executable)")
+        print(f"  {C.G}[+]{C.N} Created {name} (executable)")
         return True
         
     def missing_roles(self):
@@ -478,7 +478,7 @@ Handles {name.replace('_',' ')}.
         for r in roles or self.missing_roles():
             print(f"\n{C.Y}Creating: {r}{C.N}")
             self.create_role(r)
-            print(f"{C.G}✓{C.N} Created {r}")
+            print(f"{C.G}[+]{C.N} Created {r}")
 
     def create_missing_playbooks(self):
         """Create missing ServiceNow and alert playbooks"""
@@ -493,7 +493,7 @@ Handles {name.replace('_',' ')}.
                 created += 1
         
         if created > 0:
-            print(f"\n{C.G}✓ Created {created} playbooks{C.N}")
+            print(f"\n{C.G}[+] Created {created} playbooks{C.N}")
         else:
             print(f"\n{C.Y}All playbooks already exist{C.N}")
         
@@ -510,7 +510,7 @@ Handles {name.replace('_',' ')}.
                 created += 1
         
         if created > 0:
-            print(f"\n{C.G}✓ Created {created} scripts{C.N}")
+            print(f"\n{C.G}[+] Created {created} scripts{C.N}")
         else:
             print(f"\n{C.Y}All scripts already exist{C.N}")
         
@@ -546,17 +546,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
         license_path.write_text(license_content)
-        print(f"{C.G}✓{C.N} Created LICENSE")
+        print(f"{C.G}[+]{C.N} Created LICENSE")
 
     def create_all_missing_components(self):
         """Create all missing components at once"""
         self.header("Create All Missing Components")
         print(f"{C.Y}This will create:{C.N}")
-        print(f"  • Missing roles")
-        print(f"  • ServiceNow playbooks")
-        print(f"  • Alert playbooks")
-        print(f"  • Utility scripts")
-        print(f"  • LICENSE file")
+        print(f"  - Missing roles")
+        print(f"  - ServiceNow playbooks")
+        print(f"  - Alert playbooks")
+        print(f"  - Utility scripts")
+        print(f"  - LICENSE file")
         print()
         
         if input(f"{C.Y}Continue? [Y/n]: {C.N}").strip().lower() == 'n':
@@ -564,36 +564,36 @@ SOFTWARE.
             self.pause()
             return
         
-        print(f"\n{C.C}━━━ Creating Roles ━━━{C.N}\n")
+        print(f"\n{C.C}--- Creating Roles ---{C.N}\n")
         if m := self.missing_roles():
             self.create_missing(m)
         else:
             print(f"{C.G}All roles exist{C.N}")
         
-        print(f"\n{C.C}━━━ Creating Playbooks ━━━{C.N}\n")
+        print(f"\n{C.C}--- Creating Playbooks ---{C.N}\n")
         (self.root / "playbooks").mkdir(exist_ok=True)
         pb_created = 0
         for name, content in self.PLAYBOOK_TEMPLATES.items():
             if self.create_playbook(name, content):
                 pb_created += 1
         
-        print(f"\n{C.C}━━━ Creating Scripts ━━━{C.N}\n")
+        print(f"\n{C.C}--- Creating Scripts ---{C.N}\n")
         script_created = 0
         for name, content in self.SCRIPT_TEMPLATES.items():
             if self.create_script(name, content):
                 script_created += 1
         
-        print(f"\n{C.C}━━━ Creating LICENSE ━━━{C.N}\n")
+        print(f"\n{C.C}--- Creating LICENSE ---{C.N}\n")
         self.create_license()
         
-        print(f"\n{C.G}╔═════════════════════════════════════════╗{C.N}")
-        print(f"{C.G}║        Component Creation Complete      ║{C.N}")
-        print(f"{C.G}╚═════════════════════════════════════════╝{C.N}\n")
+        print(f"\n{C.G}+=========================================+{C.N}")
+        print(f"{C.G}|        Component Creation Complete      |{C.N}")
+        print(f"{C.G}+=========================================+{C.N}\n")
         print(f"{C.B}Summary:{C.N}")
-        print(f"  • Playbooks created: {pb_created}")
-        print(f"  • Scripts created: {script_created}")
-        print(f"  • Roles validated/created")
-        print(f"  • LICENSE file created")
+        print(f"  - Playbooks created: {pb_created}")
+        print(f"  - Scripts created: {script_created}")
+        print(f"  - Roles validated/created")
+        print(f"  - LICENSE file created")
         
         self.pause()
             
@@ -636,25 +636,25 @@ SOFTWARE.
         
         if not (hf := self.root / "inventory/hosts").exists():
             hf.write_text("# Ansible Inventory\n[nutanix_hosts]\n# server01.example.com\n\n[lvm_servers:children]\nnutanix_hosts\n\n[all:vars]\nansible_user=ansible\nansible_become=true\n")
-            print(f"{C.G}✓{C.N} Created inventory/hosts")
+            print(f"{C.G}[+]{C.N} Created inventory/hosts")
             
         if not (av := self.root / "inventory/group_vars/all.yml").exists():
             av.write_text("---\nservicenow_instance: \"{{lookup('env','SNOW_INSTANCE')}}\"\nservicenow_username: \"{{lookup('env','SNOW_USER')}}\"\nservicenow_password: \"{{lookup('env','SNOW_PASS')}}\"\nnutanix_host: \"{{lookup('env','NUTANIX_HOST')}}\"\nnutanix_username: \"{{lookup('env','NUTANIX_USER')}}\"\nnutanix_password: \"{{lookup('env','NUTANIX_PASS')}}\"\nextend_percent: 20\nthreshold_percent: 80\ncritical_threshold_percent: 90\n")
-            print(f"{C.G}✓{C.N} Created group_vars/all.yml")
+            print(f"{C.G}[+]{C.N} Created group_vars/all.yml")
             
         if not (ee := self.root / ".env.example").exists():
             ee.write_text("export SNOW_INSTANCE=dev12345\nexport SNOW_USER=admin\nexport SNOW_PASS=password\nexport NUTANIX_HOST=nutanix.example.com\nexport NUTANIX_USER=admin\nexport NUTANIX_PASS=password\n")
-            print(f"{C.G}✓{C.N} Created .env.example")
+            print(f"{C.G}[+]{C.N} Created .env.example")
             
         print(f"\n{C.Y}Checking roles...{C.N}\n")
         if m := self.missing_roles():
             print(f"{C.Y}{len(m)} missing{C.N}")
             for r in m:
-                print(f"  {C.R}✗{C.N} {r}")
+                print(f"  {C.R}[x]{C.N} {r}")
             if input(f"\n{C.Y}Create? [Y/n]: {C.N}").strip().lower() != 'n':
                 self.create_missing(m)
         else: 
-            print(f"{C.G}✓ All roles present{C.N}")
+            print(f"{C.G}[+] All roles present{C.N}")
         print(f"\n{C.G}Setup complete!{C.N}")
         self.pause()
         
@@ -664,19 +664,19 @@ SOFTWARE.
         for r in self.roles:
             rp = rd / r
             if rp.exists():
-                print(f"{C.G}✓{C.N} {r}")
+                print(f"{C.G}[+]{C.N} {r}")
                 for f in ['tasks/main.yml','defaults/main.yml','meta/main.yml']:
                     exists = (rp/f).exists()
-                    print(f"  {C.G if exists else C.R}{'✓' if exists else '✗'}{C.N} {f}")
+                    print(f"  {C.G if exists else C.R}{'[+]' if exists else '[x]'}{C.N} {f}")
             else: 
-                print(f"{C.R}✗{C.N} {r} (not found)")
+                print(f"{C.R}[x]{C.N} {r} (not found)")
         if m := self.missing_roles():
             print(f"\n{C.Y}Missing: {len(m)}{C.N}")
             if input(f"{C.Y}Create? [Y/n]: {C.N}").strip().lower() != 'n':
                 self.create_missing(m)
-                print(f"\n{C.G}✓ Created{C.N}")
+                print(f"\n{C.G}[+] Created{C.N}")
         else: 
-            print(f"\n{C.G}✓ All complete{C.N}")
+            print(f"\n{C.G}[+] All complete{C.N}")
         self.pause()
         
     def setup_roles(self):
@@ -684,12 +684,12 @@ SOFTWARE.
         if m := self.missing_roles():
             print(f"{C.Y}{len(m)} missing{C.N}\n")
             for r in m:
-                print(f"  {C.R}✗{C.N} {r}")
+                print(f"  {C.R}[x]{C.N} {r}")
             print()
             self.create_missing(m)
-            print(f"\n{C.G}✓ All created{C.N}")
+            print(f"\n{C.G}[+] All created{C.N}")
         else: 
-            print(f"{C.G}✓ All complete{C.N}")
+            print(f"{C.G}[+] All complete{C.N}")
         self.pause()
         
     def create_all_roles(self):
@@ -699,11 +699,11 @@ SOFTWARE.
             bd = self.backup_dir("roles_recreate")
             if (rd := self.root / "roles").exists():
                 shutil.copytree(rd, bd / "roles", dirs_exist_ok=True)
-                print(f"{C.G}✓{C.N} Backed up\n")
+                print(f"{C.G}[+]{C.N} Backed up\n")
             for r in self.roles:
                 print(f"{C.Y}Creating {r}...{C.N}")
                 self.create_role(r)
-                print(f"{C.G}✓{C.N} {r}")
+                print(f"{C.G}[+]{C.N} {r}")
             print(f"\n{C.G}Complete!{C.N}\n{C.B}Backup: {bd}{C.N}")
         else: 
             print(f"{C.Y}Cancelled{C.N}")
@@ -739,7 +739,7 @@ SOFTWARE.
             if yf.name not in ['requirements.yml','site.yml']:
                 shutil.copy2(yf, bd)
                 shutil.move(str(yf), str(pd / yf.name))
-                print(f"{C.G}✓{C.N} {yf.name}")
+                print(f"{C.G}[+]{C.N} {yf.name}")
                 moved += 1
         print(f"\n{C.G}Moved {moved}{C.N}\n{C.B}Backup: {bd}{C.N}")
         self.pause()
@@ -748,7 +748,7 @@ SOFTWARE.
         self.header("Organize Scripts")
         (self.root / "scripts/operations").mkdir(parents=True, exist_ok=True)
         (self.root / "scripts/maintenance").mkdir(parents=True, exist_ok=True)
-        print(f"{C.G}✓{C.N} Script dirs ready\n  - scripts/operations/\n  - scripts/maintenance/")
+        print(f"{C.G}[+]{C.N} Script dirs ready\n  - scripts/operations/\n  - scripts/maintenance/")
         self.pause()
         
     def org_tests(self):
@@ -756,7 +756,7 @@ SOFTWARE.
         td = self.root / "tests"
         for sd in ['unit','integration','molecule','fixtures']:
             (td / sd).mkdir(parents=True, exist_ok=True)
-            print(f"{C.G}✓{C.N} tests/{sd}/")
+            print(f"{C.G}[+]{C.N} tests/{sd}/")
         self.pause()
         
     def full_consol(self):
@@ -815,30 +815,30 @@ SOFTWARE.
     def analyze_yaml(self):
         self.header("Analyze YAML")
         ess = ['extend_lvm.yml','disk_usage_monitor.yml','rulebook.yml','respond_to_disk_alert.yml']
-        print(f"{C.C}━━━ Essential Playbooks ━━━{C.N}\n")
+        print(f"{C.C}--- Essential Playbooks ---{C.N}\n")
         for y in ess:
             pb = self.root / "playbooks" / y
             rpb = self.root / y
             exists = pb.exists() or rpb.exists()
             loc = "playbooks/" if pb.exists() else "root" if rpb.exists() else "missing"
-            print(f"  {C.G if exists else C.R}{'✓' if exists else '✗'}{C.N} {y} ({loc})")
+            print(f"  {C.G if exists else C.R}{'[+]' if exists else '[x]'}{C.N} {y} ({loc})")
         
-        print(f"\n{C.C}━━━ ServiceNow Playbooks ━━━{C.N}\n")
+        print(f"\n{C.C}--- ServiceNow Playbooks ---{C.N}\n")
         snow_pbs = ['servicenow_create_ticket.yml', 'servicenow_update_ticket.yml', 
                    'servicenow_close_ticket.yml', 'servicenow_create_manual_ticket.yml']
         for y in snow_pbs:
             pb = self.root / "playbooks" / y
             exists = pb.exists()
-            print(f"  {C.G if exists else C.R}{'✓' if exists else '✗'}{C.N} {y} ({'playbooks/' if exists else 'missing'})")
+            print(f"  {C.G if exists else C.R}{'[+]' if exists else '[x]'}{C.N} {y} ({'playbooks/' if exists else 'missing'})")
         
-        print(f"\n{C.C}━━━ Roles ━━━{C.N}\n")
+        print(f"\n{C.C}--- Roles ---{C.N}\n")
         if (rd := self.root / "roles").exists():
             for r in sorted(rd.iterdir()):
                 if r.is_dir():
                     comp = all((r/f).exists() for f in ['tasks/main.yml','defaults/main.yml','meta/main.yml'])
-                    print(f"  {C.G if comp else C.Y}{'✓' if comp else '⚠'}{C.N} {r.name}")
+                    print(f"  {C.G if comp else C.Y}{'[+]' if comp else '[!]'}{C.N} {r.name}")
         else: 
-            print(f"  {C.R}✗ roles/ not found{C.N}")
+            print(f"  {C.R}[x] roles/ not found{C.N}")
         self.pause()
         
     def gen_report(self):
@@ -860,7 +860,7 @@ SOFTWARE.
                     f.write(f"  - {p.name}\n")
             else: 
                 f.write("  None\n")
-        print(f"{C.G}✓{C.N} Generated: {C.B}{rf}{C.N}")
+        print(f"{C.G}[+]{C.N} Generated: {C.B}{rf}{C.N}")
         self.pause()
         
     # CLEANUP MENU
@@ -897,12 +897,12 @@ SOFTWARE.
                     shutil.copy2(f, bf)
                     f.unlink()
                     removed += 1
-                    print(f"{C.G}✓{C.N} {f.name}")
+                    print(f"{C.G}[+]{C.N} {f.name}")
         for cd in self.root.rglob('__pycache__'):
             if '.git' not in str(cd) and cd.exists():
                 shutil.rmtree(cd)
                 removed += 1
-                print(f"{C.G}✓{C.N} {cd.relative_to(self.root)}")
+                print(f"{C.G}[+]{C.N} {cd.relative_to(self.root)}")
         print(f"\n{C.G}Removed {removed}{C.N}\n{C.B}Backup: {bd}{C.N}")
         self.pause()
         
@@ -916,7 +916,7 @@ SOFTWARE.
                 for r in reps:
                     r.unlink()
                 for r in reps:
-                    print(f"{C.G}✓{C.N} {r.name}")
+                    print(f"{C.G}[+]{C.N} {r.name}")
                 print(f"\n{C.G}Deleted {len(reps)}{C.N}")
             else: 
                 print(f"{C.Y}Cancelled{C.N}")
@@ -942,9 +942,9 @@ SOFTWARE.
                 if item.name.startswith('.') or item.name in ['__pycache__','backups']: 
                     continue
                 is_last = i == len(items) - 1
-                print(f"{prefix}{'└── ' if is_last else '├── '}{item.name}")
+                print(f"{prefix}{'\\-- ' if is_last else '+-- '}{item.name}")
                 if item.is_dir():
-                    self._tree(item, depth, prefix + ("    " if is_last else "│   "), cur + 1)
+                    self._tree(item, depth, prefix + ("    " if is_last else "|   "), cur + 1)
         except: 
             pass
         
@@ -956,7 +956,7 @@ SOFTWARE.
                 for b in bks:
                     sz = sum(f.stat().st_size for f in b.rglob('*') if f.is_file()) / (1024*1024)
                     mt = datetime.fromtimestamp(b.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
-                    print(f"  {C.G}•{C.N} {b.name}\n    {sz:.2f}MB | {mt}")
+                    print(f"  {C.G}-{C.N} {b.name}\n    {sz:.2f}MB | {mt}")
             else: 
                 print(f"{C.G}None found{C.N}")
         else: 
@@ -971,7 +971,7 @@ SOFTWARE.
         for sh in self.root.glob("*.sh"):
             shutil.copy2(sh, bd)
             sh.unlink()
-            print(f"{C.G}✓{C.N} {sh.name}")
+            print(f"{C.G}[+]{C.N} {sh.name}")
             removed += 1
         print(f"\n{C.G}Removed {removed}{C.N}\n{C.B}Backup: {bd}{C.N}")
         self.pause()
@@ -980,9 +980,9 @@ SOFTWARE.
     def main(self):
         while True:
             self.cls()
-            print(f"{C.C}╔═════════════════════════════════════════╗{C.N}")
-            print(f"{C.C}║  LVM Auto-Extension Maintenance Tool    ║{C.N}")
-            print(f"{C.C}╚═════════════════════════════════════════╝{C.N}\n")
+            print(f"{C.C}+=========================================+{C.N}")
+            print(f"{C.C}|  LVM Auto-Extension Maintenance Tool    |{C.N}")
+            print(f"{C.C}+=========================================+{C.N}\n")
             print(f"{C.B}Project:{C.N} updates-and-patching\n{C.B}Location:{C.N} {self.root}\n")
             print(f"{C.M}  1) Setup & Initialization{C.N}")
             print(f"{C.M}  2) Consolidation{C.N}")
@@ -1007,9 +1007,9 @@ SOFTWARE.
                 self.quick_start()
             elif choice == '0':
                 self.cls()
-                print(f"\n{C.G}╔═════════════════════════════════════════╗{C.N}")
-                print(f"{C.G}║     Thank you! Goodbye!                 ║{C.N}")
-                print(f"{C.G}╚═════════════════════════════════════════╝{C.N}\n")
+                print(f"\n{C.G}+=========================================+{C.N}")
+                print(f"{C.G}|     Thank you! Goodbye!                 |{C.N}")
+                print(f"{C.G}+=========================================+{C.N}\n")
                 sys.exit(0)
             else:
                 print(f"\n{C.R}Invalid{C.N}")
@@ -1017,16 +1017,16 @@ SOFTWARE.
                 
     def quick_start(self):
         self.header("Quick Start")
-        print(f"{C.M}━━━ Setup ━━━{C.N}\n")
+        print(f"{C.M}--- Setup ---{C.N}\n")
         print("1. $ cp .env.example .env && vi .env")
         print("2. $ vi inventory/hosts")
         print("3. $ ./maintenance.py  # 1->7 (Create all missing)")
         print("4. $ ansible -i inventory/hosts all -m ping\n")
-        print(f"{C.M}━━━ Running ━━━{C.N}\n")
+        print(f"{C.M}--- Running ---{C.N}\n")
         print("$ ansible-playbook playbooks/disk_usage_monitor.yml -i inventory/hosts")
         print("$ ansible-playbook playbooks/extend_lvm.yml -i inventory/hosts")
         print("$ ansible-rulebook --rulebook playbooks/rulebook.yml -i inventory/hosts\n")
-        print(f"{C.M}━━━ Testing ━━━{C.N}\n")
+        print(f"{C.M}--- Testing ---{C.N}\n")
         print("$ ./start_eda.sh  # Start EDA in background")
         print("$ ./test_webhook.sh  # Test webhook")
         print("$ ./test_email_notifications.sh  # Test emails")

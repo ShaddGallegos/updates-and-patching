@@ -152,12 +152,12 @@ Global variables for ServiceNow and Nutanix integration.
 ## Color Coding
 
 The script uses color-coded output for better readability:
-- 🔴 **Red** - Errors, missing items, destructive operations
-- 🟢 **Green** - Success, completed items, safe operations
-- 🟡 **Yellow** - Warnings, pending items, requires attention
-- 🔵 **Blue** - Information, file paths, references
-- 🟣 **Magenta** - Menu options, headers
-- 🔷 **Cyan** - Sub-headers, section dividers
+- **Red** - Errors, missing items, destructive operations
+- **Green** - Success, completed items, safe operations
+- **Yellow** - Warnings, pending items, requires attention
+- **Blue** - Information, file paths, references
+- **Magenta** - Menu options, headers
+- **Cyan** - Sub-headers, section dividers
 
 ## Safety Features
 
